@@ -29,6 +29,8 @@ export interface FacetMeta {
 export interface Meta {
   classes: ClassMeta[];
   facets: FacetMeta[];
+  /** Turtle export queries ERA live and is capped at this many entities. */
+  limits?: { ttl_export: number };
   datasets: { total: number; loaded: number; failed?: number; pending?: number; last_ingest: string | null; last_check?: string | null };
 }
 
@@ -160,7 +162,7 @@ export const api = {
   compatExplain: (env: string, profile: VehicleValues, iri: string, signal?: AbortSignal) =>
     post<CompatExplain>('/compatibility/explain', { env, profile, iri }, signal),
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
-  exportUrl: (st: QueryState, format: 'csv' | 'xlsx') => {
+  exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl') => {
     const { facets: _facets, ...rest } = st;
     return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format })}`;
   },
