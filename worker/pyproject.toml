@@ -7,7 +7,7 @@ dependencies = [
     "pyoxigraph==0.5.11",
     "psycopg[binary]==3.2.10",
     "httpx==0.28.1",
-    "PyYAML==6.0.2",
+    "PyYAML==6.0.3",
 ]
 
 [project.scripts]
