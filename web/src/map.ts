@@ -75,7 +75,7 @@ export function initMap(container: HTMLElement) {
         orm: {
           type: 'raster', tileSize: 256, maxzoom: 19,
           tiles: ['a', 'b', 'c'].map((x) => `https://${x}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png`),
-          attribution: 'Style: <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC-BY-SA)',
+          attribution: 'Rail overlay: &copy; <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC-BY-SA 2.0)',
         },
         [SRC]: sourceSpec(),
         selection: { type: 'geojson', data: EMPTY },
