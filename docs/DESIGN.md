@@ -199,10 +199,59 @@ graph first. `atlas validate [--env E] [--graph G] [--force]` runs it by hand.
   `skipped`.
 
 Measured on this container (PROD shapes): the LU sample in 5 s, 0082 (115k
-triples) in 27 s / 190 MB, 0088 (676k triples) in 13 min / 630 MB, of which
-four RunningTrack SPARQL warnings took 290 s each. The largest graphs (0080:
-12M, 0087: 6.6M) will mostly end `partial` at the time budget; raise it (or
-exclude the slowest shapes with `quality.exclude_shapes`) for complete runs.
+triples) in 27 s / 190 MB, 0088 (676k triples) in 13 min / 630 MB with every
+rule. Two `sh:sparql` warnings on `era:RunningTrack` took 290 s each of those
+13 minutes: `LinesideDistanceIndicationRequiredForSoL` (tracks of a section of
+line must give `era:linesideDistanceIndication`) and
+`MaxPermittedTrainLengthApplicability` (tracks on freight corridors must give
+`era:maxPermittedTrainLength`). Both walk from every track to its section of
+line and on to other resources, which Oxigraph evaluates as a large join, so
+their cost grows faster than the graph.
+
+**Default: those two rules are left out** (`quality.exclude_shapes` in
+`config/environments.yaml`; the same list is the built-in default when the key
+is absent). With them out, 0088 validates in about 3 minutes (187 s, 630 MB) instead of 13; the 19 violations are unchanged. A dataset left
+with fewer checks says so in its note ("2 rule(s) left out by
+configuration: …"), as does the report's `rdfs:comment`. To check them, set
+`exclude_shapes: []` (or list only what should stay out); the exclusion list
+is part of the fingerprint a graph was validated with, so changing it
+re-validates every graph once. `exclude_shapes` matches node shapes, property
+shapes and named `sh:sparql` constraints by IRI or regex.
+
+The largest graphs (0080: 12M, 0087: 6.6M triples) may still end `partial`
+at the 60-minute budget; raise `time_budget_minutes` for complete runs.
+
+**Shapes source and versions.** The default source is the shapes graph in
+ERA's repository, which follows ERA's updates but has no stable version name
+(its `owl:versionInfo`, when present, is shown). A deployer can pin a tag of
+ERA's ontology repository on GitLab instead (`quality.shapes_tag`, per
+environment). `era-shacl/ERA-RINF-shapes.ttl` at v3.3.4 holds exactly the
+node shapes and SPARQL constraints of PROD's shapes graph (76 and 211), so the
+two sources agree for a matching release. The tag's file is downloaded through
+GitLab's raw-file URL (the files API returned 404 behind some proxies), checked
+to be Turtle, cached on disk per tag, and loaded into its own mirror graph
+(`urn:atlas:shapes:{tag}`). Tags are meant to be immutable, so neither the
+cached file nor that graph is ever refreshed. The validation fingerprint is
+the shapes' content hash plus the rules left out, so switching tags (or back to
+the graph) re-validates every dataset from the mirror without touching the
+data. The source (label, URL, tag, file, `owl:versionInfo`, `dct:modified`) is
+stored per dataset (`dataset.qa_source`), written as triples on each report and
+as comments at the top of the shapes download.
+
+Why the deployer picks the tag rather than the visitor: validation runs once
+per dataset at ingest (minutes per large dataset) and its results drive the
+facet, tiles and search. Letting a visitor choose among a few tags the deployer
+enables would mean validating every dataset once per tag and keying
+`violation`, `quality_count`, the reports and the `quality` facet by tag, about
+doubling storage and worker time per extra tag. That is feasible but not built.
+
+**Size limit.** `quality.max_triples` (default 15M, per environment,
+`ATLAS_QUALITY_MAX_TRIPLES`) bounds the time and memory of one run. A dataset
+above it is `skipped` with `qa_reason = 'too_large'` and the limit it exceeded:
+its results and report are removed and its features get no `quality` value, so
+it can never read as "no issues". A dataset is re-checked when it moves across
+the limit (the limit is not part of the fingerprint, so changing it does not
+re-validate datasets that were and stay below it).
 
 **Storage.** `violation` (one row per kept result: focus, severity, shape,
 component, path, value, message; indexed on `(env, focus)`),

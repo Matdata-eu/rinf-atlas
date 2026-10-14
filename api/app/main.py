@@ -170,14 +170,17 @@ def _quality_meta(env: str, d: dict) -> dict:
     r = _q("""SELECT count(*) FILTER (WHERE qa_status IN ('ok','partial')) AS validated,
                      coalesce(sum(qa_violations), 0) AS violations, coalesce(sum(qa_warnings), 0) AS warnings,
                      coalesce(sum(qa_infos), 0) AS infos, max(qa_checked_at) AS checked_at,
-                     (SELECT loaded_at FROM quality_shapes s WHERE s.env=%s) AS shapes_loaded_at,
-                     (SELECT graph_iri FROM quality_shapes s WHERE s.env=%s) AS shapes_graph
-              FROM dataset WHERE env=%s AND kind='provider' AND status <> 'removed'""", [env, env, env])[0]
+                     count(*) FILTER (WHERE qa_reason = 'too_large') AS too_large
+              FROM dataset WHERE env=%s AND kind='provider' AND status <> 'removed'""", [env])[0]
+    s = _q("""SELECT nullif(graph_iri, '') AS graph_iri, loaded_at, source, max_triples, error
+              FROM quality_shapes WHERE env=%s""", [env])
+    s = s[0] if s else {}
     return {"enabled": enabled, "validated": r["validated"], "violations": r["violations"],
-            "warnings": r["warnings"], "infos": r["infos"],
+            "warnings": r["warnings"], "infos": r["infos"], "too_large": r["too_large"],
             "checked_at": r["checked_at"].isoformat() if r["checked_at"] else None,
-            "shapes_graph": r["shapes_graph"],
-            "shapes_loaded_at": r["shapes_loaded_at"].isoformat() if r["shapes_loaded_at"] else None,
+            "shapes_graph": s.get("graph_iri"),
+            "shapes_loaded_at": s["loaded_at"].isoformat() if s.get("loaded_at") else None,
+            "shapes": s.get("source"), "shapes_error": s.get("error"), "max_triples": s.get("max_triples"),
             "shacl_report_url": SHACL_REPORT_URL}
 
 
@@ -583,10 +586,12 @@ FEATURE_RESULTS = 200
 
 
 def _feature_quality(env: str, iri: str, graph: str) -> dict:
-    ds = _q("""SELECT d.qa_status, d.qa_checked_at, d.qa_note, r.turtle_gz IS NOT NULL AS report, r.html_gz IS NOT NULL AS html
+    ds = _q("""SELECT d.qa_status, d.qa_checked_at, d.qa_note, d.qa_reason, d.qa_source,
+                      r.turtle_gz IS NOT NULL AS report, r.html_gz IS NOT NULL AS html
                FROM dataset d LEFT JOIN quality_report r ON r.env=d.env AND r.graph_iri=d.graph_iri
                WHERE d.env=%s AND d.graph_iri=%s""", [env, graph])
-    st = ds[0] if ds else {"qa_status": None, "qa_checked_at": None, "qa_note": None, "report": None, "html": None}
+    st = ds[0] if ds else {"qa_status": None, "qa_checked_at": None, "qa_note": None, "qa_reason": None,
+                           "qa_source": None, "report": None, "html": None}
     rows = _q("""SELECT severity, shape, component, path, value, message FROM violation
                  WHERE env=%s AND focus=%s AND graph_iri=%s
                  ORDER BY severity DESC, shape, component, value LIMIT %s""", [env, iri, graph, FEATURE_RESULTS + 1])
@@ -596,7 +601,8 @@ def _feature_quality(env: str, iri: str, graph: str) -> dict:
                 "value": r["value"], "value_label": labels.get(_nt_iri(r["value"]) or ""),
                 "shape": r["shape"], "component": r["component"]} for r in rows[:FEATURE_RESULTS]]
     return {"status": st["qa_status"], "checked_at": st["qa_checked_at"].isoformat() if st["qa_checked_at"] else None,
-            "note": st["qa_note"], "results": results, "truncated": len(rows) > FEATURE_RESULTS,
+            "note": st["qa_note"], "reason": st["qa_reason"], "shapes": st["qa_source"],
+            "results": results, "truncated": len(rows) > FEATURE_RESULTS,
             "report": bool(st["report"]), "html": bool(st["html"])}
 
 
@@ -743,7 +749,7 @@ def datasets(env: str):
                         d.ingested_at, d.error, d.dataset_id, d.file_name,
                         (SELECT count(*) FROM feature f WHERE f.env=d.env AND f.graph_iri=d.graph_iri) AS features,
                         d.qa_status, d.qa_violations, d.qa_warnings, d.qa_infos, d.qa_focus, d.qa_kept,
-                        d.qa_checked_at, d.qa_seconds, d.qa_note,
+                        d.qa_checked_at, d.qa_seconds, d.qa_note, d.qa_reason, d.qa_limit, d.qa_source,
                         (SELECT r.turtle_gz IS NOT NULL FROM quality_report r
                          WHERE r.env=d.env AND r.graph_iri=d.graph_iri) AS qa_report,
                         (SELECT r.html_gz IS NOT NULL FROM quality_report r
@@ -760,7 +766,8 @@ def datasets(env: str):
             "status": q["status"], "violations": q["violations"], "warnings": q["warnings"], "infos": q["infos"],
             "focus_nodes": q["focus"], "kept": q["kept"],
             "checked_at": q["checked_at"].isoformat() if q["checked_at"] else None,
-            "seconds": q["seconds"], "note": q["note"], "report": bool(q["report"]), "html": bool(q["html"]),
+            "seconds": q["seconds"], "note": q["note"], "reason": q["reason"], "limit": q["limit"],
+            "shapes": q["source"], "report": bool(q["report"]), "html": bool(q["html"]),
         }
         out.append(r)
     return out
@@ -808,11 +815,15 @@ def quality_report(env: str, graph: str, format: str = Query("ttl", pattern="^(t
 def quality_shapes(env: str):
     """ERA's SHACL shapes graph the datasets were validated with (Turtle)."""
     _env(env)
-    rows = _q("SELECT turtle_gz FROM quality_shapes WHERE env=%s", [env])
+    rows = _q("SELECT turtle_gz, source FROM quality_shapes WHERE env=%s", [env])
     if not rows or rows[0]["turtle_gz"] is None:
         raise HTTPException(404, "shapes not mirrored yet")
+    src = rows[0]["source"] or {}
+    version = "".join(c for c in (src.get("tag") or src.get("version") or "") if c.isalnum() or c in "._-")
+    name = f"era-shacl-shapes-{env}{'-' + version if version else ''}.ttl"
+    # The file starts with comments naming the source (graph or GitLab tag) and version.
     return Response(gzip.decompress(bytes(rows[0]["turtle_gz"])), media_type="text/turtle; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="era-shacl-shapes-{env}.ttl"'})
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 # --- line profile ------------------------------------------------------------

@@ -40,6 +40,7 @@ services:
       ATLAS_QUALITY: ${ATLAS_QUALITY:-1}
       ATLAS_QUALITY_MAX_TRIPLES: ${ATLAS_QUALITY_MAX_TRIPLES:-}
       ATLAS_QUALITY_MINUTES: ${ATLAS_QUALITY_MINUTES:-}
+      ATLAS_QUALITY_SHAPES_TAG: ${ATLAS_QUALITY_SHAPES_TAG:-}
     volumes:
       - mirror:/data
       - ./shapes:/app/shapes          # edit shapes on the host; the worker reindexes on change

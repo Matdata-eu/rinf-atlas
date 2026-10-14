@@ -166,6 +166,7 @@ up by the loop:
 | `atlas sync [--env prod] [--force]` | poll now; `--force` re-downloads everything |
 | `atlas reindex [--env prod]` | re-extract from the mirror (also automatic on shape changes) |
 | `atlas validate [--env prod] [--graph G] [--force]` | data quality: validate graphs against ERA's SHACL shapes (automatic after a sync) |
+| `atlas shapes-tags [--env prod]` | list the ERA ontology tags `quality.shapes_tag` can pin the shapes to |
 | `atlas generate-shapes [--force] [--no-data]` | regenerate starter shapes into `shapes/` (keeps existing files unless `--force`) |
 | `atlas check-shapes [-v]` | parse `shapes/` and print the compiled facets |
 | `atlas load-file --env prod --graph IRI file.nt` | index a local file (testing; stop the worker first) |
@@ -178,7 +179,10 @@ dataset explorer API, vocabulary graphs) and the provider-graph pattern.
 environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs). Behind a TLS
 proxy, set `ATLAS_PUBLIC_URL` (e.g. `https://rinf-atlas.example.org`) so the
 OGC API links use it. The `quality:` block of `environments.yaml` (and
-`ATLAS_QUALITY*` in `.env`) tunes or turns off the data quality validation.
+`ATLAS_QUALITY*` in `.env`) tunes or turns off the data quality validation,
+per environment if needed: which SHACL shapes (ERA's published graph, or a
+pinned tag of ERA's ontology repository such as `v3.3.4`) and the largest
+dataset to validate (15M triples by default).
 
 To publish a privacy statement for your instance, put a page at
 `site/privacy.html` (start from `site/privacy.example.html`); the app then

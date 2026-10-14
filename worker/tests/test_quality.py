@@ -157,6 +157,26 @@ def test_excluded_shapes(tmp_path):
     assert {r.shape for r in run.results} == {"http://ex/UntypedShape"}
 
 
+def test_excluded_sparql_constraint(tmp_path):
+    st = _store(tmp_path)
+    full = _validate(st)
+    run = _validate(st, limits=shacl.Limits(exclude=["http://ex/NeedsComment"]))
+    assert any("No comment" in (r.message or "") for r in full.results)
+    assert not any("No comment" in (r.message or "") for r in run.results)
+    # the other constraints of the same node shape still run
+    assert any("links to itself" in (r.message or "") for r in run.results)
+    assert run.excluded == {"http://ex/NeedsComment"} and "NeedsComment" in run.note()
+
+
+def test_run_fingerprint_follows_exclusions():
+    from types import SimpleNamespace as NS
+    cfg = lambda ex: NS(exclude_shapes=ex)  # noqa: E731
+    assert quality.run_fingerprint(cfg([]), "abc") == "abc"
+    assert quality.run_fingerprint(cfg(["x"]), None) is None
+    a, b = quality.run_fingerprint(cfg(["x", "y"]), "abc"), quality.run_fingerprint(cfg(["y", "x"]), "abc")
+    assert a == b and a != "abc" and a != quality.run_fingerprint(cfg(["x"]), "abc")
+
+
 def test_report_is_a_standard_validation_report(tmp_path):
     run = _validate(_store(tmp_path))
     ttl = shacl.report_turtle(run, report_iri="urn:x:report", created="2026-10-14T00:00:00Z", about="test")

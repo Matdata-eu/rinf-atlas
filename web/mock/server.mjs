@@ -358,7 +358,17 @@ for (const f of features) {
   f.facets.quality = worst ? [...new Set(f.qaResults.map((r) => r.sev))].map((s) => SEV_TERM[s]) : [{ value: NO_ISSUES, label: 'No issues' }];
 }
 const qaLevel = (f) => (f.qaResults.length ? Math.max(...f.qaResults.map((r) => r.sev)) : 0);
-// Validated graphs (the DEU one failed to load in UAT, LUX is skipped as an example).
+// The shapes each environment validates with: PROD pins a tag of ERA's ontology repository,
+// UAT uses ERA's mirrored shapes graph.
+const SHAPES_SRC = {
+  prod: { kind: 'tag', graph: 'urn:atlas:shapes:v3.3.4', label: 'era-ontology v3.3.4 (era-shacl/ERA-RINF-shapes.ttl)',
+    url: 'https://gitlab.com/era-europa-eu/public/interoperable-data-programme/era-ontology/era-ontology/-/raw/v3.3.4/era-shacl/ERA-RINF-shapes.ttl',
+    tag: 'v3.3.4', repo: 'era-europa-eu/public/interoperable-data-programme/era-ontology/era-ontology', file: 'era-shacl/ERA-RINF-shapes.ttl',
+    version: '3.3.4', modified: '2026-05-18' },
+  uat: { kind: 'graph', graph: `${ERA}graph/rinf/shacl`, label: "ERA's shapes graph (version 4.0.0)", url: `${ERA}graph/rinf/shacl`, version: '4.0.0' },
+};
+const MAX_TRIPLES = 15000000;
+// Validated graphs (the DEU one failed to load in UAT; LUX is above the size limit, as an example).
 const qaStatus = (graph) => (graph.endsWith('/LUX') ? 'skipped' : graph.endsWith('/DEU') ? null : 'ok');
 function qaCounts(graph) {
   const fs = features.filter((f) => f.graph === graph);
@@ -368,7 +378,9 @@ function qaCounts(graph) {
 function reportTurtle(graph) {
   const fs = features.filter((f) => f.graph === graph && f.qaResults.length);
   const out = ['@prefix sh: <http://www.w3.org/ns/shacl#> .', '@prefix dct: <http://purl.org/dc/terms/> .', '',
-    `<urn:atlas:report:mock> a sh:ValidationReport ; sh:conforms ${fs.length ? 'false' : 'true'} ; dct:created "2026-10-13T03:40:00Z" .`];
+    '@prefix atlas: <https://rinf-atlas.matdata.eu/ns#> .', '',
+    `<urn:atlas:report:mock> a sh:ValidationReport ; sh:conforms ${fs.length ? 'false' : 'true'} ; dct:created "2026-10-13T03:40:00Z" ;`
+    + ` atlas:shapesSource ${JSON.stringify(SHAPES_SRC.prod.label)} ; atlas:shapesTag "v3.3.4" ; atlas:shapesVersion "3.3.4" ; dct:source <${SHAPES_SRC.prod.url}> .`];
   for (const f of fs) for (const r of f.qaResults) {
     out.push(`<urn:atlas:report:mock> sh:result [ a sh:ValidationResult ; sh:focusNode <${f.iri}> ; sh:resultSeverity sh:${r.severity[0].toUpperCase()}${r.severity.slice(1)} ;`
       + ` sh:sourceShape <${r.shape}> ; sh:sourceConstraintComponent <${r.component}> ;${r.path ? ` sh:resultPath ${r.path} ;` : ''}${r.value ? ` sh:value ${r.value} ;` : ''}`
@@ -964,8 +976,9 @@ const server = http.createServer(async (req, res) => {
       const classes = CLASSES.map((c) => ({ min_zoom: 0, ...c, count: features.filter((f) => f.class === c.class).length }));
       const qa = ['BEL', 'NLD'].map((c) => qaCounts(`${ERA}graph/rinf/${c}`));
       const quality = { enabled: true, validated: 2, violations: qa.reduce((a, q) => a + q.violations, 0), warnings: qa.reduce((a, q) => a + q.warnings, 0),
-        infos: qa.reduce((a, q) => a + q.infos, 0), checked_at: '2026-10-13T03:40:00Z', shapes_graph: `${ERA}graph/rinf/shacl`,
-        shapes_loaded_at: '2026-10-13T03:05:00Z', shacl_report_url: 'https://shacl-report.matdata.eu/' };
+        infos: qa.reduce((a, q) => a + q.infos, 0), too_large: 1, checked_at: '2026-10-13T03:40:00Z', shapes_graph: SHAPES_SRC[env].graph,
+        shapes_loaded_at: '2026-10-13T03:05:00Z', shapes: SHAPES_SRC[env], shapes_error: null, max_triples: MAX_TRIPLES,
+        shacl_report_url: 'https://shacl-report.matdata.eu/' };
       return send(res, 200, { classes, facets: FACETS, datasets: { total: 4, loaded: env === 'uat' ? 3 : 4, failed: env === 'uat' ? 1 : 0, pending: 0, last_ingest: '2026-10-13T03:12:00Z', last_check: '2026-10-14T09:30:00Z' }, quality });
     }
     if (req.method === 'POST' && p === '/api/theme') {
@@ -1019,7 +1032,9 @@ const server = http.createServer(async (req, res) => {
       const facetsOut = Object.fromEntries(Object.entries(f.facets).filter(([k]) => k !== 'quality').map(([k, vs]) => [k, vs.map(({ value, label }) => ({ value, label }))]));
       const facet_kinds = Object.fromEntries(Object.keys(facetsOut).map((k) => [k, LINK_KEYS.has(k) ? 'link' : FACET_BY_KEY[k]?.kind ?? 'terms']));
       const status = qaStatus(f.graph);
-      const quality = { status, checked_at: status ? '2026-10-13T03:40:00Z' : null, note: null,
+      const quality = { status, checked_at: status ? '2026-10-13T03:40:00Z' : null,
+        note: status === 'skipped' ? 'not validated: too large (18,400,000 triples > limit 15,000,000)' : null,
+        reason: status === 'skipped' ? 'too_large' : null, shapes: status ? SHAPES_SRC[env] : null,
         results: status === 'ok' ? (f.qaResults || []).map(({ sev, ...r }) => r) : [], truncated: false, report: status === 'ok', html: status === 'ok' };
       return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, facet_kinds, geometry: f.geometry, quality });
     }
@@ -1079,24 +1094,26 @@ const server = http.createServer(async (req, res) => {
         const file = `RINF_${c}_2026-09-30.ttl`;
         return {
           graph_iri, title: file, provider: providers[i], country: c, modified: '2026-09-30T08:00:00Z',
-          status: failed ? 'failed' : 'loaded', triples: Math.round(1e6 * (i + 1) * 1.7),
+          status: failed ? 'failed' : 'loaded', triples: c === 'LUX' ? 18400000 : Math.round(1e6 * (i + 1) * 1.7),
           ingested_at: failed ? null : '2026-10-13T03:12:00Z',
           error: failed ? 'HTTP 503 from the ERA repository while downloading' : null,
           dataset_id: `mock${i}`, file_name: file,
           features: failed ? 0 : features.filter((f) => f.graph === graph_iri).length,
-          quality: failed ? { status: null, violations: null, warnings: null, infos: null, focus_nodes: null, kept: null, checked_at: null, seconds: null, note: null, report: false, html: false }
+          quality: failed ? { status: null, violations: null, warnings: null, infos: null, focus_nodes: null, kept: null, checked_at: null, seconds: null, note: null, reason: null, limit: null, shapes: null, report: false, html: false }
             : (() => {
               const st = qaStatus(graph_iri), q = qaCounts(graph_iri), ok = st === 'ok';
               return { status: st, violations: ok ? q.violations : null, warnings: ok ? q.warnings : null, infos: ok ? q.infos : null,
                 focus_nodes: ok ? q.focus : null, kept: ok ? q.violations + q.warnings + q.infos : null, checked_at: st ? '2026-10-13T03:40:00Z' : null,
-                seconds: ok ? 42.5 : null, note: st === 'skipped' ? '18,400,000 triples is above the validation limit of 15,000,000' : null, report: ok, html: ok };
+                seconds: ok ? 42.5 : null, note: st === 'skipped' ? 'not validated: too large (18,400,000 triples > limit 15,000,000)' : null,
+                reason: st === 'skipped' ? 'too_large' : null, limit: st === 'skipped' ? MAX_TRIPLES : null,
+                shapes: st ? SHAPES_SRC[env] : null, report: ok, html: ok };
             })(),
         };
       });
       rows.push({ graph_iri: `${ERA}graph/rinf/AUT`, title: 'RINF_AUT_2025.ttl', provider: 'ÖBB-Infrastruktur', country: 'AUT',
         modified: '2025-12-01T08:00:00Z', status: 'removed', triples: 0, ingested_at: '2026-01-02T03:00:00Z', error: null,
         dataset_id: 'mock9', file_name: 'RINF_AUT_2025.ttl', features: 0,
-        quality: { status: null, violations: null, warnings: null, infos: null, focus_nodes: null, kept: null, checked_at: null, seconds: null, note: null, report: false, html: false } });
+        quality: { status: null, violations: null, warnings: null, infos: null, focus_nodes: null, kept: null, checked_at: null, seconds: null, note: null, reason: null, limit: null, shapes: null, report: false, html: false } });
       return send(res, 200, rows);
     }
     if (p === '/api/quality/summary') {
@@ -1122,8 +1139,9 @@ const server = http.createServer(async (req, res) => {
       return res.end(reportTurtle(graph));
     }
     if (p === '/api/quality/shapes') {
-      res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8', 'content-disposition': `attachment; filename="era-shacl-shapes-${env}.ttl"` });
-      return res.end(`@prefix sh: <http://www.w3.org/ns/shacl#> .\n@prefix era: <${ERA}> .\n\n<${SHAPES}OperationalPointShape> a sh:NodeShape ; sh:targetClass era:OperationalPoint ;\n  sh:property [ sh:path era:uopid ; sh:minCount 1 ; sh:maxCount 1 ] .\n`);
+      const src = SHAPES_SRC[env] ?? SHAPES_SRC.prod;
+      res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8', 'content-disposition': `attachment; filename="era-shacl-shapes-${env}-${src.tag ?? src.version}.ttl"` });
+      return res.end(`# SHACL shapes used by RINF Atlas for data quality: ${src.label}\n# Source: ${src.url}\n# Version (owl:versionInfo): ${src.version}\n\n@prefix sh: <http://www.w3.org/ns/shacl#> .\n@prefix era: <${ERA}> .\n\n<${SHAPES}OperationalPointShape> a sh:NodeShape ; sh:targetClass era:OperationalPoint ;\n  sh:property [ sh:path era:uopid ; sh:minCount 1 ; sh:maxCount 1 ] .\n`);
     }
     send(res, 404, { detail: 'not found' });
   } catch (e) {

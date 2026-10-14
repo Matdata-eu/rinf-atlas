@@ -122,7 +122,8 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
 
     # 1. Vocabularies (ontology, SKOS, countries) — labels only, no features.
     vocab_changed = False
-    shapes_graph = [cfg.quality.shapes_graph] if cfg.quality.enabled else []
+    q = env.quality or cfg.quality  # the mirrored shapes graph, also when a tag is pinned (cheap, instant switch back)
+    shapes_graph = [q.shapes_graph] if q.enabled else []
     for g in env.vocab_graphs + [x for x in shapes_graph if x not in env.vocab_graphs]:
         if g not in graphs:
             log.warning("%s vocabulary graph %s not found", env.key, g)

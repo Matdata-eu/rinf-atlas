@@ -171,10 +171,12 @@ const SEV_TEXT = { violation: 'Violation', warning: 'Warning', info: 'Info' } as
 function qualitySection(f: Feature, q: FeatureQuality): HTMLElement {
   const env = store.get().env;
   const sec = h('section', { class: 'qa-section', 'aria-label': 'Data quality' },
-    h('h3', {}, 'Data quality ', h('small', { class: 'muted' }, 'ERA SHACL shapes')));
+    h('h3', {}, 'Data quality ', h('small', { class: 'muted', title: q.shapes ? `${q.shapes.label}\n${q.shapes.url ?? q.shapes.graph}` : '' },
+      q.shapes?.kind === 'tag' ? `ERA SHACL shapes ${q.shapes.tag}` : `ERA SHACL shapes${q.shapes?.version ? ` v${q.shapes.version}` : ''}`)));
   if (q.status === null || q.status === 'skipped' || q.status === 'failed') {
     sec.append(h('p', { class: 'muted small' }, q.status === null ? 'This dataset has not been validated yet.'
-      : `This dataset was not validated${q.note ? `: ${q.note}` : '.'}`));
+      : q.reason === 'too_large' ? `Its dataset was not validated: it is too large${q.note ? ` ${q.note.replace(/^not validated: too large /, '')}` : ''}.`
+        : `This dataset was not validated${q.note ? `: ${q.note}` : '.'}`));
     return sec;
   }
   const partial = q.status === 'partial' ? ' (the check of this dataset stopped early, so this list may be incomplete)' : '';

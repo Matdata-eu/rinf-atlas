@@ -1,6 +1,6 @@
 // "Datasets" dialog: every provider graph the backend knows for the current
 // environment, whether it has been processed, and how much it contributed.
-import { api, QUALITY_VALUES, type Dataset, type DatasetQuality, type DatasetStatus, type QualityRule } from './api';
+import { api, QUALITY_VALUES, type Dataset, type DatasetQuality, type DatasetStatus, type QualityRule, type ShapesSource } from './api';
 import { fitBbox } from './map';
 import { shortIri } from './rdf';
 import { changed, fmt, h, queryState, store } from './state';
@@ -100,9 +100,12 @@ function qualitySummary(list: Dataset[]): HTMLElement | null {
       h('span', { class: 'pill sev-violation' }, `${fmt.format(sum('violations'))} violations`), ' ',
       h('span', { class: 'pill sev-warning' }, `${fmt.format(sum('warnings'))} warnings`), ' ',
       sum('infos') ? h('span', { class: 'pill sev-info' }, `${fmt.format(sum('infos'))} info`) : '',
-      ` in ${validated} of ${live.length} datasets, checked against the SHACL shapes ERA publishes`,
-      qm.shapes_graph ? h('code', { class: 'small', title: qm.shapes_graph }, ` ${shortIri(qm.shapes_graph)}`) : '',
-      qm.shapes_loaded_at ? ` (loaded ${when(qm.shapes_loaded_at)})` : '', '.'),
+      ` in ${validated} of ${live.length} datasets, checked against `,
+      qm.shapes ? shapesLink(qm.shapes) : 'the SHACL shapes ERA publishes',
+      qm.shapes_loaded_at ? ` (loaded ${when(qm.shapes_loaded_at)})` : '', '.',
+      qm.too_large ? ` ${qm.too_large} dataset${qm.too_large === 1 ? ' is' : 's are'} too large to validate` : '',
+      qm.too_large && qm.max_triples ? ` (limit ${fmt.format(qm.max_triples)} triples).` : qm.too_large ? '.' : ''),
+    qm.shapes_error ? h('p', { class: 'error' }, `The configured shapes could not be loaded: ${qm.shapes_error}`) : null,
     h('p', { class: 'muted' },
       'Each report is a standard SHACL validation report. ',
       qm.shapes_graph ? h('a', { href: api.qualityShapesUrl(env), download: '' }, 'Download the shapes') : null,
@@ -111,13 +114,32 @@ function qualitySummary(list: Dataset[]): HTMLElement | null {
         ' (drop both files on the page), or open the built-in viewer with “Report”.') : '.'));
 }
 
+/** The shapes a validation used, linked to their source (GitLab file at a tag, or the shapes graph). */
+function shapesLink(s: ShapesSource): HTMLElement {
+  const text = s.kind === 'tag' ? `ERA ontology ${s.tag}` : `ERA's shapes graph${s.version ? ` v${s.version}` : ''}`;
+  const title = [s.label, s.url ?? s.graph, s.version ? `owl:versionInfo ${s.version}` : '', s.modified ? `modified ${s.modified}` : '']
+    .filter(Boolean).join('\n');
+  return s.url?.startsWith('http')
+    ? h('a', { href: s.url, target: '_blank', rel: 'noopener', title }, `${text} shapes`)
+    : h('span', { title }, `${text} shapes`);
+}
+
+const shapesKey = (s?: ShapesSource | null) => (s ? `${s.kind}|${s.tag ?? ''}|${s.version ?? ''}|${s.graph}` : '');
+
 function qualityCell(d: Dataset): HTMLElement {
   const q = d.quality;
   const td = h('td', { class: 'qa-cell' });
   if (d.status === 'removed' || !q) return td;
   if (q.status === null) { td.append(h('span', { class: 'muted small' }, d.status === 'loaded' ? 'Waiting' : '–')); return td; }
+  if (q.reason === 'too_large') {
+    // Not "no issues": a dataset above the size limit has no counts and no quality filter values.
+    const size = d.triples && q.limit ? `${fmt.format(d.triples)} triples > limit ${fmt.format(q.limit)}` : (q.note ?? '');
+    td.append(h('span', { class: 'pill', title: q.note ?? '' }, 'Not validated: too large'),
+      h('small', { class: 'muted' }, `(${size})`));
+    return td;
+  }
   if (q.status === 'skipped' || q.status === 'failed') {
-    td.append(h('span', { class: `pill ${q.status === 'failed' ? 'failed' : ''}`, title: q.note ?? '' }, q.status === 'failed' ? 'Check failed' : 'Not checked'),
+    td.append(h('span', { class: `pill ${q.status === 'failed' ? 'failed' : ''}`, title: q.note ?? '' }, q.status === 'failed' ? 'Check failed' : 'Not validated'),
       q.note ? h('small', { class: 'muted err', title: q.note }, q.note) : '');
     return td;
   }
@@ -131,8 +153,12 @@ function qualityCell(d: Dataset): HTMLElement {
     q.infos ? h('span', { class: 'pill sev-info' }, `${fmt.format(q.infos)} info`) : null,
     h('span', { class: 'chev', 'aria-hidden': 'true' })));
   }
-  const notes = [q.status === 'partial' ? 'partial check' : '', q.focus_nodes ? `${fmt.format(q.focus_nodes)} resources affected` : ''].filter(Boolean);
-  if (notes.length) td.append(h('small', { class: 'muted', title: q.note ?? '' }, notes.join(' · ')));
+  // Shapes other than the environment's current ones (e.g. checked before the tag was changed).
+  const current = store.get().meta?.quality?.shapes;
+  const older = q.shapes && current && shapesKey(q.shapes) !== shapesKey(current)
+    ? `with ${q.shapes.tag ?? (q.shapes.version ? `v${q.shapes.version}` : 'other shapes')}` : '';
+  const notes = [q.status === 'partial' ? 'partial check' : '', q.focus_nodes ? `${fmt.format(q.focus_nodes)} resources affected` : '', older].filter(Boolean);
+  if (notes.length) td.append(h('small', { class: 'muted', title: [q.note, q.shapes?.label].filter(Boolean).join('\n') }, notes.join(' · ')));
   const links = h('div', { class: 'qa-links' });
   if (q.html) links.append(h('a', { href: api.qualityReportUrl(store.get().env, d.graph_iri, 'html'), target: '_blank', rel: 'noopener', title: 'Open the report in shacl-report’s viewer' }, 'Report'));
   if (q.report) links.append(h('a', { href: api.qualityReportUrl(store.get().env, d.graph_iri, 'ttl'), download: '', title: 'sh:ValidationReport as Turtle' }, '.ttl'));

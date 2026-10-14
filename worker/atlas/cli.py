@@ -10,6 +10,9 @@
                                  data quality: validate provider graphs against
                                  ERA's SHACL shapes (only those not validated
                                  with the current shapes, unless --force)
+  atlas shapes-tags [--env E] [--limit N]
+                                 list the tags of ERA's ontology repository that
+                                 `quality.shapes_tag` can pin the shapes to
 
 While `atlas run` is active it owns the mirror, so sync / reindex / validate from a
 second process are queued as jobs (pass --now to run in-process instead).
@@ -23,7 +26,9 @@ import sys
 import time
 from pathlib import Path
 
-from . import db, mirror, quality
+import pyoxigraph as ox
+
+from . import db, era_shapes, mirror, quality
 from .config import settings
 from .extract import refresh_facet_cache
 from .generate import generate
@@ -127,10 +132,11 @@ def cmd_load_file(a) -> None:
     env = cfg.env(a.env)
     mirror.replace_graph(store, a.graph, Path(a.file))
     with conn.cursor() as cur:
-        cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, status, ingested_at)
-                       VALUES (%s,%s,%s,%s,'loaded',now()) ON CONFLICT (env, graph_iri)
-                       DO UPDATE SET status='loaded', ingested_at=now()""",
-                    (a.env, a.graph, "vocab" if a.vocab else "provider", Path(a.file).name))
+        triples = sum(1 for _ in store.quads_for_pattern(None, None, None, ox.NamedNode(a.graph)))
+        cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, status, triples, ingested_at)
+                       VALUES (%s,%s,%s,%s,'loaded',%s,now()) ON CONFLICT (env, graph_iri)
+                       DO UPDATE SET status='loaded', triples=EXCLUDED.triples, ingested_at=now()""",
+                    (a.env, a.graph, "vocab" if a.vocab else "provider", Path(a.file).name, triples))
     conn.commit()
     if not a.vocab:
         quality.reset(conn, a.env, a.graph)
@@ -150,6 +156,23 @@ def cmd_validate(a) -> None:
         if n:
             refresh_facet_cache(conn, env.key)
         log.info("%s: validated %d graph(s)", env.key, n)
+
+
+def cmd_shapes_tags(a) -> None:
+    """The tags `quality.shapes_tag` can name, newest first, marking the ones configured."""
+    cfg = settings()
+    envs = _envs(a.env)
+    q = envs[0].quality or cfg.quality if envs else cfg.quality
+    configured: dict[str, list[str]] = {}
+    for e in envs:
+        eq = e.quality or cfg.quality
+        configured.setdefault(eq.shapes_tag or "", []).append(e.key)
+    print(f"tags of {q.gitlab_url}/{q.shapes_repo} (shapes file: first of {', '.join(q.shapes_files)})")
+    for name, date in era_shapes.list_tags(q, limit=a.limit):
+        mark = f"   <- {', '.join(configured[name])}" if name in configured else ""
+        print(f"  {name:24} {date}{mark}")
+    if "" in configured:
+        print(f"no tag (ERA's mirrored shapes graph {q.shapes_graph}): {', '.join(configured[''])}")
 
 
 def cmd_check_shapes(a) -> None:
@@ -285,6 +308,10 @@ def main(argv=None) -> None:
     s.add_argument("--force", action="store_true", help="validate again even if nothing changed")
     s.add_argument("--now", action="store_true")
     s.set_defaults(fn=cmd_validate)
+    s = sub.add_parser("shapes-tags", help="list the ERA ontology tags quality.shapes_tag can use (GitLab API)")
+    s.add_argument("--env")
+    s.add_argument("--limit", type=int, default=100)
+    s.set_defaults(fn=cmd_shapes_tags)
     s = sub.add_parser("check-shapes")
     s.add_argument("-v", "--verbose", action="store_true")
     s.set_defaults(fn=cmd_check_shapes)
