@@ -50,4 +50,9 @@ ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['stat
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"
 
 curl -fsS "$BASE/" | grep -q "<title>RINF Atlas</title>" || fail "web UI not served"
+# MapLibre's module worker must be served as JavaScript or the map stays blank.
+worker=$(curl -fsS "$BASE/" | grep -o 'assets/index-[^"]*\.js' | head -1)
+wpath=$(curl -fsS "$BASE/$worker" | grep -o 'assets/maplibre-gl-worker-[A-Za-z0-9_-]*\.mjs' | head -1)
+[ -n "$wpath" ] || fail "MapLibre worker asset not referenced"
+curl -fsSI "$BASE/$wpath" | grep -qi '^content-type: application/javascript' || fail "worker not served as JavaScript"
 echo "smoke test passed"
