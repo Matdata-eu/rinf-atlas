@@ -162,8 +162,8 @@ function refreshData() {
   api.search(queryState(s, false), 5000, 0, geojsonCtl.signal).then((r) => {
     (src as GeoJSONSource).setData({
       type: 'FeatureCollection',
-      features: r.items.map((it) => ({
-        type: 'Feature', geometry: { type: 'Point', coordinates: [it.lon, it.lat] },
+      features: r.items.filter((it) => it.lon != null && it.lat != null).map((it) => ({
+        type: 'Feature', geometry: { type: 'Point', coordinates: [it.lon!, it.lat!] },
         properties: { id: it.id, iri: it.iri, class: it.class, label: it.label },
       })),
     });

@@ -59,7 +59,8 @@ export interface FacetsResponse {
   facets: Record<string, FacetResult>;
 }
 
-export interface SearchItem { id: string; iri: string; class: string; label: string; lon: number; lat: number }
+/** lon/lat are null when the feature has no geometry. */
+export interface SearchItem { id: string; iri: string; class: string; label: string; lon: number | null; lat: number | null }
 export interface SearchResponse { total: number; items: SearchItem[] }
 
 export interface Feature {
