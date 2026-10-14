@@ -1,5 +1,7 @@
 # --- build stage ---
-FROM node:26-alpine AS build
+# The static bundle is the same on every architecture, so build it natively on
+# the builder's platform; npm under qemu emulation crashes (illegal instruction).
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
