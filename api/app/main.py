@@ -25,7 +25,8 @@ from psycopg_pool import ConnectionPool
 from starlette.background import BackgroundTask
 
 from . import export as xp
-from .query import QueryState, SearchRequest, Where, split_key
+from .query import QueryState, SearchRequest, ThemeRequest, Where, split_key
+from .theme import MIXED, Themes
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://atlas:atlas@db:5432/atlas")
 CONFIG = Path(os.environ.get("ATLAS_CONFIG", "/app/config/environments.yaml"))
@@ -132,7 +133,8 @@ def meta(env: str):
                      "geometry": c["geometry"], "min_zoom": c["min_zoom"], "count": counts.get(c["class"], 0)}
                     for c in d["classes"]],
         "facets": [{"key": f["key"], "class": f["class"], "label": f["label"], "kind": f["kind"],
-                    "datatype": f["datatype"], "unit": f["unit"], "position": f["position"]}
+                    "datatype": f["datatype"], "unit": f["unit"], "position": f["position"],
+                    "color_by": f.get("color_by")}
                    for f in d["facets"] if f["kind"] != "text"],
         "datasets": {"total": ds["total"], "loaded": ds["loaded"], "failed": ds["failed"], "pending": ds["pending"],
                      "last_ingest": ds["last_ingest"].isoformat() if ds["last_ingest"] else None,
@@ -288,6 +290,12 @@ def search(req: SearchRequest):
     _env(req.env)
     w = Where(req, _defs()["owners"])
     sql, p = w.build()
+    vcol, vjoin, vp = "", "", []
+    if req.color:
+        t = themes.get(req.env, req.color)
+        vcol = ", t.n AS v" if t["kind"] == "range" else ", t.v AS v"
+        vjoin = "LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id"
+        vp = [t["id"]]
     total = _q(f"SELECT count(*) AS n FROM feature f WHERE {sql}", p)[0]["n"]
     order = "cd.position NULLS LAST, f.label NULLS LAST, f.id"
     op: list = []
@@ -297,11 +305,82 @@ def search(req: SearchRequest):
                  "length(f.label), f.label, f.id")
         op = [req.q.strip(), req.q.strip() + "%"]
     rows = _q(f"""SELECT f.id, f.iri, f.class, f.label,
-                         ST_X(ST_PointOnSurface(f.geom)) AS lon, ST_Y(ST_PointOnSurface(f.geom)) AS lat
-                  FROM feature f LEFT JOIN class_def cd ON cd.class = f.class
+                         ST_X(ST_PointOnSurface(f.geom)) AS lon, ST_Y(ST_PointOnSurface(f.geom)) AS lat{vcol}
+                  FROM feature f LEFT JOIN class_def cd ON cd.class = f.class {vjoin}
                   WHERE {sql} ORDER BY {order} LIMIT %s OFFSET %s""",
-              p + op + [req.limit, req.offset])
+              vp + p + op + [req.limit, req.offset])
     return {"total": total, "items": rows}
+
+
+themes = Themes(_q, lambda: pool.connection(), lambda: _defs(), lambda env: _data_version(env))
+_theme_cache: dict[str, tuple[str, dict]] = {}
+
+
+def _value_label(v, labels: dict[str, str]) -> str:
+    if v == "true":
+        return "Yes"
+    if v == "false":
+        return "No"
+    return labels.get(v, _local(v)) if isinstance(v, str) and (v.startswith("http") or v.startswith("urn:")) else str(v)
+
+
+@app.post("/api/theme")
+def theme(req: ThemeRequest):
+    """Legend for colouring the map by facet `key`: the palette assignment (stable for the
+    environment) and how many features of the query state fall in each value or class."""
+    _env(req.env)
+    t = themes.get(req.env, req.key)
+    ckey = req.model_dump_json()
+    hit = _theme_cache.get(ckey)
+    if hit and hit[0] == t["version"]:
+        return hit[1]
+    d = _defs()
+    fk = split_key(req.key)[1]
+    fdef = next((f for f in d["facets"] if f["key"] == fk and (f["class"] in t["classes"] or t["classes"] == ["*"])), None)
+    coloured = themes.coloured_classes(t)
+    sql, p = Where(req, d["owners"]).build()
+    cond, cp = ("", []) if coloured is None else (" AND f.class = ANY(%s)", [coloured])
+    out = {"key": req.key, "kind": t["kind"], "label": fdef["label"] if fdef else fk,
+           "unit": fdef["unit"] if fdef else None,
+           "classes": [] if coloured is None else list(t["classes"]), "rollup": list(t["rollup"])}
+    if t["kind"] == "range":
+        spec = t["breaks"] or {}
+        breaks, discrete = list(spec.get("breaks") or []), bool(spec.get("discrete"))
+        bucket = "width_bucket(t.n, %s::float8[])" if breaks else "0"
+        bp = [breaks] if breaks else []
+        rows = _q(f"""SELECT CASE WHEN t.fid IS NULL THEN -1 ELSE {bucket} END AS b, count(*) AS n
+                      FROM feature f LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id
+                      WHERE {sql}{cond} GROUP BY 1""", bp + [t["id"]] + p + cp)
+        counts = {r["b"]: r["n"] for r in rows}
+        lo, hi = t["lo"], t["hi"]
+        # Class i holds values >= breaks[i-1] and < breaks[i]; discrete: one class per value.
+        if lo is None:
+            bins = []
+        elif discrete:
+            bins = [{"min": v, "max": v, "count": counts.get(i, 0)} for i, v in enumerate([lo] + breaks)]
+        else:
+            edges = [lo] + breaks + [hi]
+            bins = [{"min": edges[i], "max": edges[i + 1], "count": counts.get(i, 0)} for i in range(len(edges) - 1)]
+        out.update(breaks=breaks, bins=bins, min=lo, max=hi, discrete=discrete,
+                   nodata=counts.get(-1, 0), total=sum(counts.values()))
+    else:
+        rows = _q(f"""SELECT t.v, count(*) AS n
+                      FROM feature f LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id
+                      WHERE {sql}{cond} GROUP BY 1""", [t["id"]] + p + cp)
+        counts = {r["v"]: r["n"] for r in rows}
+        slots = list(t["slots"] or [])
+        others = sorted(((v, n) for v, n in counts.items() if v is not None and v != MIXED and v not in slots),
+                        key=lambda x: (-x[1], x[0]))
+        shown = [(v, counts.get(v, 0)) for v in slots] + others[:TERMS_LIMIT]
+        labels = _labels(req.env, {v for v, _ in shown})
+        out.update(values=[{"value": v, "label": _value_label(v, labels), "count": n,
+                            "slot": slots.index(v) if v in slots else None} for v, n in shown],
+                   more=len(others) > TERMS_LIMIT, other=sum(n for _, n in others),
+                   mixed=counts.get(MIXED, 0), nodata=counts.get(None, 0), total=sum(counts.values()))
+    if len(_theme_cache) > 500:
+        _theme_cache.clear()
+    _theme_cache[ckey] = (t["version"], out)
+    return out
 
 
 @app.post("/api/extent")
@@ -323,9 +402,10 @@ def _decode_state(s: str) -> QueryState:
 
 
 @app.get("/api/tiles/{z}/{x}/{y}.pbf")
-def tiles(z: int, x: int, y: int, state: str):
+def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
     st = _decode_state(state)
     _env(st.env)
+    theme = themes.get(st.env, color) if color else None
     st.bbox = None
     d = _defs()
     allowed = [c for c, mz in d["min_zoom"].items() if mz <= z and (not st.classes or c in st.classes)]
@@ -340,7 +420,13 @@ def tiles(z: int, x: int, y: int, state: str):
     # features that collapse onto the same tile pixels are sent once.
     low = z < LOW_DETAIL_ZOOM
     props = "f.id, f.class" if low else "f.id, f.iri, f.class, f.label"
-    dedup = "DISTINCT ON (class, geom)" if low else ""
+    # Colouring by a facet adds its display value `v` (see /api/theme) at every zoom.
+    vjoin, vp = "", []
+    if theme:
+        props += ", t.n AS v" if theme["kind"] == "range" else ", t.v AS v"
+        vjoin = "LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id"
+        vp = [theme["id"]]
+    dedup = ("DISTINCT ON (class, v, geom)" if theme else "DISTINCT ON (class, geom)") if low else ""
     # A coarser tile grid at low zoom: fewer vertices and more pixel-duplicates removed.
     extent = 512 if low else 4096
     rows = _q(f"""
@@ -349,11 +435,11 @@ def tiles(z: int, x: int, y: int, state: str):
             SELECT {dedup} * FROM (
                 SELECT f.id AS fid, {props},
                        ST_AsMVTGeom({geom}, bounds.b, {extent}, {extent // 64}, true) AS geom
-                FROM feature f, bounds
+                FROM feature f CROSS JOIN bounds {vjoin}
                 WHERE f.geom3857 && ST_Expand(bounds.b, (ST_XMax(bounds.b) - ST_XMin(bounds.b)) / 64) AND {sql}
-            ) t WHERE geom IS NOT NULL)
+            ) q WHERE geom IS NOT NULL)
         SELECT ST_AsMVT(mvt.*, 'features', {extent}, 'geom', 'fid') AS tile FROM mvt
-    """, [z, x, y] + p)
+    """, [z, x, y] + vp + p)
     data = rows[0]["tile"] if rows and rows[0]["tile"] else b""
     return Response(bytes(data), media_type="application/vnd.mapbox-vector-tile",
                     headers={"Cache-Control": f"public, max-age={TILE_CACHE_SECONDS}"})

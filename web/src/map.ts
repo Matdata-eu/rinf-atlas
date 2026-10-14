@@ -10,6 +10,7 @@ import { api, isAbort } from './api';
 import { changed, debounce, queryState, store, type AppState } from './state';
 import { hasPrivacy, PRIVACY_URL } from './privacy';
 import { isDark, onThemeChange } from './theme';
+import { casingColor, describeValue, onThemeStyleChange, themeStyle } from './thematic';
 
 /** 'vector' = /api/tiles MVT (default); 'geojson' = points from POST /api/search (mock / no tile server). */
 export const TILE_MODE: 'vector' | 'geojson' =
@@ -38,6 +39,58 @@ function sortKeyExpr(s: AppState): ExpressionSpecification | number {
   return ['match', ['get', 'class'], ...cls.flatMap((c, i) => [c.class, cls.length - i]), 0] as unknown as ExpressionSpecification;
 }
 
+const LINE_W = [4, 1.2, 10, 2.5, 15, 5];
+const CIRCLE_R = [4, 2.5, 10, 4.5, 15, 7];
+/** Zoom-interpolated size, multiplied per feature by `mul` (an expression) in colour mode. */
+function sized(stops: number[], mul?: ExpressionSpecification, add = 0): ExpressionSpecification {
+  const out: unknown[] = ['interpolate', ['linear'], ['zoom']];
+  for (let i = 0; i < stops.length; i += 2) {
+    const v = mul ? ['*', stops[i + 1], mul] : stops[i + 1];
+    out.push(stops[i], add ? ['+', v, add] : v);
+  }
+  return out as ExpressionSpecification;
+}
+
+const GEOM_FILTER: Record<string, ExpressionSpecification> = {
+  'rinf-fill': geomIs('Polygon', 'MultiPolygon'),
+  'rinf-line': geomIs('LineString', 'MultiLineString'),
+  'rinf-line-casing': geomIs('LineString', 'MultiLineString'),
+  'rinf-circle': geomIs('Point', 'MultiPoint'),
+};
+
+/** Paint, layout and filters of the data layers: class colours, or the "Colour by" theme. */
+function applyStyle(s: AppState = store.get()) {
+  if (!map || !map.getLayer('rinf-line')) return;
+  const cls = colorExpr(s);
+  const t = themeStyle(cls);
+  const sort = sortKeyExpr(s);
+  const sortKey = t ? (['+', sort, t.boost] as ExpressionSpecification) : sort;
+  const op = t?.opacity ?? 1;
+  map.setPaintProperty('rinf-fill', 'fill-color', t?.color ?? cls);
+  map.setPaintProperty('rinf-fill', 'fill-outline-color', t?.color ?? cls);
+  map.setPaintProperty('rinf-fill', 'fill-opacity', t ? ['*', 0.45, t.opacity] : 0.35);
+  map.setPaintProperty('rinf-line', 'line-color', t?.color ?? cls);
+  map.setPaintProperty('rinf-line', 'line-opacity', op);
+  map.setPaintProperty('rinf-line', 'line-width', sized(LINE_W, t?.width));
+  map.setPaintProperty('rinf-circle', 'circle-color', t?.color ?? cls);
+  map.setPaintProperty('rinf-circle', 'circle-opacity', op);
+  map.setPaintProperty('rinf-circle', 'circle-stroke-opacity', op);
+  map.setPaintProperty('rinf-circle', 'circle-radius', sized(CIRCLE_R, t?.width));
+  // A dark casing under coloured lines keeps light colours readable on the light map and
+  // separates neighbouring lines on the dark one.
+  map.setLayoutProperty('rinf-line-casing', 'visibility', t ? 'visible' : 'none');
+  if (t) {
+    map.setPaintProperty('rinf-line-casing', 'line-color', casingColor());
+    map.setPaintProperty('rinf-line-casing', 'line-width', sized(LINE_W, t.width, 2));
+    map.setPaintProperty('rinf-line-casing', 'line-opacity', ['case', ['has', 'v'], t.opacity, 0]);
+  }
+  for (const id of [...DATA_LAYERS, 'rinf-line-casing']) {
+    map.setFilter(id, t ? ['all', GEOM_FILTER[id], t.visible] : GEOM_FILTER[id]);
+    const sk = id === 'rinf-fill' ? 'fill-sort-key' : id === 'rinf-circle' ? 'circle-sort-key' : 'line-sort-key';
+    map.setLayoutProperty(id, sk, sortKey);
+  }
+}
+
 /** Index of a class in the class list (lower = more important). */
 function classRank(c: unknown): number {
   const i = (store.get().meta?.classes ?? []).findIndex((m) => m.class === c);
@@ -46,7 +99,7 @@ function classRank(c: unknown): number {
 
 function sourceSpec(): maplibregl.SourceSpecification {
   if (TILE_MODE === 'geojson') return { type: 'geojson', data: EMPTY };
-  return { type: 'vector', tiles: [api.tilesUrl(queryState(store.get(), false))], minzoom: 0, maxzoom: 14 };
+  return { type: 'vector', tiles: [api.tilesUrl(queryState(store.get(), false), store.get().colorBy)], minzoom: 0, maxzoom: 14 };
 }
 
 type RasterPaintKey = 'raster-brightness-max' | 'raster-saturation' | 'raster-contrast';
@@ -87,6 +140,9 @@ export function initMap(container: HTMLElement) {
         { id: 'rinf-fill', type: 'fill', source: SRC, ...sl, filter: geomIs('Polygon', 'MultiPolygon'),
           layout: { 'fill-sort-key': sortKeyExpr(s) },
           paint: { 'fill-color': colorExpr(s), 'fill-opacity': 0.35, 'fill-outline-color': colorExpr(s) } },
+        { id: 'rinf-line-casing', type: 'line', source: SRC, ...sl, filter: geomIs('LineString', 'MultiLineString'),
+          layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' },
+          paint: { 'line-color': '#000', 'line-width': 4 } },
         { id: 'rinf-line', type: 'line', source: SRC, ...sl, filter: geomIs('LineString', 'MultiLineString'),
           layout: { 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': sortKeyExpr(s) },
           paint: { 'line-color': colorExpr(s), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.2, 10, 2.5, 15, 5] } },
@@ -121,6 +177,8 @@ export function initMap(container: HTMLElement) {
     for (const [k, v] of Object.entries(basemapPaint()) as [RasterPaintKey, number][]) map.setPaintProperty('osm', k, v);
     if (!dark) for (const k of ['raster-brightness-max', 'raster-contrast'] as const) map.setPaintProperty('osm', k, undefined);
   });
+  // Theme colours, hidden legend entries and the highlighted entry (also called on theme switch).
+  onThemeStyleChange(() => applyStyle());
 
   wireInteraction(container);
 
@@ -138,16 +196,12 @@ export function initMap(container: HTMLElement) {
     compact: true,
     customAttribution: ok ? `<a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a>` : undefined,
   })));
-  map.on('load', () => { loaded = true; onMoveEnd(); refreshData(); });
+  map.on('load', () => { loaded = true; applyStyle(); onMoveEnd(); refreshData(); });
 
   store.subscribe((s, prev) => {
-    if (changed(s, prev, 'meta')) for (const id of DATA_LAYERS) {
-      const prop = id === 'rinf-fill' ? (['fill-color', 'fill-outline-color'] as const) : id === 'rinf-line' ? (['line-color'] as const) : (['circle-color'] as const);
-      for (const p of prop) map.setPaintProperty(id, p, colorExpr(s));
-      map.setLayoutProperty(id, id === 'rinf-fill' ? 'fill-sort-key' : id === 'rinf-line' ? 'line-sort-key' : 'circle-sort-key', sortKeyExpr(s));
-    }
+    if (changed(s, prev, 'meta', 'colorBy')) applyStyle(s); // theme / hidden entries: onThemeStyleChange
     if (changed(s, prev, 'orm')) map.setLayoutProperty('orm', 'visibility', s.orm ? 'visible' : 'none');
-    if (changed(s, prev, 'env', 'classes', 'filters', 'graphs', 'q')) refreshData();
+    if (changed(s, prev, 'env', 'classes', 'filters', 'graphs', 'q', 'colorBy')) refreshData();
   });
   return map;
 }
@@ -160,17 +214,17 @@ function refreshData() {
   if (!s.env || !loaded) return;
   const src = map.getSource(SRC);
   if (TILE_MODE === 'vector') {
-    (src as maplibregl.VectorTileSource).setTiles([api.tilesUrl(queryState(s, false))]);
+    (src as maplibregl.VectorTileSource).setTiles([api.tilesUrl(queryState(s, false), s.colorBy)]);
     return;
   }
   geojsonCtl?.abort();
   geojsonCtl = new AbortController();
-  api.search(queryState(s, false), 5000, 0, geojsonCtl.signal).then((r) => {
+  api.search(queryState(s, false), 5000, 0, geojsonCtl.signal, s.colorBy).then((r) => {
     (src as GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: r.items.filter((it) => it.lon != null && it.lat != null).map((it) => ({
         type: 'Feature', geometry: { type: 'Point', coordinates: [it.lon!, it.lat!] },
-        properties: { id: it.id, iri: it.iri, class: it.class, label: it.label },
+        properties: { id: it.id, iri: it.iri, class: it.class, label: it.label, ...(it.v != null ? { v: it.v } : {}) },
       })),
     });
   }).catch((e) => { if (!isAbort(e)) console.warn('geojson refresh failed', e); });
@@ -206,6 +260,15 @@ function wireInteraction(container: HTMLElement) {
     const small = document.createElement('small');
     small.textContent = f.properties.label ? meta?.label ?? String(f.properties.class ?? '') : 'Click for details';
     tip.append(strong, document.createElement('br'), sw, small);
+    const val = describeValue(f.properties);
+    if (val) {
+      const vs = document.createElement('span');
+      vs.className = 'swatch';
+      vs.style.background = val[0];
+      const vt = document.createElement('small');
+      vt.textContent = val[1];
+      tip.append(document.createElement('br'), vs, vt);
+    }
     tip.hidden = false;
     // Keep the tooltip inside the map: flip to the left/top near the edges.
     const x = e.point.x + 14 + tip.offsetWidth > container.clientWidth ? e.point.x - 14 - tip.offsetWidth : e.point.x + 14;

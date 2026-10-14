@@ -54,6 +54,8 @@ const SWITCH_TYPES = [['simple', 'Simple switch'], ['double-slip', 'Double slip 
 const CLASSES = [
   { class: 'operational-point', class_iri: `${ERA}OperationalPoint`, label: 'Operational point', color: '#e6194b', geometry: 'Point', min_zoom: 0 },
   { class: 'section-of-line', class_iri: `${ERA}SectionOfLine`, label: 'Section of line', color: '#4363d8', geometry: 'LineString' },
+  // Running tracks share their section of line's geometry; the map colours a section by its tracks' values.
+  { class: 'running-track', class_iri: `${ERA}RunningTrack`, label: 'Running track', color: '#2ca02c', geometry: 'LineString', min_zoom: 10 },
   { class: 'tunnel', class_iri: `${ERA}Tunnel`, label: 'Tunnel', color: '#9a6324', geometry: 'LineString' },
   { class: 'switch', class_iri: `${ERA}Switch`, label: 'Switch', color: '#3cb44b', geometry: 'Point', min_zoom: 11 },
   { class: 'signal', class_iri: `${ERA}Signal`, label: 'Signal', color: '#f58231', geometry: 'Point', min_zoom: 11 },
@@ -62,13 +64,18 @@ const CLASSES = [
   { class: 'platform', class_iri: `${ERA}PlatformEdge`, label: 'Platform edge', color: '#911eb4', geometry: 'Polygon' },
 ];
 const FACETS = [
-  { key: 'country', class: '*', label: 'Country', kind: 'terms', datatype: 'iri', position: 1 },
-  { key: 'im', class: '*', label: 'Infrastructure manager', kind: 'terms', datatype: 'iri', position: 2 },
-  { key: 'op-type', class: 'operational-point', label: 'Operational point type', kind: 'terms', datatype: 'iri', position: 10 },
+  { key: 'country', class: '*', label: 'Country', kind: 'terms', datatype: 'iri', position: 1, color_by: 30 },
+  { key: 'im', class: '*', label: 'Infrastructure manager', kind: 'terms', datatype: 'iri', position: 2, color_by: 31 },
+  { key: 'op-type', class: 'operational-point', label: 'Operational point type', kind: 'terms', datatype: 'iri', position: 10, color_by: 20 },
   { key: 'uopid', class: 'operational-point', label: 'Primary location code (UOPID)', kind: 'terms', datatype: 'string', position: 11 },
   { key: 'length', class: 'section-of-line', label: 'Length', kind: 'range', datatype: 'xsd:double', position: 20, unit: 'M' },
   { key: 'max-speed', class: 'section-of-line', label: 'Maximum speed', kind: 'range', datatype: 'xsd:integer', position: 21, unit: 'KiloM-PER-HR' },
   { key: 'electrified', class: 'section-of-line', label: 'Electrified', kind: 'boolean', datatype: 'xsd:boolean', position: 22 },
+  { key: 'track-speed', class: 'running-track', label: 'Maximum permitted speed', kind: 'range', datatype: 'xsd:integer', position: 23, unit: 'KiloM-PER-HR', color_by: 1 },
+  { key: 'energy-supply', class: 'running-track', label: 'Energy supply system', kind: 'terms', datatype: 'iri', position: 24, color_by: 2 },
+  { key: 'etcs-level', class: 'running-track', label: 'ETCS level', kind: 'terms', datatype: 'iri', position: 25, color_by: 3 },
+  { key: 'gauge', class: 'running-track', label: 'Nominal track gauge', kind: 'terms', datatype: 'iri', position: 26, color_by: 4 },
+  { key: 'level-crossings', class: 'running-track', label: 'Existence of level crossings', kind: 'boolean', datatype: 'xsd:boolean', position: 27 },
   { key: 'tunnel-length', class: 'tunnel', label: 'Tunnel length', kind: 'range', datatype: 'xsd:double', position: 30, unit: 'M' },
   { key: 'emergency-plan', class: 'tunnel', label: 'Emergency plan', kind: 'boolean', datatype: 'xsd:boolean', position: 31 },
   { key: 'switch-type', class: 'switch', label: 'Switch type', kind: 'terms', datatype: 'iri', position: 40 },
@@ -188,6 +195,38 @@ for (const op of ops) {
       facets: { ...common, 'platform-height': [{ value: h, label: String(h) }] } });
   }
 }
+// Running tracks: one or two per section of line, with their own RNG so the other mock data stay as they were.
+{
+  let s2 = 7;
+  const r2 = () => ((s2 = (s2 * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const p2 = (arr) => arr[Math.floor(r2() * arr.length)];
+  const ENERGY = { BEL: [['DC3000', 'DC 3 kV', 6], ['AC25', 'AC 25 kV 50 Hz', 2], ['none', 'Not electrified', 1]],
+    NLD: [['DC1500', 'DC 1.5 kV', 6], ['AC25', 'AC 25 kV 50 Hz', 1], ['none', 'Not electrified', 1]] };
+  const ETCS = [['N', 'No ETCS'], ['N', 'No ETCS'], ['1', 'ETCS level 1'], ['2', 'ETCS level 2']];
+  const weighted = (opts) => { const tot = opts.reduce((a, o) => a + o[2], 0); let x = r2() * tot; for (const o of opts) { x -= o[2]; if (x < 0) return o; } return opts[0]; };
+  let rt = 0;
+  for (const sol of sols) {
+    const n = r2() < 0.6 ? 2 : 1;
+    const base = sol.facets['max-speed'][0].value;
+    const [ek, el] = weighted(ENERGY[sol.country]);
+    for (let i = 0; i < n; i++) {
+      const id = `RT${String(++rt).padStart(5, '0')}`;
+      const speed = i === 0 ? base : p2([base, base, Math.max(40, base - 40)]);
+      const [ck, cl] = p2(ETCS);
+      // A few tracks on the same section differ in electrification, so some sections are "mixed".
+      const [ek2, el2] = i === 1 && r2() < 0.12 ? weighted(ENERGY[sol.country]) : [ek, el];
+      const facets = { country: sol.facets.country, im: sol.facets.im,
+        'energy-supply': [term(`${ERA}concepts/energy-supply-systems/${ek2}`, el2)],
+        gauge: [term(`${ERA}concepts/nominal-track-gauges/${r2() < 0.97 ? '30' : '40'}`, 'x')],
+        'level-crossings': [(() => { const v = r2() < 0.4; return { value: v, label: v ? 'yes' : 'no' }; })()] };
+      facets.gauge[0].label = labels[facets.gauge[0].value] = facets.gauge[0].value.endsWith('30') ? '1435 mm' : '1668 mm';
+      if (r2() < 0.85) facets['track-speed'] = [{ value: speed, label: String(speed) }];
+      if (r2() < 0.75) facets['etcs-level'] = [term(`${ERA}concepts/etcs-levels/${ck}`, cl)];
+      features.push({ id, iri: `${ERA}track/${id}`, class: 'running-track', label: `${sol.label} track ${i + 1}`,
+        geometry: sol.geometry, country: sol.country, sol, parent: sol, facets });
+    }
+  }
+}
 for (const f of features) f.graph = `${ERA}graph/rinf/${f.country}`;
 const byIri = new Map(features.map((f) => [f.iri, f]));
 
@@ -255,6 +294,71 @@ function facets(st) {
   return { total: base.length, by_class, facets: out };
 }
 
+// ---------- map colouring (POST /api/theme, `color` on search) ----------
+const MIXED = '__mixed__';
+const themes = new Map();
+const nice = (x) => { if (!x) return x; const d = Math.floor(Math.log10(Math.abs(x))) - 1; return Math.round(x / 10 ** d) * 10 ** d; };
+function theme(key) {
+  if (themes.has(key)) return themes.get(key);
+  const [scope, fk] = key.includes('/') ? key.split('/', 2) : [null, key];
+  const fdef = FACETS.find((f) => f.key === fk && (!scope || f.class === scope));
+  if (!fdef) return null;
+  const owners = fdef.class === '*' ? null : [fdef.class];
+  // Sections of line take the values of their running tracks (they share their geometry).
+  const rollup = owners && owners.includes('running-track') ? ['section-of-line'] : [];
+  const vals = new Map(); // feature -> raw values
+  for (const f of features) {
+    if (owners && !owners.includes(f.class)) continue;
+    const vs = (f.facets[fk] || []).map((v) => v.value);
+    if (!vs.length) continue;
+    vals.set(f, [...(vals.get(f) || []), ...vs]);
+    if (rollup.length && f.parent) vals.set(f.parent, [...(vals.get(f.parent) || []), ...vs]);
+  }
+  const v = new Map();
+  for (const [f, vs] of vals) {
+    if (fdef.kind === 'range') v.set(f, Math.max(...vs));
+    else { const u = [...new Set(vs.map(String))]; v.set(f, u.length > 1 ? MIXED : u[0]); }
+  }
+  const t = { key, fdef, owners, rollup, v };
+  if (fdef.kind === 'range') {
+    const ns = [...v.values()].sort((a, b) => a - b);
+    const distinct = [...new Set(ns)];
+    t.lo = ns[0] ?? null; t.hi = ns[ns.length - 1] ?? null;
+    t.discrete = distinct.length <= 5;
+    t.breaks = t.discrete ? distinct.slice(1) : [0.2, 0.4, 0.6, 0.8].map((q) => nice(ns[Math.floor(q * (ns.length - 1))]))
+      .filter((b, i, a) => b > t.lo && b <= t.hi && (i === 0 || b > a[i - 1]));
+  } else {
+    const counts = new Map();
+    for (const x of v.values()) if (x !== MIXED) counts.set(x, (counts.get(x) || 0) + 1);
+    t.slots = fdef.kind === 'boolean' ? ['true', 'false'] : [...counts].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))).slice(0, 8).map((x) => x[0]);
+  }
+  themes.set(key, t);
+  return t;
+}
+function themeLegend(st, key) {
+  const t = theme(key);
+  if (!t) return null;
+  const col = t.owners ? [...t.owners, ...t.rollup] : null;
+  const hits = features.filter((f) => matches(f, st) && (!col || col.includes(f.class)));
+  const out = { key, kind: t.fdef.kind, label: t.fdef.label, unit: t.fdef.unit ?? null, classes: t.owners ?? [], rollup: t.rollup };
+  let nodata = 0;
+  if (t.fdef.kind === 'range') {
+    const n = t.lo == null ? 0 : (t.discrete ? t.breaks.length + 1 : t.breaks.length + 1);
+    const counts = new Array(n).fill(0);
+    for (const f of hits) { const x = t.v.get(f); if (x == null) nodata++; else counts[t.breaks.filter((b) => x >= b).length]++; }
+    const edges = t.discrete ? [t.lo, ...t.breaks] : [t.lo, ...t.breaks, t.hi];
+    const bins = t.lo == null ? [] : counts.map((c, i) => ({ min: edges[i], max: t.discrete ? edges[i] : edges[i + 1], count: c }));
+    return { ...out, breaks: t.breaks, bins, min: t.lo, max: t.hi, discrete: t.discrete, nodata, total: hits.length };
+  }
+  const counts = new Map();
+  for (const f of hits) { const x = t.v.get(f); if (x == null) nodata++; else counts.set(x, (counts.get(x) || 0) + 1); }
+  const others = [...counts].filter(([x]) => x !== MIXED && !t.slots.includes(x)).sort((a, b) => b[1] - a[1]);
+  const lab = (x) => (x === 'true' ? 'Yes' : x === 'false' ? 'No' : labels[x] ?? String(x));
+  const values = [...t.slots.map((x) => [x, counts.get(x) || 0]), ...others]
+    .map(([x, c]) => ({ value: x, label: lab(x), count: c, slot: t.slots.includes(x) ? t.slots.indexOf(x) : null }));
+  return { ...out, values, more: false, other: others.reduce((a, x) => a + x[1], 0), mixed: counts.get(MIXED) || 0, nodata, total: hits.length };
+}
+
 // ---------- describe ----------
 const uri = (value) => ({ type: 'uri', value });
 const lit = (value, datatype, lang) => ({ type: 'literal', value: String(value), ...(datatype ? { datatype } : {}), ...(lang ? { lang } : {}) });
@@ -290,6 +394,7 @@ function describeOut(iri) {
       add(`${ERA}maximumPermittedSpeed`, lit(f.facets['max-speed'][0].value, `${XSD}integer`));
       add(`${ERA}hasElectrification`, lit(f.facets.electrified[0].value, `${XSD}boolean`));
     }
+    if (f.class === 'running-track') add(`${ERA}isPartOf`, uri(f.sol.iri));
     if (f.class === 'tunnel') {
       add(`${ERA}length`, lit(f.facets['tunnel-length'][0].value, `${XSD}double`));
       add(`${ERA}hasEmergencyPlan`, lit(f.facets['emergency-plan'][0].value, `${XSD}boolean`));
@@ -364,6 +469,13 @@ const server = http.createServer(async (req, res) => {
       const classes = CLASSES.map((c) => ({ min_zoom: 0, ...c, count: features.filter((f) => f.class === c.class).length }));
       return send(res, 200, { classes, facets: FACETS, datasets: { total: 4, loaded: env === 'uat' ? 3 : 4, failed: env === 'uat' ? 1 : 0, pending: 0, last_ingest: '2026-10-13T03:12:00Z', last_check: '2026-10-14T09:30:00Z' } });
     }
+    if (req.method === 'POST' && p === '/api/theme') {
+      const st = await readJson(req);
+      if (!checkEnv(st.env)) return send(res, 400, { detail: 'unknown env' });
+      await sleep(150);
+      const legend = themeLegend(st, st.key);
+      return legend ? send(res, 200, legend) : send(res, 400, { detail: `cannot colour by '${st.key}': not a terms, boolean or range facet` });
+    }
     if (req.method === 'POST' && ['/api/facets', '/api/search', '/api/extent'].includes(p)) {
       const st = await readJson(req);
       if (!checkEnv(st.env)) return send(res, 400, { detail: 'unknown env' });
@@ -373,9 +485,11 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/search') {
         hits.sort((a, b) => a.label.localeCompare(b.label));
         const limit = Math.min(Number(st.limit ?? 50), 5000), offset = Number(st.offset ?? 0);
+        const th = st.color ? theme(st.color) : null;
+        if (st.color && !th) return send(res, 400, { detail: `cannot colour by '${st.color}'` });
         const items = hits.slice(offset, offset + limit).map((f) => {
           const [lon, lat] = repPoint(f.geometry);
-          return { id: f.id, iri: f.iri, class: f.class, label: f.label, lon, lat };
+          return { id: f.id, iri: f.iri, class: f.class, label: f.label, lon, lat, ...(th ? { v: th.v.get(f) ?? null } : {}) };
         });
         return send(res, 200, { total: hits.length, items });
       }

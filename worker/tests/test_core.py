@@ -2,9 +2,10 @@
 from pathlib import Path
 
 import pyoxigraph as ox
+import pytest
 from atlas.extract import normalize_wkt
 from atlas.mirror import skolemize
-from atlas.shapes import load_shapes
+from atlas.shapes import ShapeError, load_shapes
 
 SHAPES = Path(__file__).resolve().parents[2] / "shapes"
 
@@ -37,6 +38,24 @@ def test_repo_shapes_compile():
     lvl = next(f for f in track.facets if f.key == "etcs.etcsLevelType")
     assert lvl.path == "(<http://data.europa.eu/949/etcs>/<http://data.europa.eu/949/etcsLevelType>)"
     assert {f.key for f in s.shared} == {"country", "infrastructureManager"}
+    speed = next(f for f in track.facets if f.key == "maximumPermittedSpeed")
+    assert speed.color_by == 1 and speed.kind == "range"
+
+
+def test_color_by_must_be_an_integer_on_a_facet(tmp_path):
+    shape = """
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX ex: <http://ex/>
+ex:s a sh:NodeShape ; atlas:key "k" ; sh:targetClass ex:C ;
+  sh:property [ sh:path ex:p ; atlas:facet "p" ; atlas:colorBy {v} ; atlas:kind "{kind}" ] .
+"""
+    (tmp_path / "x.ttl").write_text(shape.format(v="3", kind="terms"))
+    assert load_shapes(tmp_path).classes[0].facets[0].color_by == 3
+    for v, kind in (('"soon"', "terms"), ("1", "text")):
+        (tmp_path / "x.ttl").write_text(shape.format(v=v, kind=kind))
+        with pytest.raises(ShapeError):
+            load_shapes(tmp_path)
 
 
 def test_shape_paths(tmp_path):

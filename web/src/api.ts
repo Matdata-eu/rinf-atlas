@@ -24,6 +24,8 @@ export interface FacetMeta {
   position: number;
   /** QUDT unit code for range facets, e.g. KiloM, MilliM, KiloM-PER-HR. */
   unit?: string | null;
+  /** Suggested in the map's "Colour by" picker, lower first (atlas:colorBy in the shapes). */
+  color_by?: number | null;
 }
 
 export interface Meta {
@@ -59,8 +61,45 @@ export interface FacetsResponse {
   facets: Record<string, FacetResult>;
 }
 
-/** lon/lat are null when the feature has no geometry. */
-export interface SearchItem { id: string; iri: string; class: string; label: string; lon: number | null; lat: number | null }
+/** lon/lat are null when the feature has no geometry. `v`: display value when the search asked for a `color` key. */
+export interface SearchItem { id: string; iri: string; class: string; label: string; lon: number | null; lat: number | null; v?: string | number | null }
+
+/** POST /api/theme: colouring the map by a facet. */
+interface ThemeBase {
+  key: string;
+  label: string;
+  unit: string | null;
+  /** Classes coloured by their own values; empty = every class (shared facet). */
+  classes: string[];
+  /** Line classes coloured by the values of their parts (sections of line from their tracks). */
+  rollup: string[];
+  /** Coloured features matching the query state, and how many of them have no value. */
+  total: number;
+  nodata: number;
+}
+export interface ThemeValue { value: string; label: string; count: number; slot: number | null }
+export interface TermsTheme extends ThemeBase {
+  kind: 'terms' | 'boolean';
+  /** Values with a palette slot (stable for the environment) first, then the rest by count. */
+  values: ThemeValue[];
+  more: boolean;
+  /** Features whose value has no slot colour, and features with several different values. */
+  other: number;
+  mixed: number;
+}
+export interface RangeBin { min: number; max: number; count: number }
+export interface RangeTheme extends ThemeBase {
+  kind: 'range';
+  breaks: number[];
+  bins: RangeBin[];
+  min: number | null;
+  max: number | null;
+  /** One class per distinct value. */
+  discrete: boolean;
+}
+export type Theme = TermsTheme | RangeTheme;
+/** Tile / search value of a feature with several different values of a terms facet. */
+export const MIXED = '__mixed__';
 export interface SearchResponse { total: number; items: SearchItem[] }
 
 export interface Feature {
@@ -108,8 +147,10 @@ export const api = {
   envs: () => request<Env[]>('/envs'),
   meta: (env: string) => request<Meta>(`/meta?${qs({ env })}`),
   facets: (st: QueryState, signal?: AbortSignal) => post<FacetsResponse>('/facets', st, signal),
-  search: (st: QueryState, limit: number, offset: number, signal?: AbortSignal) =>
-    post<SearchResponse>('/search', { ...st, limit, offset }, signal),
+  search: (st: QueryState, limit: number, offset: number, signal?: AbortSignal, color?: string | null) =>
+    post<SearchResponse>('/search', { ...st, limit, offset, ...(color ? { color } : {}) }, signal),
+  /** Legend of the map coloured by facet `key` (palette slots or classes, counts for the state). */
+  theme: (st: QueryState, key: string, signal?: AbortSignal) => post<Theme>('/theme', { ...st, key }, signal),
   extent: (st: QueryState, signal?: AbortSignal) => post<{ bbox: [number, number, number, number] | null }>('/extent', st, signal),
   feature: (env: string, iri: string, signal?: AbortSignal) => request<Feature>(`/feature?${qs({ env, iri })}`, { signal }),
   /** Low-zoom tiles carry only a numeric id; this resolves it. */
@@ -123,11 +164,12 @@ export const api = {
     const { facets: _facets, ...rest } = st;
     return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format })}`;
   },
-  /** Tile URL template; `state` is base64url(JSON query state without bbox). */
-  tilesUrl: (st: QueryState) => {
+  /** Tile URL template; `state` is base64url(JSON query state without bbox); `color` adds that facet's value `v`. */
+  tilesUrl: (st: QueryState, color?: string | null) => {
     const { bbox: _bbox, ...rest } = st;
     const abs = new URL(BASE, location.href).href.replace(/\/$/, '');
-    return `${abs}/tiles/{z}/{x}/{y}.pbf?state=${base64url(JSON.stringify(rest))}`;
+    const c = color ? `&${qs({ color })}` : '';
+    return `${abs}/tiles/{z}/{x}/{y}.pbf?state=${base64url(JSON.stringify(rest))}${c}`;
   },
 };
 

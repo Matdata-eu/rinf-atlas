@@ -27,13 +27,13 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet) -> None:
                            VALUES (%s,%s,%s,%s,%s,%s,%s)""",
                         (c.key, c.class_iri, c.label, c.color, c.geometry, c.order, c.min_zoom))
             for f in c.facets:
-                cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit)
-                               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                            (f.key, c.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit))
+                cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
+                               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                            (f.key, c.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by))
         for f in shapes.shared:
-            cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit)
-                           VALUES (%s,'*',%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                        (f.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit))
+            cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
+                           VALUES (%s,'*',%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                        (f.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by))
     conn.commit()
 
 
