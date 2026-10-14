@@ -11,7 +11,7 @@ Thanks for helping improve RINF Atlas. Issues and pull requests are welcome.
 | `web/` | TypeScript + MapLibre frontend, served by nginx |
 | `shapes/` | SHACL facet shapes (most data-model changes start here) |
 | `db/init.sql` | PostGIS schema |
-| `docs/` | `api.md` (HTTP contract), `DESIGN.md` (design notes) |
+| `docs/` | `api.md` (HTTP contract), `urls.md` (link scheme), `DESIGN.md` (design notes) |
 
 ## Running locally
 
@@ -52,6 +52,7 @@ bash tests/smoke.sh
 - Search, facets and the map read only from PostGIS. Only `/api/describe`
   may query ERA live; keep it that way.
 - An API change updates `docs/api.md` and the mock in `web/mock/server.mjs`.
+- New UI state that changes what is shown goes in the link (`web/src/url.ts`) and `docs/urls.md`; old links keep working.
 - Facet changes belong in `shapes/*.ttl` (see `shapes/atlas.ttl` for the
   annotations), not in code.
 - Keep pull requests focused, and describe what a user would see before and

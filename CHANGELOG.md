@@ -77,6 +77,15 @@ All notable changes to this project are documented here: https://github.com/Matd
   triples) can be set per environment as well as with
   `ATLAS_QUALITY_MAX_TRIPLES`. Datasets above it show as "Not validated: too
   large (N triples > limit)" and are never counted as having no issues.
+- Shareable links: the URL now holds every part of the view. That covers
+  the environment, map, classes, filters, search, datasets, selected feature
+  and its tab (Describe steps included), map colours, data issues, line
+  profile and the vehicle shown for compatibility. A **Share** button copies
+  the link, or opens the share sheet on phones. Someone who opens a link
+  with a vehicle can save it to their own profiles. Back and Forward step
+  through navigation; pan and zoom do not add history entries. Links are
+  shorter (`prefix:local` IRIs, no JSON), and older links still open. The
+  scheme is in [docs/urls.md](docs/urls.md).
 
 ### Changed
 

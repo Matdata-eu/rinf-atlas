@@ -23,6 +23,7 @@
         <input id="q" type="search" placeholder="Search labels, codes…" autocomplete="off" aria-label="Full-text search" />
       </div>
       <div id="status" class="status" title="Dataset status"></div>
+      <button id="share-btn" class="btn share-btn" type="button" title="Copy a link to this exact view: map, filters, selection and the tools you have open" aria-label="Share a link to this view"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="12" cy="3.5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12.5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m5.8 7 4.4-2.5M5.8 9l4.4 2.5" stroke="currentColor" stroke-width="1.5"/></svg><span class="share-label">Share</span></button>
       <button id="theme-btn" class="icon-btn theme-btn" type="button"></button>
       <button id="about-btn" class="icon-btn theme-btn" type="button" title="About, credits and feedback" aria-label="About, credits and feedback"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r="1" fill="currentColor"/></svg></button>
     </header>
@@ -87,5 +88,6 @@
       <aside id="detail" class="detail" aria-label="Feature details" hidden></aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </body>
 </html>

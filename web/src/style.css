@@ -321,7 +321,9 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
   .status-when { display: none; }
   .layout, body.detail-open .layout { grid-template-columns: 1fr; }
   .map-wrap { grid-row: 1; grid-column: 1; }
-  .map-tools { top: 8px; left: 8px; right: 52px; }
+  /* One scrollable row, so the legend below it (top: 52px) never covers a button. */
+  .map-tools { top: 8px; left: 8px; right: 52px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .map-tools > * { flex: none; }
   .map-tools .btn { font-size: 12px; padding: 5px 9px; }
 
   .side {
@@ -672,3 +674,32 @@ body.profile-open .map-msg { bottom: calc(var(--profile-h) + 36px); }
 .qa-rules td { padding: 3px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .qa-rules td:first-child { width: 60px; }
 .qa-rules td:nth-child(2) { width: 70px; }
+
+/* ---------- share ---------- */
+.share-btn { padding: 5px 10px; font-size: 13px; color: var(--text); }
+.share-btn svg { flex: none; color: var(--accent); }
+.share-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30;
+  max-width: min(560px, calc(100vw - 32px)); padding: 9px 14px; border-radius: 8px;
+  background: var(--text); color: var(--bg); box-shadow: var(--shadow); font-size: 13px; line-height: 1.4;
+}
+.compat-shared { margin: 6px 0; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); }
+.compat-shared p { margin: 0 0 6px; }
+.compat-shared-note { margin: 2px 0 4px; color: var(--muted); }
+@media (max-width: 760px) {
+  .share-btn { padding: 5px 8px; }
+  .toast { bottom: calc(34% + 16px); }
+}
+@media (max-width: 420px) {
+  .share-label { display: none; }
+}
+
+/* Map legends stay above the line profile panel when both are open. */
+body.profile-open .legend { bottom: calc(var(--profile-h) + 34px); max-height: calc(100% - var(--profile-h) - 110px); }
+body.profile-open .compat-legend { bottom: calc(var(--profile-h) + 32px); }
+.map-wrap:has(.profile.expanded) .legend, .map-wrap:has(.profile.expanded) .compat-legend { display: none; }
+@media (max-width: 760px) {
+  body.profile-open .legend { bottom: auto; max-height: calc(48% - 70px); }
+  body.profile-open .compat-legend { bottom: calc(52% + 10px); }
+}

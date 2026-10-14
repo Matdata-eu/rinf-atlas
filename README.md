@@ -14,7 +14,7 @@ server and is hosted on a best-effort basis, so expect occasional downtime.
 
 Documentation: [how datasets are updated](docs/datasets.md),
 [architecture](docs/architecture.md), [HTTP API](docs/api.md),
-[design notes](docs/DESIGN.md).
+[shareable links](docs/urls.md), [design notes](docs/DESIGN.md).
 
 ![RINF Atlas: operational points and sections of line in Belgium](docs/screenshots/overview.png)
 
@@ -200,6 +200,7 @@ lists what the app processes, as a basis for what to disclose.
 | `site/` | optional pages for your instance, such as `privacy.html` |
 | `db/init.sql` | PostGIS schema |
 | `docs/api.md` | HTTP API contract |
+| `docs/urls.md` | shareable links: the URL scheme of the web app |
 | `docs/datasets.md` | how datasets are updated |
 | `docs/architecture.md` | architecture overview |
 | `docs/DESIGN.md` | design notes |

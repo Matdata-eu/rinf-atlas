@@ -1,6 +1,8 @@
 // Vehicle compatibility: the "Vehicle" side pane (profiles kept in this browser), the
 // green / yellow / red thematic layer of sections of line, its map legend, and the
 // explanation shown in the detail panel. Self-contained: its own source and layers.
+// The profile shown on the map is mirrored in store.vehicle (its content, so a shared link
+// carries it); a profile that arrives with a link is used as is and can be saved.
 import type * as maplibregl from 'maplibre-gl';
 import type { ExpressionSpecification, GeoJSONSource, MapGeoJSONFeature } from 'maplibre-gl';
 import {
@@ -8,7 +10,7 @@ import {
   type CompatRules, type Feature, type TermCount, type TermValue,
 } from './api';
 import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setTipNote, TILE_MODE } from './map';
-import { changed, debounce, fmt, h, store, unitLabel } from './state';
+import { changed, debounce, fmt, h, store, unitLabel, type SharedVehicle } from './state';
 import * as V from './vehicles';
 
 const SRC = 'compat';
@@ -50,10 +52,59 @@ const openRules = new Set<string>();
 const needles = new Map<string, string>();
 let message: { text: string; error?: boolean } | null = null;
 let exportAll = false;
+/** A profile that came with a link: used for the check, not stored until the user saves it. */
+let shared: V.VehicleProfile | null = null;
+const SHARED_ID = 'shared-link';
 
-const active = () => saved.profiles.find((p) => p.id === saved.active) ?? saved.profiles[0];
+const active = () => (shared && saved.active === SHARED_ID ? shared
+  : saved.profiles.find((p) => p.id === saved.active) ?? saved.profiles[0]);
 const sectionClass = () => rules?.section_class ?? 'section-of-line';
-const persist = () => V.save(saved);
+const persist = () => V.save(saved.active === SHARED_ID
+  ? { ...saved, active: saved.profiles.some((p) => p.id === lastSavedActive) ? lastSavedActive : saved.profiles[0]?.id ?? null }
+  : saved);
+let lastSavedActive: string | null = saved.active;
+
+// ---------- the link (store.vehicle) ----------
+const canon = (v: V.VehicleProfile['values']) => JSON.stringify(Object.keys(v).sort().map((k) => [k, v[k]]));
+const sameVehicle = (a: SharedVehicle | null, b: SharedVehicle | null) =>
+  a === b || (!!a && !!b && a.name === b.name && canon(a.values) === canon(b.values));
+const current = (): SharedVehicle | null => {
+  const p = active();
+  return saved.show && p ? { name: p.name, values: V.filledValues(p) } : null;
+};
+/** Mirrors the check shown on the map into the store, so it is part of the URL. */
+function publish() {
+  const v = current();
+  if (!sameVehicle(v, store.get().vehicle)) store.set({ vehicle: v });
+}
+/** Shows the check for a vehicle from a link: an identical saved profile, else a temporary one. */
+function adopt(v: SharedVehicle | null) {
+  if (!v) {
+    if (saved.show) { saved.show = false; setVisible(false); renderPane(); recompute(); }
+    return;
+  }
+  const same = saved.profiles.find((p) => p.name === v.name && canon(V.filledValues(p)) === canon(v.values));
+  if (same) { shared = null; saved.active = same.id; lastSavedActive = same.id; }
+  else {
+    shared = { id: SHARED_ID, name: v.name, values: structuredClone(v.values) };
+    saved.active = SHARED_ID;
+  }
+  saved.show = true;
+  openRules.clear();
+  for (const r of rules?.rules ?? []) if (V.isFilled(active()?.values[r.key])) openRules.add(r.key);
+  setVisible(true);
+  renderPane();
+  recompute();
+}
+
+function saveShared() {
+  if (!shared) return;
+  const p: V.VehicleProfile = { ...shared, id: V.newId(), values: structuredClone(shared.values) };
+  saved.profiles.push(p);
+  shared = null;
+  message = { text: `“${p.name}” was saved to your profiles in this browser.` };
+  setActive(p.id);
+}
 const localName = (iri: string) => iri.replace(/[/#]$/, '').split(/[/#]/).pop() ?? iri;
 
 function valueLabel(v: TermValue, fromServer?: string): string {
@@ -207,6 +258,8 @@ function renderLegend() {
     h('div', { class: 'compat-legend-head' },
       h('button', { class: 'link compat-legend-name', title: 'Edit the vehicle profile', onclick: () => store.set({ sideTab: 'vehicle' }) }, p?.name ?? 'Vehicle'),
       h('button', { class: 'icon-btn', title: 'Hide vehicle compatibility', 'aria-label': 'Hide vehicle compatibility', onclick: () => setShow(false) }, '×')),
+    shared && saved.active === SHARED_ID ? h('p', { class: 'compat-shared-note small' }, 'Profile from a shared link. ',
+      h('button', { class: 'link small', type: 'button', onclick: saveShared }, 'Save to my profiles')) : '',
     body,
     h('p', { class: 'muted small compat-legend-help' }, 'Sections of line, by their running tracks. ',
       h('button', { class: 'link small', title: RULE_HELP, onclick: () => store.set({ sideTab: 'vehicle' }) }, 'How?')));
@@ -214,7 +267,7 @@ function renderLegend() {
 
 // ---------- side pane ----------
 function setShow(on: boolean) {
-  saved.show = on; persist();
+  saved.show = on; persist(); publish();
   setVisible(on);
   const box = pane.querySelector<HTMLInputElement>('.compat-show input');
   if (box) box.checked = on;
@@ -223,7 +276,8 @@ function setShow(on: boolean) {
 }
 
 function setActive(id: string) {
-  saved.active = id; persist();
+  if (id !== SHARED_ID) lastSavedActive = id;
+  saved.active = id; persist(); publish();
   openRules.clear();
   for (const r of rules?.rules ?? []) if (V.isFilled(active()?.values[r.key])) openRules.add(r.key);
   renderPane();
@@ -235,7 +289,7 @@ function updateValue(key: string, v: V.VehicleProfile['values'][string] | undefi
   if (!p) return;
   if (v === undefined || !V.isFilled(v)) delete p.values[key];
   else p.values[key] = v;
-  persist();
+  persist(); publish();
   renderEditorHeads();
   renderLegend();
   if (saved.show) { busy = true; renderStatus(); recomputeSoon(); }
@@ -407,6 +461,7 @@ function renderPane() {
   statusEl = h('div', { class: 'compat-status' });
 
   const select = h('select', { class: 'compat-select', 'aria-label': 'Vehicle profile', onchange: (e: Event) => setActive((e.target as HTMLSelectElement).value) },
+    ...(shared ? [h('option', { value: SHARED_ID, selected: p === shared }, `Shared: ${shared.name} (not saved)`)] : []),
     ...saved.profiles.map((x) => h('option', { value: x.id, selected: x.id === p?.id }, x.name)));
   const btn = (label: string, title: string, fn: () => void, disabled = false) =>
     h('button', { class: 'btn btn-small', type: 'button', title, disabled, onclick: fn }, label);
@@ -421,7 +476,8 @@ function renderPane() {
       const n: V.VehicleProfile = { id: V.newId(), name: `${p.name} (copy)`.replace(/^Example: /, ''), note: p.note, values: structuredClone(p.values) };
       saved.profiles.push(n); setActive(n.id);
     }, !p),
-    btn('Delete', 'Delete this profile from this browser', () => {
+    btn('Delete', p === shared ? 'Discard the profile from the link' : 'Delete this profile from this browser', () => {
+      if (p && p === shared) { shared = null; setActive(lastSavedActive ?? saved.profiles[0]?.id ?? ''); return; }
       if (!p || !confirm(`Delete the vehicle profile “${p.name}” from this browser?`)) return;
       saved.profiles = saved.profiles.filter((x) => x.id !== p.id);
       setActive(saved.profiles[0]?.id ?? '');
@@ -431,7 +487,7 @@ function renderPane() {
   if (p) {
     const name = h('input', { type: 'text', class: 'facet-filter compat-name', value: p.name, 'aria-label': 'Profile name', maxlength: 200 });
     name.addEventListener('input', () => {
-      p.name = name.value || 'Unnamed vehicle'; persist();
+      p.name = name.value || 'Unnamed vehicle'; persist(); publish();
       const opt = select.querySelector<HTMLOptionElement>(`option[value="${CSS.escape(p.id)}"]`);
       if (opt) opt.textContent = p.name;
       renderLegend();
@@ -440,6 +496,9 @@ function renderPane() {
     note.value = p.note ?? '';
     note.addEventListener('input', () => { p.note = note.value || undefined; persist(); });
     editor.push(h('label', { class: 'compat-field' }, h('span', { class: 'muted small' }, 'Name'), name), note);
+    if (p === shared) editor.push(h('div', { class: 'compat-shared small' },
+      h('p', {}, 'This profile came with a shared link. It is used for the check but is not saved in this browser.'),
+      h('div', { class: 'compat-bar' }, h('button', { class: 'btn btn-small btn-primary', type: 'button', onclick: saveShared }, 'Save to my profiles'))));
     if (p.example) editor.push(h('p', { class: 'compat-example small' }, 'Example profile with illustrative values, not an authorised vehicle type. Duplicate it or edit it to match your vehicle.'));
     editor.push(h('h2', { class: 'section-title' }, 'Characteristics'),
       h('p', { class: 'muted small' }, 'Fill in only what you know: a characteristic left empty is not checked. ',
@@ -544,7 +603,8 @@ export function compatBlock(f: Feature): HTMLElement | null {
   return el;
 }
 
-export function initCompat() {
+/** `fromLink`: the page was opened with a state in its URL; its vehicle (or none) wins over this browser's. */
+export function initCompat(fromLink = false) {
   document.querySelector('.map-wrap')?.append(legend);
   setTipNote(tipNote);
   onMapReady((m) => {
@@ -554,6 +614,8 @@ export function initCompat() {
   });
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'env') && s.env) { result = null; applyResult(null); updateSource(); loadRules(s.env); }
+    if (changed(s, prev, 'vehicle') && !sameVehicle(s.vehicle, current())) adopt(s.vehicle); // Back / Forward, edited link
   });
+  if (fromLink) adopt(store.get().vehicle); else publish();
   renderPane();
 }

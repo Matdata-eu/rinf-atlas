@@ -3,6 +3,8 @@
 All endpoints are served by the `api` service under `/api` (nginx in `web`
 proxies `/api/` to it). `env` is an environment key from
 `config/environments.yaml` (`prod`, `uat`). Interactive docs: `/api/docs`.
+The web app's own links (the `#...` state of a view) are described in
+[urls.md](urls.md).
 
 Everything is answered from PostGIS. Only `/api/describe` goes live to ERA's
 SPARQL endpoint.

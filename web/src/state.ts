@@ -1,10 +1,16 @@
-// Tiny observable store + URL-hash (de)serialisation for shareable links.
-import type { FilterValue, Meta, ProfileSpec, QueryState, Theme } from './api';
+// Tiny observable store (the URL hash is read and written by url.ts).
+import type { FilterValue, Meta, ProfileSpec, QueryState, Theme, VehicleValues } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
 export type SideTab = 'filters' | 'results' | 'vehicle';
 
 export interface MapView { lng: number; lat: number; zoom: number }
+
+/** Live Describe navigation inside the detail panel, for the feature it was started from. */
+export interface DescribeNav { for: string; path: string[]; dir: 'out' | 'in' }
+
+/** The vehicle profile the compatibility check is shown for (its content, so a link carries it). */
+export interface SharedVehicle { name: string; values: VehicleValues }
 
 export interface AppState {
   env: string;
@@ -18,6 +24,8 @@ export interface AppState {
   view: MapView;
   selected: string | null; // feature IRI
   detailTab: DetailTab;
+  /** IRIs followed in the Describe tab and its direction; ignored unless `for` is the selected feature. */
+  describe: DescribeNav | null;
   orm: boolean;
   /** Facet key (as in filters: "class/key" or a shared key) the map is coloured by; null = class colours. */
   colorBy: string | null;
@@ -29,6 +37,10 @@ export interface AppState {
   /** Line profile panel open, and what it shows (null = nothing chosen yet). */
   profileOpen: boolean;
   profile: ProfileSpec | null;
+  /** Rows (facet keys) of the line profile strip; null = the API's default rows. */
+  profileRows: string[] | null;
+  /** Vehicle compatibility shown on the map, for this profile; null = off. */
+  vehicle: SharedVehicle | null;
   meta: Meta | null; // per-env metadata (not in the URL)
   theme: Theme | null; // legend of the current colouring (not in the URL)
 }
@@ -54,8 +66,8 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', orm: false, qa: false, sideTab: 'filters',
-  colorBy: null, colorHidden: [], profileOpen: false, profile: null, meta: null, theme: null,
+  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, qa: false, sideTab: 'filters',
+  colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, meta: null, theme: null,
 });
 
 /** Did any of the given keys change between prev and next? */
@@ -74,56 +86,6 @@ export function isFilterEmpty(v: FilterValue | undefined): boolean {
   if (v == null) return true;
   if (Array.isArray(v)) return v.length === 0;
   return v.min == null && v.max == null;
-}
-
-// ---------- URL hash ----------
-// #env=prod&c=tunnel,switch&f={"country":[...]}&q=brussel&v=1&map=6.2/50.8/4.4&sel=<iri>&tab=describe&orm=1&col=running-track/maximumPermittedSpeed&colh=bin:0 __nodata__
-
-export function readHash(): Partial<AppState> {
-  const p = new URLSearchParams(location.hash.replace(/^#/, ''));
-  const out: Partial<AppState> = {};
-  if (p.get('env')) out.env = p.get('env')!;
-  if (p.get('c')) out.classes = p.get('c')!.split(',').filter(Boolean);
-  if (p.get('f')) { try { out.filters = JSON.parse(p.get('f')!); } catch { /* ignore bad links */ } }
-  if (p.get('q')) out.q = p.get('q')!;
-  if (p.get('ds')) out.graphs = p.get('ds')!.split(' ').filter(Boolean);
-  if (p.get('v') === '1') out.limitToView = true;
-  if (p.get('orm') === '1') out.orm = true;
-  if (p.get('qa') === '1') out.qa = true;
-  const m = p.get('map')?.split('/').map(Number);
-  if (m && m.length === 3 && m.every(Number.isFinite)) out.view = { zoom: m[0], lat: m[1], lng: m[2] };
-  if (p.get('col')) out.colorBy = p.get('col');
-  if (p.get('colh')) out.colorHidden = p.get('colh')!.split(' ').filter(Boolean);
-  if (p.get('sel')) out.selected = p.get('sel');
-  const tab = p.get('tab');
-  if (tab === 'describe' || tab === 'graph' || tab === 'properties') out.detailTab = tab;
-  if (p.has('lp')) {
-    out.profileOpen = true;
-    try { const spec = JSON.parse(p.get('lp') || 'null'); if (spec && typeof spec === 'object' && spec.mode) out.profile = spec; } catch { /* ignore bad links */ }
-  }
-  return out;
-}
-
-export function writeHash(s: AppState) {
-  const p = new URLSearchParams();
-  if (s.env) p.set('env', s.env);
-  if (s.classes.length) p.set('c', s.classes.join(','));
-  const f = Object.fromEntries(Object.entries(s.filters).filter(([, v]) => !isFilterEmpty(v)));
-  if (Object.keys(f).length) p.set('f', JSON.stringify(f));
-  if (s.q) p.set('q', s.q);
-  if (s.graphs.length) p.set('ds', s.graphs.join(' '));
-  if (s.limitToView) p.set('v', '1');
-  if (s.orm) p.set('orm', '1');
-  if (s.colorBy) {
-    p.set('col', s.colorBy);
-    if (s.colorHidden.length) p.set('colh', s.colorHidden.join(' '));
-  }
-  if (s.qa) p.set('qa', '1');
-  p.set('map', `${s.view.zoom.toFixed(2)}/${s.view.lat.toFixed(5)}/${s.view.lng.toFixed(5)}`);
-  if (s.selected) { p.set('sel', s.selected); if (s.detailTab !== 'properties') p.set('tab', s.detailTab); }
-  if (s.profileOpen) p.set('lp', s.profile ? JSON.stringify(s.profile) : '');
-  const hash = '#' + p.toString();
-  if (hash !== location.hash) history.replaceState(null, '', hash);
 }
 
 export function debounce<A extends unknown[]>(fn: (...a: A) => void, ms: number) {

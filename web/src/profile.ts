@@ -7,6 +7,7 @@ import {
 } from './api';
 import { fitBbox, onProfileHover, resizeMap, setClickHook, setProfileData, setProfileHover, type ClickedFeature } from './map';
 import { changed, debounce, fmt, h, store, unitLabel } from './state';
+import { isApplyingUrl } from './url';
 
 type Mode = ProfileSpec['mode'];
 interface Pick { iri: string; label: string }
@@ -46,11 +47,10 @@ let fittedFor = '';
 let routeDraft: { from?: Pick; to?: Pick } = {};
 let lineHits: LineHit[] = [];
 let opHits: SearchItem[] = [];
-let params: string[] | null = readParams();
 /** Elements of each strip column (section i), for highlighting. */
 let columns: HTMLElement[][] = [];
 
-// ---------- persisted row choice (per viewer) ----------
+// ---------- row choice: store.profileRows (in the link), remembered per viewer ----------
 function readParams(): string[] | null {
   try {
     const v = JSON.parse(localStorage.getItem(PARAMS_KEY) ?? 'null');
@@ -261,7 +261,7 @@ async function load() {
   loading = true;
   renderStatus();
   try {
-    data = await api.profile(s.env, spec, params, ctl.signal);
+    data = await api.profile(s.env, spec, s.profileRows, ctl.signal);
     error = null;
   } catch (e) {
     if (isAbort(e)) return;
@@ -275,10 +275,11 @@ async function load() {
   }
   renderAll();
   // Zoom the map to a newly chosen line or route (not on every section click).
-  const key = spec.mode === 'sections' ? '' : JSON.stringify({ ...spec, reverse: false });
+  const key = fitKey(spec);
   if (data && key && key !== fittedFor) { fittedFor = key; fitMap(); }
 }
 const loadSoon = debounce(load, 120);
+const fitKey = (spec: ProfileSpec | null) => !spec || spec.mode === 'sections' ? '' : JSON.stringify({ ...spec, reverse: false });
 
 function fitMap() {
   const xs: number[] = [], ys: number[] = [];
@@ -592,7 +593,7 @@ function openRows() {
     rowsDlg.addEventListener('click', (e) => { if (e.target === rowsDlg) rowsDlg!.close(); });
     document.body.append(rowsDlg);
   }
-  const current = new Set(data?.params.map((p) => p.key) ?? params ?? []);
+  const current = new Set(data?.params.map((p) => p.key) ?? store.get().profileRows ?? []);
   const cands = candidates();
   const filter = h('input', { type: 'search', class: 'facet-filter', placeholder: 'Filter parameters…', 'aria-label': 'Filter parameters' });
   const boxes = cands.map((f) => {
@@ -604,7 +605,7 @@ function openRows() {
     const q = filter.value.trim().toLowerCase();
     for (const b of boxes) b.li.hidden = !!q && !b.f.label.toLowerCase().includes(q);
   });
-  const apply = (v: string[] | null) => { params = v; writeParams(v); rowsDlg!.close(); load(); };
+  const apply = (v: string[] | null) => { writeParams(v); rowsDlg!.close(); store.set({ profileRows: v }); };
   rowsDlg.replaceChildren(
     h('div', { class: 'dlg-head' }, h('h2', {}, 'Rows of the line profile'),
       h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: () => rowsDlg!.close() }, '×')),
@@ -664,9 +665,12 @@ function applyOpen() {
   afterLayout();
 }
 
-export function initProfile() {
+/** `fromLink`: the page was opened with a state in its URL (its rows and map view win over this browser's). */
+export function initProfile(fromLink = false) {
   const spec = store.get().profile;
   if (spec) mode = spec.mode;
+  if (fromLink) fittedFor = fitKey(spec);
+  else store.set({ profileRows: readParams() });
   skeleton();
   lineInput.addEventListener('input', () => fetchLines());
   lineInput.addEventListener('focus', () => { if (!lineHits.length) fetchLines(); });
@@ -685,7 +689,7 @@ export function initProfile() {
   onProfileHover((i) => setHover(i, null));
   window.addEventListener('resize', debounce(() => { if (store.get().profileOpen) renderStrip(); }, 150));
   store.subscribe((s, prev) => {
-    if (changed(s, prev, 'env')) { lineHits = []; opHits = []; routeDraft = {}; fittedFor = ''; }
+    if (changed(s, prev, 'env')) { lineHits = []; opHits = []; routeDraft = {}; if (prev.env) fittedFor = ''; }
     if (changed(s, prev, 'profileOpen')) applyOpen();
     if (changed(s, prev, 'profile') && s.profile && s.profile.mode !== mode) {
       mode = s.profile.mode;
@@ -694,7 +698,10 @@ export function initProfile() {
     }
     if (changed(s, prev, 'profile') && s.profile?.mode === 'route' && prev.profile?.mode === 'route'
       && (s.profile.from !== prev.profile.from || s.profile.to !== prev.profile.to) && routeDraft.from?.iri !== s.profile.from) routeDraft = {};
+    // A line or route opened from a link keeps the link's map view (no zoom to it).
+    if (changed(s, prev, 'profile') && isApplyingUrl()) fittedFor = fitKey(s.profile);
     if (changed(s, prev, 'profile', 'profileOpen', 'env')) { renderForm(); loadSoon(); }
+    else if (changed(s, prev, 'profileRows') && s.profileOpen) loadSoon();
     else if (changed(s, prev, 'meta') && s.profileOpen && !data) loadSoon();
   });
   applyOpen();

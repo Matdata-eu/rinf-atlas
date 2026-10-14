@@ -6,13 +6,20 @@ import { fitGeometry, flyTo, setSelectionGeometry } from './map';
 import { showLineProfile } from './profile';
 import { literalText, ntText, pathText, prefixed, shortIri } from './rdf';
 import { changed, fmt, h, store, unitLabel, type DetailTab } from './state';
+import { describeOf } from './url';
 
 const panel = document.getElementById('detail') as HTMLElement;
 
 let feature: Feature | null = null;
 let featureErr: string | null = null;
-let stack: string[] = []; // describe navigation (stack[0] = selected feature)
-let direction: 'out' | 'in' = 'out';
+// Describe navigation lives in the store (and so in the link): the selected feature, then
+// the IRIs followed from it, and the direction.
+const nav = () => describeOf(store.get());
+const stackNow = () => { const s = store.get(); return s.selected ? [s.selected, ...nav().path] : []; };
+const setNav = (path: string[], dir = nav().dir) => {
+  const sel = store.get().selected;
+  if (sel) store.set({ describe: path.length || dir !== 'out' ? { for: sel, path, dir } : null });
+};
 let graph: GraphHandle | null = null;
 let ctl: AbortController | null = null;
 /** Pending "zoom to" request: fit the map once this feature's geometry has loaded. */
@@ -22,7 +29,7 @@ export const ZOOM_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-h
 
 /** Selects a feature and fits the map to its geometry; `fallback` (lon, lat) is used when it has none. */
 export function zoomToFeature(iri: string, fallback?: [number, number]) {
-  if (store.get().selected === iri && feature && stack[0] === iri) { zoomNow(feature.geometry, fallback); return; }
+  if (store.get().selected === iri && feature) { zoomNow(feature.geometry, fallback); return; }
   zoomWanted = { iri, fallback };
   store.set({ selected: iri }); // open() fits the map once the feature has loaded
 }
@@ -62,7 +69,9 @@ function close() { store.set({ selected: null }); }
 async function open(iri: string) {
   ctl?.abort();
   ctl = new AbortController();
-  feature = null; featureErr = null; stack = [iri]; direction = 'out';
+  feature = null; featureErr = null;
+  // Describe navigation started from another feature no longer applies.
+  queueMicrotask(() => { const d = store.get().describe; if (d && d.for !== store.get().selected) store.set({ describe: null }); });
   setSelectionGeometry(null);
   panel.hidden = false;
   document.body.classList.add('detail-open');
@@ -206,7 +215,7 @@ function termCell(t: RdfTerm, labels: Record<string, string>): HTMLElement {
   if (t.type === 'uri') {
     const lbl = labels[t.value];
     return h('td', {},
-      h('button', { class: 'link iri-btn', title: t.value, onclick: () => { stack.push(t.value); render(); } },
+      h('button', { class: 'link iri-btn', title: t.value, onclick: () => setNav([...nav().path, t.value]) },
         lbl ? h('span', {}, lbl) : null, h('code', {}, prefixed(t.value))));
   }
   if (t.type === 'bnode') return h('td', {}, h('code', { class: 'muted' }, `_:${t.value}`));
@@ -215,22 +224,24 @@ function termCell(t: RdfTerm, labels: Record<string, string>): HTMLElement {
 }
 
 function renderDescribe(body: HTMLElement) {
+  const stack = stackNow();
+  const direction = nav().dir;
   const iri = stack[stack.length - 1];
   const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Describe history' },
-    stack.length > 1 ? h('button', { class: 'btn btn-small', onclick: () => { stack.pop(); render(); } }, '← Back') : null,
+    stack.length > 1 ? h('button', { class: 'btn btn-small', onclick: () => setNav(nav().path.slice(0, -1)) }, '← Back') : null,
     ...stack.map((x, i) => i === stack.length - 1
       ? h('span', { class: 'crumb current', title: x }, shortIri(x))
-      : h('button', { class: 'link crumb', title: x, onclick: () => { stack = stack.slice(0, i + 1); render(); } }, shortIri(x))));
+      : h('button', { class: 'link crumb', title: x, onclick: () => setNav(nav().path.slice(0, i)) }, shortIri(x))));
   const dirToggle = h('div', { class: 'seg', role: 'group', 'aria-label': 'Direction' },
     ...(['out', 'in'] as const).map((d) => h('button', { class: 'seg-btn', 'aria-pressed': String(direction === d),
-      onclick: () => { direction = d; render(); } }, d === 'out' ? 'Outgoing' : 'Incoming')));
+      onclick: () => setNav(nav().path, d) }, d === 'out' ? 'Outgoing' : 'Incoming')));
   const tools = h('div', { class: 'describe-tools' }, dirToggle, h('span', { class: 'spacer' }));
   const table = h('div', { class: 'describe-table' }, h('p', { class: 'muted loading-text' }, 'Querying ERA…'));
   body.append(crumbs, tools, table);
 
   if (stack.length > 1) {
     featureOrNull(iri).then((f) => {
-      if (f && stack[stack.length - 1] === iri) {
+      if (f && stackNow().at(-1) === iri) {
         tools.append(h('button', { class: 'btn btn-small', onclick: () => {
           store.set({ selected: f.iri, detailTab: 'properties' });
           if (f.geometry) fitGeometry(f.geometry);
@@ -241,7 +252,7 @@ function renderDescribe(body: HTMLElement) {
 
   const dir = direction;
   describe(iri, dir).then((r) => {
-    if (stack[stack.length - 1] !== iri || direction !== dir || !table.isConnected) return;
+    if (stackNow().at(-1) !== iri || nav().dir !== dir || !table.isConnected) return;
     if (!r.triples.length) { table.replaceChildren(h('p', { class: 'muted' }, dir === 'out' ? 'No outgoing triples.' : 'No incoming triples.')); return; }
     const sorted = [...r.triples].sort((a, b) => rank(a) - rank(b) || prefixed(a.p).localeCompare(prefixed(b.p)));
     const head = dir === 'out' ? ['Predicate', 'Object'] : ['Subject', 'Predicate'];
@@ -263,7 +274,7 @@ function renderDescribe(body: HTMLElement) {
 const rank = (t: Triple) => (t.p.endsWith('#type') ? 0 : t.p.endsWith('#label') || t.p.endsWith('#prefLabel') ? 1 : 2);
 
 function renderGraph(body: HTMLElement) {
-  const iri = stack[stack.length - 1];
+  const iri = stackNow().at(-1)!;
   const holder = h('div', { class: 'graph' });
   body.classList.add('graph-body');
   body.append(h('p', { class: 'muted small graph-help' }, 'Double-click a blue node to expand it. Drag to rearrange.'), holder);
@@ -284,7 +295,7 @@ export function initDetail() {
         document.body.classList.remove('detail-open');
         setSelectionGeometry(null);
       }
-    } else if (changed(s, prev, 'detailTab') && s.selected) render();
+    } else if (changed(s, prev, 'detailTab', 'describe') && s.selected) render();
     else if (changed(s, prev, 'meta') && s.selected) {
       panel.querySelector('.kicker')?.replaceWith(kicker()); // class label/colour arrive with meta
       if (s.detailTab === 'properties') render();

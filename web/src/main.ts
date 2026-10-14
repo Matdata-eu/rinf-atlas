@@ -6,11 +6,12 @@ import { initDatasets, openDatasets } from './datasets';
 import { initDetail } from './detail';
 import { initProfile } from './profile';
 import { initFacets } from './facets';
-import { fitBbox, initMap, TILE_MODE } from './map';
+import { fitBbox, initMap, jumpToView, TILE_MODE } from './map';
 import { initResults } from './results';
 import { initThematic } from './thematic';
 import { setTheme, themePref, type ThemePref } from './theme';
-import { changed, debounce, h, queryState, readHash, store, writeHash, type SideTab } from './state';
+import { changed, debounce, h, queryState, store, type AppState, type SideTab } from './state';
+import { buildHash, currentLink, fromUrl, parseHash, URL_DEFAULTS, writeUrl } from './url';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const envSelect = $<HTMLSelectElement>('env-select');
@@ -25,6 +26,45 @@ function showMsg(text: string, ms = 3500) {
   setTimeout(() => (mapMsg.hidden = true), ms);
 }
 
+// ---------- share: copy the link to this view (or the native share sheet on phones) ----------
+const toastEl = $<HTMLDivElement>('toast');
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+function toast(text: string, ms = 3200) {
+  toastEl.textContent = text;
+  toastEl.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toastEl.hidden = true), ms);
+}
+
+/** What the link carries besides the map and filters, for the confirmation. */
+function linkExtras(s: AppState): string[] {
+  const x: string[] = [];
+  if (s.selected) x.push('the selected feature');
+  if (s.colorBy) x.push('map colours');
+  if (s.profileOpen && s.profile) x.push('the line profile');
+  if (s.vehicle) x.push(`vehicle “${s.vehicle.name}”`);
+  if (s.qa) x.push('data issues');
+  return x;
+}
+
+async function share() {
+  const s = store.get();
+  const url = currentLink(s);
+  const extras = linkExtras(s);
+  // Phones and tablets: the system share sheet (mail, chat apps...); elsewhere the clipboard.
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+    try { await navigator.share({ title: document.title, url }); return; } catch (e) {
+      if ((e as DOMException).name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(`Link copied${extras.length ? `, with ${extras.join(', ')}` : ''}. It opens this view.`);
+  } catch {
+    window.prompt('Copy this link to share the view:', url);
+  }
+}
+
 // ---------- top bar ----------
 function initTopBar(envs: Env[]) {
   envSelect.replaceChildren(...envs.map((e) => h('option', { value: e.key, title: e.sparql }, e.label)));
@@ -37,6 +77,7 @@ function initTopBar(envs: Env[]) {
   qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') store.set({ q: qInput.value }); });
 
   statusEl.addEventListener('click', () => openDatasets());
+  $('share-btn').addEventListener('click', share);
 }
 
 function renderStatus() {
@@ -103,6 +144,7 @@ function initMapTools() {
   const orm = $<HTMLInputElement>('orm-toggle');
   orm.checked = store.get().orm;
   orm.addEventListener('change', () => store.set({ orm: orm.checked }));
+  store.subscribe((s, prev) => { if (changed(s, prev, 'orm')) orm.checked = s.orm; });
   // Data quality highlight, offered once the backend reports that it validates datasets.
   const qa = $<HTMLInputElement>('qa-toggle');
   const qaTool = $('qa-tool'), qaLegend = $('qa-legend');
@@ -135,15 +177,18 @@ async function loadMeta(env: string) {
 }
 
 async function main() {
-  const fromHash = readHash();
+  // A link (any state in the hash) is self-contained: it also decides the vehicle check and the
+  // line profile rows, which otherwise come from this browser's own settings.
+  const fromLink = location.hash.length > 1;
+  const fromHash = parseHash(location.hash);
   store.set({ ...fromHash, env: '' });
   initMap($('map'));
   initFacets();
   initThematic(document.querySelector('.map-wrap') as HTMLElement);
   initResults();
   initDetail();
-  initCompat();
-  initProfile();
+  initCompat(fromLink);
+  initProfile(fromLink);
   initDatasets();
   initSide();
   initMapTools();
@@ -156,7 +201,7 @@ async function main() {
   renderStatus();
   if (!envs.length) showMsg('The API lists no environments: check ATLAS_ENVS in .env (prod, uat).', 15000);
 
-  const persist = debounce(() => writeHash(store.get()), 150);
+  const persist = debounce(() => writeUrl(store.get()), 150);
   store.subscribe((s, prev) => {
     persist();
     if (changed(s, prev, 'env') && s.env) { envSelect.value = s.env; renderStatus(); loadMeta(s.env); }
@@ -165,11 +210,17 @@ async function main() {
   });
   if (env) store.set({ env: env.key, selected: fromHash.selected ?? null });
 
-  window.addEventListener('hashchange', () => {
-    const next = readHash();
-    store.set({ classes: [], filters: {}, graphs: [], q: '', selected: null, colorBy: null, colorHidden: [],
-      profileOpen: false, profile: null, ...next });
-  });
+  // Back / Forward between entries, or a link pasted over the current one: show that state.
+  const onUrl = () => {
+    if (location.hash === buildHash(store.get())) return; // already showing it (popstate and hashchange both fire)
+    const next = parseHash(location.hash);
+    const cur = store.get();
+    const envKey = next.env && envs.some((e) => e.key === next.env) ? next.env : cur.env;
+    fromUrl(() => store.set({ ...URL_DEFAULTS, ...next, env: envKey, ...(envKey !== cur.env ? { meta: null } : {}) }), store.get.bind(store));
+    if (next.view) jumpToView(next.view);
+  };
+  window.addEventListener('popstate', onUrl);
+  window.addEventListener('hashchange', onUrl);
   if (TILE_MODE === 'geojson') document.body.classList.add('geojson-mode');
 }
 

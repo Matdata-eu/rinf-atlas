@@ -7,7 +7,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 maplibregl.setWorkerUrl(workerUrl);
 import { api, isAbort } from './api';
-import { changed, debounce, queryState, store, type AppState } from './state';
+import { changed, debounce, queryState, store, type AppState, type MapView } from './state';
 import { hasPrivacy, PRIVACY_URL } from './privacy';
 import { isDark, onThemeChange } from './theme';
 import { casingColor, describeValue, onThemeStyleChange, themeStyle } from './thematic';
@@ -397,6 +397,14 @@ export function setSelectionGeometry(g: GeoJSON.Geometry | null) {
   if (!map) return;
   const src = map.getSource('selection') as GeoJSONSource | undefined;
   src?.setData(g ? { type: 'Feature', geometry: g, properties: {} } : EMPTY);
+}
+
+/** Moves the map to a view from a link (Back / Forward), unless it is already there. */
+export function jumpToView(v: MapView) {
+  if (!map) return;
+  const c = map.getCenter();
+  if (Math.abs(c.lng - v.lng) < 1e-5 && Math.abs(c.lat - v.lat) < 1e-5 && Math.abs(map.getZoom() - v.zoom) < 0.01) return;
+  map.jumpTo({ center: [v.lng, v.lat], zoom: v.zoom });
 }
 
 export function flyTo(lon: number, lat: number, minZoom = 12) {
