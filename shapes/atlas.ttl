@@ -50,9 +50,26 @@
 #                       infrastructure values with the vehicle value(s)
 #   atlas:appliesTo     "track" (default) | "section"
 #   atlas:unit          unit of the number the user enters
+#   atlas:whenMissing   atlas:Unknown (default) | atlas:Incompatible: the result
+#                       for a track without a value for the compared facets
+#   atlas:noneValue     IRI the user can add to the vehicle's values meaning it
+#                       also runs where the system is absent (e.g. "not
+#                       electrified" for bi-mode): such tracks are compatible
+#   atlas:noneFrom      characteristic key of the rule with atlas:noneValue that
+#                       tells whether the system is absent; whenMissing and
+#                       noneValue then apply only where it is absent, a missing
+#                       value elsewhere stays unknown
+#   atlas:missingReason short text shown for a track where the system is absent
 #   rdfs:label, rdfs:comment, sh:datatype, sh:order, atlas:enabled false
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl:   <http://www.w3.org/2002/07/owl#>
 
 atlas: a owl:Ontology ; rdfs:label "RINF Atlas shape annotations" .
+
+atlas:Unknown a rdfs:Resource ;
+    rdfs:label "Unknown" ;
+    rdfs:comment "atlas:whenMissing value: a track without a value makes the characteristic unknown (yellow)." .
+atlas:Incompatible a rdfs:Resource ;
+    rdfs:label "Incompatible" ;
+    rdfs:comment "atlas:whenMissing value: a track without a value is not compatible (red)." .

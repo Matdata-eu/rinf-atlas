@@ -23,6 +23,7 @@ export const KNOWN_LABELS: Record<string, string> = {
   [`${C}nominal-track-gauges/30`]: '1435', [`${C}nominal-track-gauges/70`]: '1668',
   [`${C}energy-supply-systems/AC10`]: 'AC 25kV-50Hz', [`${C}energy-supply-systems/AC20`]: 'AC 15kV-16.7Hz',
   [`${C}energy-supply-systems/DC30`]: 'DC 3kV', [`${C}energy-supply-systems/DC40`]: 'DC 1.5kV',
+  [`${C}contact-line-systems/40`]: 'Not electrified',
   [`${C}compliant-pantograph-heads/10`]: '1950 mm (Type 1) with non-insulated horns',
   [`${C}compliant-pantograph-heads/20`]: '1600 mm (EP)',
   [`${C}compliant-pantograph-heads/50`]: '1950 mm (Type 1) with insulated horns',

@@ -80,6 +80,8 @@ gunzip -c "$here/fixtures/lu-sample.nt.gz" > "$here/fixtures/lu-sample.nt"
 rm -f "$here/fixtures/lu-sample.nt"
 after=$(python3 "$here/compat_tiles.py" "$BASE" "$profile") || fail "compatibility tiles do not match the result after reloading"
 [ "$before" = "$after" ] || fail "feature ids changed when the graph was loaded again"
+# No contact line: red with the reason for an electric vehicle, compatible for a bi-mode one.
+python3 "$here/compat_contact_line.py" "$BASE" || fail "non-electrified tracks are not handled"
 
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"

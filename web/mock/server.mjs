@@ -281,8 +281,14 @@ const COMPAT_RULES = [
   ['trainLength', 'Train length', [`${ERA}lengthOfVehicle`], 'minInclusive', 'number', 'M', ['maxPermittedTrainLength']],
 ].map(([key, label, path, constraint, kind, unit, facets]) => ({
   key, label, comment: null, path, constraint, kind, datatype: kind === 'number' ? 'http://www.w3.org/2001/XMLSchema#double' : null,
-  unit, facets, applies_to: 'track',
+  unit, facets, applies_to: 'track', when_missing: 'unknown', none_value: null, none_from: null, missing_reason: null,
 }));
+// No contact line: an electric vehicle is not compatible, a bi-mode one ("not electrified") is.
+const NOT_ELECTRIFIED = `${CC}contact-line-systems/40`;
+Object.assign(COMPAT_RULES.find((r) => r.key === 'energySupplySystem'),
+  { when_missing: 'incompatible', none_value: NOT_ELECTRIFIED, missing_reason: 'No contact line' });
+Object.assign(COMPAT_RULES.find((r) => r.key === 'pantographHead'),
+  { when_missing: 'incompatible', none_from: 'energySupplySystem', missing_reason: 'No contact line' });
 const hash = (str) => { let x = 2166136261; for (const ch of str) x = Math.imul(x ^ ch.charCodeAt(0), 16777619) >>> 0; return x; };
 const tracksBySol = new Map();
 for (const sol of sols) {
@@ -315,6 +321,11 @@ const compatRules = () => COMPAT_RULES.map((rule) => {
     c.count++; counts.set(String(v.value), c);
   }
   const vals = [...counts.values()].sort((a, b) => b.count - a.count);
+  if (rule.none_value) {
+    let n = 0;
+    for (const ts of tracksBySol.values()) for (const t of ts) if (!rule.facets.some((fk) => (t.facets[fk] || []).length)) n++;
+    vals.unshift({ value: rule.none_value, label: 'Not electrified', count: n, none: true });
+  }
   if (rule.kind !== 'number') return { ...rule, values: vals };
   const nums = vals.map((v) => v.value);
   return { ...rule, range: { min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null, count: vals.reduce((n, v) => n + v.count, 0) } };
@@ -324,9 +335,18 @@ const compatChecks = (profile) => {
   return COMPAT_RULES.filter((r) => !empty(profile[r.key]));
 };
 // 0 = compatible, 1 = unknown, 2 = not compatible (as the real API)
-const checkTrack = (rule, track, v) => {
-  const vals = rule.facets.flatMap((fk) => (track.facets[fk] || []).map((x) => x.value));
-  if (!vals.length) return 1;
+const trackVals = (rule, track) => rule.facets.flatMap((fk) => (track.facets[fk] || []).map((x) => x.value));
+// What a track without a value gives, and whether it is because the system is absent.
+const missingOf = (rule, track, profile) => {
+  const src = rule.none_from ? COMPAT_RULES.find((r) => r.key === rule.none_from) : rule;
+  if (rule.when_missing !== 'incompatible' || (rule.none_from && trackVals(src, track).length)) return { code: 1 };
+  const pv = profile[src.key];
+  const ok = src.none_value && (Array.isArray(pv) ? pv : [pv]).includes(src.none_value);
+  return { code: ok ? 0 : 2, note: rule.missing_reason };
+};
+const checkTrack = (rule, track, v, profile) => {
+  const vals = trackVals(rule, track);
+  if (!vals.length) return missingOf(rule, track, profile).code;
   if (rule.kind === 'number') {
     const n = Number(Array.isArray(v) ? v[0] : v);
     const bad = { minInclusive: (x) => x < n, maxInclusive: (x) => x > n, minExclusive: (x) => x <= n, maxExclusive: (x) => x >= n }[rule.constraint];
@@ -339,7 +359,7 @@ const checkTrack = (rule, track, v) => {
 const COLOURS = ['green', 'yellow', 'red'];
 function compatOf(sol, checks, profile) {
   const tracks = (tracksBySol.get(sol.id) || []).map((t) => {
-    const codes = checks.map((rule) => checkTrack(rule, t, profile[rule.key]));
+    const codes = checks.map((rule) => checkTrack(rule, t, profile[rule.key], profile));
     return { t, codes, worst: Math.max(0, ...codes) };
   });
   return { tracks, status: tracks.length ? Math.min(...tracks.map((x) => x.worst)) : 1 };
@@ -528,7 +548,8 @@ const server = http.createServer(async (req, res) => {
         tracks: r.tracks.map(({ t, codes, worst }) => ({
           id: t.id, iri: t.iri, label: t.label, class: t.class, status: COLOURS[worst],
           results: checks.map((rule, i) => ({ key: rule.key, result: ['ok', 'unknown', 'fail'][codes[i]],
-            values: rule.facets.flatMap((fk) => (t.facets[fk] || []).map(({ value, label }) => ({ value, label }))) })),
+            values: rule.facets.flatMap((fk) => (t.facets[fk] || []).map(({ value, label }) => ({ value, label }))),
+            note: trackVals(rule, t).length ? undefined : missingOf(rule, t, profile).note })),
         })),
       });
     }

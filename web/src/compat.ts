@@ -21,13 +21,15 @@ const STATUS_TEXT: Record<CompatColour, string> = {
 const STATUS_HELP: Record<CompatColour, string> = {
   green: 'at least one running track meets every filled-in characteristic',
   yellow: 'no track fails, but some characteristics could not be checked (no data on the section)',
-  red: 'every running track fails at least one filled-in characteristic',
+  red: 'every running track fails at least one filled-in characteristic (an electric vehicle fails on a track without a contact line)',
 };
 const RESULT_TEXT: Record<CompatCheck['result'], string> = { ok: 'Compatible', unknown: 'No data', fail: 'Not compatible' };
 const RESULT_ICON: Record<CompatCheck['result'], string> = { ok: '✓', unknown: '?', fail: '✗' };
 export const RULE_HELP = 'A section of line is green when at least one of its running tracks is compatible with every ' +
   'characteristic you filled in, yellow when no track is incompatible but some characteristics could not be checked ' +
   'because the section has no data for them, and red when every track is incompatible on at least one characteristic. ' +
+  'A track without a contact line is incompatible with an electric vehicle (energy supply, pantograph, contact wire and ' +
+  'current), unless you add “Not electrified” to its energy supply systems for a bi-mode vehicle. ' +
   'Characteristics left empty are not checked.';
 const TOP_N = 8;
 
@@ -326,6 +328,11 @@ function renderEditorHeads() {
   }
 }
 
+/** The "none" option of a rule (e.g. not electrified), saying what picking it means. */
+function noneLabel(r: CompatRule, label: string): string {
+  return `${label} (also runs where the track has ${r.missing_reason ? r.missing_reason.toLowerCase() : 'none'})`;
+}
+
 function termEditor(r: CompatRule, body: HTMLElement) {
   const p = active()!;
   const cur = (Array.isArray(p.values[r.key]) ? p.values[r.key] : []) as (string | boolean)[];
@@ -333,7 +340,8 @@ function termEditor(r: CompatRule, body: HTMLElement) {
   const known = ruleValues(r);
   let values: { value: string | boolean; label: string; count: number | null }[] = r.kind === 'boolean'
     ? [true, false].map((b) => ({ value: b, label: b ? 'Yes' : 'No', count: known.get(String(b))?.count ?? 0 }))
-    : (r.values ?? []).map((v) => ({ value: v.value as string, label: valueLabel(v.value, v.label), count: v.count }));
+    : (r.values ?? []).map((v) => ({ value: v.value as string, count: v.count,
+      label: String(v.value) === r.none_value ? noneLabel(r, valueLabel(v.value, v.label)) : valueLabel(v.value, v.label) }));
   for (const v of cur) if (!values.some((x) => String(x.value) === String(v))) values.unshift({ value: v, label: valueLabel(v), count: null });
   const needle = (needles.get(r.key) ?? '').toLowerCase();
   const shown = needle ? values.filter((v) => v.label.toLowerCase().includes(needle) || String(v.value).toLowerCase().includes(needle)) : values;
@@ -505,6 +513,7 @@ function checksTable(checks: CompatCheck[]): HTMLElement {
     return h('tr', {},
       h('th', {}, r?.label ?? c.key),
       h('td', {}, h('span', { class: `compat-result ${c.result}` }, `${RESULT_ICON[c.result]} ${RESULT_TEXT[c.result]}`),
+        c.note ? h('div', { class: 'compat-note-reason small' }, c.note) : null,
         vals.length ? h('div', { class: 'muted small' }, `Track: ${vals.join(', ')}`) : null));
   })));
 }

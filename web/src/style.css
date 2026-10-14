@@ -423,6 +423,7 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .compat-result { font-weight: 600; }
 .compat-result.ok { color: var(--ok); }
 .compat-result.unknown { color: var(--warn); }
+.compat-note-reason { font-weight: 600; color: var(--text); }
 .compat-result.fail { color: var(--danger); }
 
 @media (max-width: 760px) {

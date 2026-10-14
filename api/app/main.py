@@ -497,14 +497,20 @@ def compatibility_rules(env: str):
         classes = cdef["track_classes"] if r["applies_to"] == "track" else [cdef["section_class"]]
         rows = _q("""SELECT value, sum(n)::bigint AS n FROM facet_cache
                      WHERE env=%s AND key = ANY(%s) AND class = ANY(%s) GROUP BY 1""", [env, r["facets"], classes])
-        item = {k: r[k] for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
-                                  "facets", "applies_to")}
+        item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
+                                      "facets", "applies_to", "when_missing", "none_value", "none_from",
+                                      "missing_reason")}
         if r["kind"] == "number":
             nums = [float(x["value"]) for x in rows if isinstance(x["value"], (int, float)) and not isinstance(x["value"], bool)]
             item["range"] = {"min": min(nums) if nums else None, "max": max(nums) if nums else None,
                              "count": sum(x["n"] for x in rows)}
         else:
             vals = sorted(rows, key=lambda x: (-x["n"], str(x["value"])))[:TERMS_LIMIT]
+            if r.get("none_value"):
+                # "none" (e.g. not electrified) first; its count is the tracks without a value
+                n = _q("""SELECT count(*) AS n FROM feature WHERE env=%s AND class = ANY(%s)
+                          AND NOT facets ?| %s""", [env, classes, r["facets"]])[0]["n"]
+                vals = [{"value": r["none_value"], "n": n, "none": True}] + vals
             item["values"] = vals
             iris |= {x["value"] for x in vals if isinstance(x["value"], str)}
         out.append(item)
@@ -566,11 +572,23 @@ def compatibility_explain(req: cx.ExplainRequest):
     section = [c for c in checks if c.applies_to == "section"]
     rules = {r["key"]: r for r in cdef["rules"]}
 
+    def facet_values(row: dict, rule: dict, keys: list[str]) -> list:
+        # a track without a value takes its section's (rule.section_facets), as in the SQL
+        sec_f = row.get("section_facets") or {}
+        fb = set(rule.get("section_facets") or [])
+        return [v for fk in keys for v in (row["facets"].get(fk) or (sec_f.get(fk, []) if fk in fb else []))]
+
     def results(row: dict, cs: list[cx.Check]) -> list[dict]:
         out = []
         for i, c in enumerate(cs):
-            vals = [v for fk in rules[c.key]["facets"] for v in row["facets"].get(fk, [])]
-            out.append({"key": c.key, "result": cx.RESULT[row[f"c{i}"]], "values": vals})
+            rule = rules[c.key]
+            vals = facet_values(row, rule, rule["facets"])
+            item = {"key": c.key, "result": cx.RESULT[row[f"c{i}"]], "values": vals}
+            # why a track without a value got its result (e.g. "No contact line")
+            nr = cx.none_rule(rule, rules)
+            if not vals and nr and rule.get("missing_reason") and not facet_values(row, nr, nr["facets"]):
+                item["note"] = rule["missing_reason"]
+            out.append(item)
         return out
 
     tracks = []

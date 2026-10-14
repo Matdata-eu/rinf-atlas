@@ -100,6 +100,14 @@ export interface CompatRule {
   unit: string | null;
   facets: string[];
   applies_to: 'track' | 'section';
+  /** What a track without a value means: unknown (yellow, default) or incompatible (red). */
+  when_missing?: 'unknown' | 'incompatible';
+  /** A value meaning "also runs where the system is absent" (e.g. not electrified); listed in values with none: true. */
+  none_value?: string | null;
+  /** The rule whose none_value also covers this one (e.g. the energy supply for the pantograph). */
+  none_from?: string | null;
+  /** Shown for a track where the system is absent, e.g. "No contact line". */
+  missing_reason?: string | null;
   values?: TermCount[];
   range?: { min: number | null; max: number | null; count: number };
 }
@@ -116,7 +124,7 @@ export interface CompatResponse {
   green: (number | string)[]; yellow: (number | string)[]; red: (number | string)[];
 }
 export type CompatResult = 'ok' | 'unknown' | 'fail';
-export interface CompatCheck { key: string; result: CompatResult; values: { value: TermValue; label: string }[] }
+export interface CompatCheck { key: string; result: CompatResult; values: { value: TermValue; label: string }[]; note?: string }
 export interface CompatExplain {
   iri: string; id: number | string; status: CompatColour; checked: string[]; ignored: string[];
   section: CompatCheck[];

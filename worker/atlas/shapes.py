@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import pyoxigraph as ox
@@ -76,6 +76,17 @@ class CompatRule:
     unit: str | None = None
     comment: str | None = None
     order: int = 100
+    # What a track without a value for the compared facets means: "unknown" (default)
+    # or "incompatible" (atlas:whenMissing). A vehicle that has none_value (atlas:noneValue)
+    # among its values for this rule, or for the rule named by none_from (atlas:noneFrom),
+    # is compatible with such a track instead: e.g. "not electrified" for a bi-mode vehicle.
+    when_missing: str = "unknown"
+    none_value: str | None = None
+    none_from: str | None = None
+    missing_reason: str | None = None  # atlas:missingReason, shown for such a track
+    # Track rules: the compared facets also indexed on the section class. A track without
+    # a value takes the value of its section of line (RINF puts some parameters there).
+    section_facets: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -250,7 +261,26 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
     shared.sort(key=lambda f: (f.order, f.key))
     out = ShapeSet(classes=classes, shared=shared)
     out.compat = _load_compat(st, r, out)
+    if out.compat:
+        _index_compat_facets(out)
     return out
+
+
+def _index_compat_facets(shapes: ShapeSet) -> None:
+    """Index every facet a track rule compares on every track class, also where that
+    class's own shape does not list it (e.g. a parameter only in running-track.ttl but
+    data typed era:Track), so a rule finds the value whatever class a track is indexed as."""
+    by_key = {c.key: c for c in shapes.classes}
+    tracks = [by_key[k] for k in shapes.compat.track_classes]
+    for rule in shapes.compat.rules:
+        if rule.applies_to != "track":
+            continue
+        for fk in rule.facets:
+            src = next((f for c in tracks for f in shapes.all_facets(c) if f.key == fk), None)
+            for c in tracks:
+                if src and not any(f.key == fk for f in shapes.all_facets(c)):
+                    c.facets.append(replace(src))
+                    c.facets.sort(key=lambda f: (f.order, f.key))
 
 
 def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None:
@@ -319,10 +349,27 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
         dt = _iri(r.one(prop, SH + "datatype"))
         kind = ("number" if constraint in COMPAT_NUMERIC
                 else "boolean" if dt == XSD + "boolean" or known[facets[0]].kind == "boolean" else "terms")
+        wm = _iri(r.one(prop, ATLAS + "whenMissing"))
+        when_missing = {None: "unknown", ATLAS + "Unknown": "unknown", ATLAS + "Incompatible": "incompatible"}.get(wm)
+        if when_missing is None:
+            raise ShapeError(f"compatibility.{key}: atlas:whenMissing must be atlas:Unknown or atlas:Incompatible")
+        none_value = _iri(r.one(prop, ATLAS + "noneValue"))
+        if r.one(prop, ATLAS + "noneValue") is not None and (not none_value or kind != "terms"):
+            raise ShapeError(f"compatibility.{key}: atlas:noneValue must be an IRI, on a rule compared by value")
+        section_facets = []
+        if applies == "track":
+            on_section = facet_keys([section_class])
+            section_facets = [fk for fk in facets if fk in on_section]
         rules.append(CompatRule(
             key=key, label=r.label(prop, RDFS + "label", SH + "name") or key, path=path, constraint=constraint,
             facets=facets, applies_to=applies, kind=kind, datatype=dt, unit=r.lit(prop, ATLAS + "unit"),
-            comment=r.label(prop, RDFS + "comment", SH + "description"), order=int(r.lit(prop, SH + "order", "100"))))
+            comment=r.label(prop, RDFS + "comment", SH + "description"), order=int(r.lit(prop, SH + "order", "100")),
+            when_missing=when_missing, none_value=none_value, none_from=r.lit(prop, ATLAS + "noneFrom"),
+            missing_reason=r.label(prop, ATLAS + "missingReason"), section_facets=section_facets))
+    by_rule = {x.key: x for x in rules}
+    for x in rules:
+        if x.none_from and not (x.none_from in by_rule and by_rule[x.none_from].none_value):
+            raise ShapeError(f"compatibility.{x.key}: atlas:noneFrom {x.none_from!r} must name a rule with atlas:noneValue")
     rules.sort(key=lambda x: (x.order, x.key))
     return CompatSet(track_classes=track_classes, section_class=section_class, rules=rules)
 
