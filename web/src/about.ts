@@ -1,5 +1,6 @@
 // "About" dialog: what the app is, where the data comes from, credits and the
 // project repository (bugs, feature requests, questions).
+import { hasPrivacy, PRIVACY_URL } from './privacy';
 import { h } from './state';
 
 const REPO = ((import.meta.env.VITE_REPO_URL as string | undefined) ?? 'https://github.com/Matdata-eu/rinf-atlas').replace(/\/$/, '');
@@ -11,6 +12,10 @@ const link = (href: string, text: string) => h('a', { href, target: '_blank', re
 export function openAbout() {
   if (!dlg) {
     dlg = h('dialog', { class: 'datasets-dialog about-dialog', 'aria-label': 'About RINF Atlas' });
+    const privacy = h('div', { hidden: true },
+      h('h3', {}, 'Privacy'),
+      h('p', {}, 'Read the ', link(PRIVACY_URL, 'privacy statement'), ' of this instance.'));
+    hasPrivacy.then((ok) => { privacy.hidden = !ok; });
     dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg!.close(); });
     dlg.append(
       h('div', { class: 'dlg-head' },
@@ -25,6 +30,7 @@ export function openAbout() {
           link(`${REPO}/issues/new/choose`, 'GitHub'), '. Source code and documentation: ', link(REPO, REPO.replace(/^https:\/\//, '')), '.'),
         h('p', { class: 'muted small' }, 'Wrong or missing infrastructure data comes from the infrastructure managers through ERA, ',
           'not from this application.'),
+        privacy,
         h('h3', {}, 'Credits'),
         h('ul', { class: 'credits' },
           h('li', {}, 'Data: ', link('https://www.era.europa.eu/domains/registers/rinf_en', 'European Union Agency for Railways (ERA), RINF'),

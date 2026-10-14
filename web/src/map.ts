@@ -8,6 +8,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 maplibregl.setWorkerUrl(workerUrl);
 import { api, isAbort } from './api';
 import { changed, debounce, queryState, store, type AppState } from './state';
+import { hasPrivacy, PRIVACY_URL } from './privacy';
 import { isDark, onThemeChange } from './theme';
 
 /** 'vector' = /api/tiles MVT (default); 'geojson' = points from POST /api/search (mock / no tile server). */
@@ -63,7 +64,7 @@ export function initMap(container: HTMLElement) {
     container,
     center: [s.view.lng, s.view.lat],
     zoom: s.view.zoom,
-    attributionControl: { compact: true },
+    attributionControl: false,
     style: {
       version: 8,
       sources: {
@@ -132,6 +133,11 @@ export function initMap(container: HTMLElement) {
     });
   }, 300);
   map.on('moveend', onMoveEnd);
+  // Added once we know whether this instance has a privacy statement to link.
+  hasPrivacy.then((ok) => map.addControl(new maplibregl.AttributionControl({
+    compact: true,
+    customAttribution: ok ? `<a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a>` : undefined,
+  })));
   map.on('load', () => { loaded = true; onMoveEnd(); refreshData(); });
 
   store.subscribe((s, prev) => {
