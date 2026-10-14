@@ -1060,7 +1060,8 @@ REPORT_PREFIXES = {
 }
 
 
-def report_turtle(run: Run, *, report_iri: str, created: str, about: str = "") -> str:
+def report_turtle(run: Run, *, report_iri: str, created: str, about: str = "",
+                  meta: list[tuple[str, str]] | None = None) -> str:
     """The run as a standard sh:ValidationReport in Turtle (readable by shacl-report, pyshacl & co.)."""
     out = [f"@prefix {p}: <{n}> ." for p, n in REPORT_PREFIXES.items()]
     out.append("")
@@ -1072,6 +1073,8 @@ def report_turtle(run: Run, *, report_iri: str, created: str, about: str = "") -
     out.append(f"    sh:conforms {conforms} ;")
     out.append(f"    dct:created {nt(ox.Literal(created, datatype=ox.NamedNode(XSD + 'dateTime')))} ;")
     out.append(f"    atlas:dataset <{run.graph}> ;")
+    for p, o in meta or []:  # e.g. where the shapes came from
+        out.append(f"    {p} {o} ;")
     note = run.note()
     if note:
         out.append(f"    rdfs:comment {nt(ox.Literal(note))} ;")

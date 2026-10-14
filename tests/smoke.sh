@@ -100,6 +100,40 @@ fid=$(echo "$bad" | json "d['items'][0]['id']")
 nres=$(curl -fsS "$BASE/api/feature?env=prod&id=$fid" | json "len(d['quality']['results'])")
 echo "feature $fid quality results: $nres"; [ "$nres" -gt 0 ] || fail "feature detail has no quality results"
 
+# Shapes pinned to a GitLab tag: the cache is pre-filled with the fixture, so no network is needed.
+echo "validating against a pinned shapes tag (cached)"
+cache="$here/fixtures/shapes-cache/era-europa-eu_public_interoperable-data-programme_era-ontology_era-ontology/v3.3.4"
+mkdir -p "$cache"
+gunzip -c "$here/fixtures/era-shacl.nt.gz" > "$cache/shapes.ttl"   # N-Triples is Turtle
+echo '{"tag": "v3.3.4", "file": "era-shacl/ERA-RINF-shapes.ttl"}' > "$cache/meta.json"
+"${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures:ro" \
+  -e ATLAS_QUALITY_SHAPES_TAG=prod=v3.3.4 -e ATLAS_SHAPES_CACHE=/fixtures/shapes-cache worker \
+  atlas validate --env prod --now
+rm -rf "$here/fixtures/shapes-cache"
+[ "$(dq "['shapes']['tag']")" = v3.3.4 ] || fail "dataset not validated with the pinned tag"
+[ "$(curl -fsS "$BASE/api/meta?env=prod" | json "d['quality']['shapes']['kind']")" = tag ] || fail "meta does not report the tag source"
+curl -fsS "$BASE/api/quality/report?env=prod&graph=$G&format=ttl" -o /tmp/atlas-report.ttl
+grep -q 'atlas:shapesTag "v3.3.4"' /tmp/atlas-report.ttl || fail "report does not name the shapes tag"
+rm -f /tmp/atlas-report.ttl
+curl -fsS -D /tmp/atlas-shapes.hdr "$BASE/api/quality/shapes?env=prod" -o /tmp/atlas-shapes.ttl
+grep -q "^# SHACL shapes used by RINF Atlas for data quality: era-ontology v3.3.4" /tmp/atlas-shapes.ttl \
+  || fail "shapes download does not name its source"
+grep -qi 'filename="era-shacl-shapes-prod-v3.3.4.ttl"' /tmp/atlas-shapes.hdr || fail "shapes download not named after the tag"
+rm -f /tmp/atlas-shapes.ttl /tmp/atlas-shapes.hdr
+
+# Above the size limit: "not validated: too large", never "no issues".
+echo "validating with a size limit below the sample"
+"${compose[@]}" run --rm --no-deps -T -e ATLAS_QUALITY_MAX_TRIPLES=1000 worker atlas validate --env prod --now
+echo "dataset quality: $(dq '')"
+[ "$(dq "['reason']")" = too_large ] || fail "dataset above the limit not marked too_large"
+dq "['note']" | grep -q "too large (9,843 triples > limit 1,000)" || fail "too-large note lacks the sizes"
+[ "$(dq "['violations']")" = None ] || fail "a too-large dataset still has counts"
+[ "$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"]}' | json "len(d['facets']['quality']['values'])")" = 0 ] \
+  || fail "features of a too-large dataset still have quality values"
+[ "$(curl -fsS "$BASE/api/meta?env=prod" | json "d['quality']['too_large']")" = 1 ] || fail "meta does not count the too-large dataset"
+"${compose[@]}" run --rm --no-deps -T worker atlas validate --env prod --now
+[ "$(dq "['status']")" = ok ] || fail "dataset not validated again under the default limit"
+
 curl -fsS "$BASE/" | grep -q "<title>RINF Atlas</title>" || fail "web UI not served"
 # MapLibre's module worker must be served as JavaScript or the map stays blank.
 worker=$(curl -fsS "$BASE/" | grep -o 'assets/index-[^"]*\.js' | head -1)

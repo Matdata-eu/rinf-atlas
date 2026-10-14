@@ -13,6 +13,8 @@
 # include_graphs / exclude_graphs: optional Python regexes on graph IRIs.
 #                The environment variable ATLAS_ONLY_GRAPHS (comma separated
 #                IRIs or IM codes) overrides include_graphs, handy for tests.
+# quality:       optional; overrides keys of the global `quality:` block below
+#                for this environment, e.g. {shapes_tag: v3.3.4, max_triples: 20000000}.
 #
 # Verified 2026-10-14: PROD ontology v3.3.4, UAT ontology v4.0.0.
 environments:
@@ -48,14 +50,31 @@ poll_interval_minutes: 30
 exclude_graphs: []
 
 # Data quality: after a provider graph is (re)loaded, the worker validates it
-# against the SHACL shapes ERA publishes in its repository (the shapes graph is
-# mirrored like the vocabularies) and stores the results in PostGIS. Only new
-# or changed graphs are validated, and all of them again when ERA changes the
-# shapes. See docs/datasets.md ("Data quality").
+# against ERA's SHACL shapes and stores the results in PostGIS. Only new or
+# changed graphs are validated, and all of them again when the shapes (or the
+# rules left out) change. See docs/datasets.md ("Data quality").
+# Every key can be overridden per environment (a `quality:` block inside the
+# environment). ATLAS_QUALITY_MAX_TRIPLES, ATLAS_QUALITY_MINUTES and
+# ATLAS_QUALITY_SHAPES_TAG override them from .env: one value for every
+# environment, or per environment as `prod=v3.3.4,uat=v4.0.0`.
 quality:
   enabled: true                       # ATLAS_QUALITY=0 turns validation off
+  # Shapes source. Default: the shapes graph ERA publishes in each repository,
+  # mirrored like the vocabularies (it follows ERA's updates).
   shapes_graph: http://data.europa.eu/949/graph/rinf/shacl
-  max_triples: 15000000               # larger graphs are not validated (ATLAS_QUALITY_MAX_TRIPLES)
+  # Or pin a tag of ERA's ontology repository on GitLab (`atlas shapes-tags` lists
+  # them): the first of shapes_files that exists at that tag is downloaded once,
+  # cached in the mirror volume (ATLAS_SHAPES_CACHE) and used instead. Changing the
+  # tag re-validates every graph from the mirror; no data is downloaded again.
+  shapes_tag: ""                      # e.g. v3.3.4 (ATLAS_QUALITY_SHAPES_TAG)
+  shapes_repo: era-europa-eu/public/interoperable-data-programme/era-ontology/era-ontology
+  shapes_files: [era-shacl/ERA-RINF-shapes.ttl, era-shapes.ttl]   # RINF only from v3.1.8; older tags: all domains
+  # Size limit: graphs with more triples are not validated; the Datasets dialog
+  # shows them as "Not validated: too large". 15M covers every PROD dataset of
+  # 2026-10 (the largest, 0080, has 11.9M triples). Time and memory grow with the
+  # size (0088, 676k triples: 3 minutes, 630 MB), so lower it on a small server.
+  # ATLAS_QUALITY_MAX_TRIPLES overrides it.
+  max_triples: 15000000
   time_budget_minutes: 60             # per graph; then the report is marked partial (ATLAS_QUALITY_MINUTES)
   max_results_per_constraint: 10000   # results stored per shape and constraint (all are counted)
   max_results_per_graph: 200000       # results stored per graph

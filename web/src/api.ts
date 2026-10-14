@@ -26,6 +26,24 @@ export interface FacetMeta {
   unit?: string | null;
 }
 
+/** The SHACL shapes a validation used: ERA's mirrored shapes graph, or a pinned GitLab tag. */
+export interface ShapesSource {
+  kind: 'graph' | 'tag';
+  graph: string;
+  /** e.g. "era-ontology v3.3.4 (era-shacl/ERA-RINF-shapes.ttl)" or "ERA's shapes graph (version 3.3.4)". */
+  label: string;
+  url?: string;
+  tag?: string;
+  repo?: string;
+  file?: string;
+  /** owl:versionInfo found in the shapes. */
+  version?: string;
+  modified?: string;
+}
+
+/** Why a dataset was not validated. */
+export type QualityReason = 'too_large' | 'no_shapes' | null;
+
 export interface QualityMeta {
   /** The worker validates datasets against ERA's SHACL shapes (and the `quality` facet exists). */
   enabled: boolean;
@@ -36,6 +54,13 @@ export interface QualityMeta {
   checked_at: string | null;
   shapes_graph: string | null;
   shapes_loaded_at: string | null;
+  /** The shapes the environment validates with now, and why they could not be loaded (if so). */
+  shapes?: ShapesSource | null;
+  shapes_error?: string | null;
+  /** Datasets above this many triples are not validated. */
+  max_triples?: number | null;
+  /** Datasets skipped because they are above max_triples. */
+  too_large?: number;
   /** A shacl-report instance to explore downloaded reports with (null = no link). */
   shacl_report_url: string | null;
 }
@@ -72,6 +97,8 @@ export interface FeatureQuality {
   status: 'ok' | 'partial' | 'skipped' | 'failed' | null;
   checked_at: string | null;
   note: string | null;
+  reason?: QualityReason;
+  shapes?: ShapesSource | null;
   results: QualityResult[];
   truncated: boolean;
   /** The dataset's report can be downloaded (Turtle) / opened in shacl-report's viewer. */
@@ -84,6 +111,10 @@ export interface DatasetQuality {
   violations: number | null; warnings: number | null; infos: number | null;
   focus_nodes: number | null; kept: number | null;
   checked_at: string | null; seconds: number | null; note: string | null;
+  /** Why it was skipped; for too_large, `limit` is the size limit it exceeded. */
+  reason?: QualityReason; limit?: number | null;
+  /** The shapes it was validated with. */
+  shapes?: ShapesSource | null;
   /** A Turtle sh:ValidationReport / shacl-report HTML viewer can be downloaded. */
   report: boolean; html: boolean;
 }

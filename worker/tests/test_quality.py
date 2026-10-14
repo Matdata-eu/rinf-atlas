@@ -170,7 +170,7 @@ def test_excluded_sparql_constraint(tmp_path):
 
 def test_run_fingerprint_follows_exclusions():
     from types import SimpleNamespace as NS
-    cfg = lambda ex: NS(quality=NS(exclude_shapes=ex))  # noqa: E731
+    cfg = lambda ex: NS(exclude_shapes=ex)  # noqa: E731
     assert quality.run_fingerprint(cfg([]), "abc") == "abc"
     assert quality.run_fingerprint(cfg(["x"]), None) is None
     a, b = quality.run_fingerprint(cfg(["x", "y"]), "abc"), quality.run_fingerprint(cfg(["y", "x"]), "abc")

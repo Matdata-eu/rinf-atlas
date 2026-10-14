@@ -38,6 +38,9 @@ ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_checked_at timestamptz;
 ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_shapes     text;        -- fingerprint of the shapes graph used
 ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_seconds    real;
 ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_note       text;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_source     jsonb;       -- the shapes used: kind, label, tag, version, url…
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_reason     text;        -- why skipped: too_large, no_shapes
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_limit      bigint;      -- the size limit a too_large graph exceeded
 
 -- One row per validation result (capped per constraint and per dataset; the
 -- counts in dataset / quality_count are complete).
@@ -87,6 +90,11 @@ CREATE TABLE IF NOT EXISTS quality_shapes (
     turtle_gz   bytea,
     loaded_at   timestamptz NOT NULL DEFAULT now()
 );
+-- Where the current shapes come from (graph or GitLab tag, version), the size limit in
+-- force, and why the configured shapes could not be loaded (e.g. an unknown tag).
+ALTER TABLE quality_shapes ADD COLUMN IF NOT EXISTS source      jsonb;
+ALTER TABLE quality_shapes ADD COLUMN IF NOT EXISTS max_triples bigint;
+ALTER TABLE quality_shapes ADD COLUMN IF NOT EXISTS error       text;
 
 -- Every indexed infrastructure element. facets holds {facet_key: [values]}.
 CREATE TABLE IF NOT EXISTS feature (
