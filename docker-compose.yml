@@ -1,0 +1,75 @@
+# RINF Atlas: `docker compose up -d --build` (build from source) or
+# `docker compose pull && docker compose up -d` (published images), then open
+# http://<host>:${ATLAS_PORT:-8080}
+# Copy .env.example to .env to change ports, passwords or the indexed environments.
+name: rinf-atlas
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas}
+    command: >
+      postgres -c shared_buffers=${PG_SHARED_BUFFERS:-1GB} -c work_mem=64MB
+               -c maintenance_work_mem=512MB -c max_connections=60 -c jit=off
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/10-atlas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Polls ERA (dataset explorer + GraphDB) for new/changed named graphs, mirrors
+  # them in an embedded Oxigraph store and indexes them into PostGIS.
+  worker:
+    image: ${ATLAS_IMAGE:-ghcr.io/matdata-eu/rinf-atlas}-worker:${ATLAS_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@db:5432/atlas
+      ATLAS_ENVS: ${ATLAS_ENVS:-}
+      ATLAS_ONLY_GRAPHS: ${ATLAS_ONLY_GRAPHS:-}
+      ATLAS_POLL_MINUTES: ${ATLAS_POLL_MINUTES:-30}
+    volumes:
+      - mirror:/data
+      - ./shapes:/app/shapes          # edit shapes on the host; the worker reindexes on change
+      - ./config:/app/config:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    image: ${ATLAS_IMAGE:-ghcr.io/matdata-eu/rinf-atlas}-api:${ATLAS_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@db:5432/atlas
+      ATLAS_ENVS: ${ATLAS_ENVS:-}
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ${ATLAS_IMAGE:-ghcr.io/matdata-eu/rinf-atlas}-web:${ATLAS_VERSION:-latest}
+    build:
+      context: ./web
+    restart: unless-stopped
+    ports:
+      - "${ATLAS_PORT:-8080}:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  mirror:

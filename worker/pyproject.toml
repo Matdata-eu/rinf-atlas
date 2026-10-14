@@ -1,0 +1,21 @@
+[project]
+name = "rinf-atlas-worker"
+version = "0.1.0"
+description = "RINF Atlas ingest worker: mirrors ERA RINF named graphs and indexes them into PostGIS"
+requires-python = ">=3.11"
+dependencies = [
+    "pyoxigraph==0.5.11",
+    "psycopg[binary]==3.2.10",
+    "httpx==0.28.1",
+    "PyYAML==6.0.2",
+]
+
+[project.scripts]
+atlas = "atlas.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["atlas"]

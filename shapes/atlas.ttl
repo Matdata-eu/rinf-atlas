@@ -1,0 +1,42 @@
+# RINF Atlas shape vocabulary.
+#
+# Facet shapes are plain SHACL node shapes plus a handful of atlas:
+# annotations. The worker reads every *.ttl file in this folder:
+#
+#   one sh:NodeShape per class shown on the map  (atlas:key required)
+#   sh:property shapes with atlas:facet          become facets
+#
+# Class-level annotations
+#   atlas:key           stable id used in URLs and the database ("operational-point")
+#   rdfs:label          name shown in the UI
+#   atlas:color         hex colour on the map
+#   atlas:order         sort order in the class list
+#   atlas:geometry      "point" | "line" | "any" (rendering hint only)
+#   atlas:shared true   facets of this shape apply to every class; it has no
+#                       sh:targetClass of its own and is not drawn
+#   atlas:enabled false skip the shape without deleting it
+#
+# Geometry, tried in this order until one gives a result:
+#   atlas:geometryPath  SHACL path to a GeoSPARQL WKT literal
+#   atlas:lineBetween   ( pathA pathB ) straight line between the geometries
+#                       of the indexed features reached by both paths
+#   atlas:geometryFrom  SHACL path to other indexed features whose geometry is
+#                       copied (several are merged into one multi-geometry)
+#
+# Label: atlas:labelPath (SHACL path, several allowed, first hit wins),
+# default rdfs:label.
+#
+# Property-level annotations (inside sh:property)
+#   sh:path             any SHACL path (sequence, inverse, alternative, *, +, ?)
+#   atlas:facet         facet key; reuse the same key in several shapes to share
+#                       one facet across classes
+#   rdfs:label / sh:name  facet label
+#   atlas:kind          "terms" (default) | "range" | "boolean" | "text"
+#                       text = only added to full-text search, no facet
+#   sh:datatype         optional; used for range formatting
+#   sh:order            facet order in the panel
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl:   <http://www.w3.org/2002/07/owl#>
+
+atlas: a owl:Ontology ; rdfs:label "RINF Atlas shape annotations" .
