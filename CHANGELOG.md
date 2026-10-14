@@ -16,3 +16,9 @@ All notable changes to this project are documented here: https://github.com/Matd
   [shacl-report](https://github.com/Matdata-eu/shacl-report), whose HTML
   viewer is also built per dataset. New `atlas validate` command, `quality:`
   settings and `/api/quality/*` endpoints.
+- Data quality leaves out two ERA SHACL warnings by default
+  (`LinesideDistanceIndicationRequiredForSoL`,
+  `MaxPermittedTrainLengthApplicability`), whose SPARQL took about 5 minutes
+  each on a mid-sized dataset; `quality.exclude_shapes: []` turns them back
+  on. `exclude_shapes` now also matches named `sh:sparql` constraints, a
+  dataset's note lists the rules left out, and changing the list re-validates.

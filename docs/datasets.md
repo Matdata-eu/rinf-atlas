@@ -111,7 +111,9 @@ A graph is validated again when its data or the shapes change. Settings
 live in the `quality:` block of `config/environments.yaml`: the shapes
 graph, the per-graph time budget (60 minutes; a run that hits it is shown as
 a partial check), result caps, the maximum graph size (15M triples) and
-shapes to leave out. `ATLAS_QUALITY=0` turns validation off;
+rules to leave out. By default two very slow ERA warnings on running tracks
+are left out (see [DESIGN.md](DESIGN.md#data-quality)); set
+`exclude_shapes: []` to check them too. `ATLAS_QUALITY=0` turns validation off;
 `ATLAS_QUALITY_MAX_TRIPLES` and `ATLAS_QUALITY_MINUTES` override the limits.
 
 ## Live queries

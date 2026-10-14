@@ -60,4 +60,12 @@ quality:
   max_results_per_constraint: 10000   # results stored per shape and constraint (all are counted)
   max_results_per_graph: 200000       # results stored per graph
   html_max_results: 20000             # build a shacl-report HTML viewer up to this many results (0 = never)
-  exclude_shapes: []                  # shape IRIs or regexes to skip
+  # Node shapes, property shapes or named sh:sparql constraints (IRIs or regexes) to
+  # leave out. The two below are ERA warnings ("RunningTrack must give
+  # linesideDistanceIndication / maxPermittedTrainLength when part of a section of
+  # line / freight corridor") whose SPARQL takes about 5 minutes each on a 676k-triple
+  # graph (0088) and far longer on the largest ones; they were 75% of 0088's run.
+  # Set `exclude_shapes: []` to check them too. A change re-validates every graph.
+  exclude_shapes:
+    - http://data.europa.eu/949/shapes/LinesideDistanceIndicationRequiredForSoL
+    - http://data.europa.eu/949/shapes/MaxPermittedTrainLengthApplicability

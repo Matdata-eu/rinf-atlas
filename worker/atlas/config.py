@@ -23,6 +23,12 @@ class Env:
     exclude_graphs: list[str] = field(default_factory=list)
 
 
+SLOW_SHAPES = (
+    "http://data.europa.eu/949/shapes/LinesideDistanceIndicationRequiredForSoL",
+    "http://data.europa.eu/949/shapes/MaxPermittedTrainLengthApplicability",
+)
+
+
 @dataclass
 class Quality:
     """Validation of provider graphs against ERA's SHACL shapes (config `quality:`)."""
@@ -33,7 +39,9 @@ class Quality:
     max_results_per_constraint: int = 10_000
     max_results_per_graph: int = 200_000
     html_max_results: int = 20_000
-    exclude_shapes: list[str] = field(default_factory=list)
+    # Left out unless configured otherwise: two ERA warnings whose SPARQL takes minutes per
+    # graph (see config/environments.yaml and docs/DESIGN.md#data-quality).
+    exclude_shapes: list[str] = field(default_factory=lambda: list(SLOW_SHAPES))
     shacl_report_bin: str = "shacl-report"
 
 
@@ -102,7 +110,7 @@ def settings() -> Settings:
         max_results_per_constraint=int(q.get("max_results_per_constraint", Quality.max_results_per_constraint)),
         max_results_per_graph=int(q.get("max_results_per_graph", Quality.max_results_per_graph)),
         html_max_results=int(q.get("html_max_results", Quality.html_max_results)),
-        exclude_shapes=list(q.get("exclude_shapes") or []),
+        exclude_shapes=list(SLOW_SHAPES if "exclude_shapes" not in q else q["exclude_shapes"] or []),
         shacl_report_bin=os.environ.get("ATLAS_SHACL_REPORT_BIN", "shacl-report"),
     )
     return Settings(

@@ -124,10 +124,27 @@ graph first. `atlas validate [--env E] [--graph G] [--force]` runs it by hand.
   `skipped`.
 
 Measured on this container (PROD shapes): the LU sample in 5 s, 0082 (115k
-triples) in 27 s / 190 MB, 0088 (676k triples) in 13 min / 630 MB, of which
-four RunningTrack SPARQL warnings took 290 s each. The largest graphs (0080:
-12M, 0087: 6.6M) will mostly end `partial` at the time budget; raise it (or
-exclude the slowest shapes with `quality.exclude_shapes`) for complete runs.
+triples) in 27 s / 190 MB, 0088 (676k triples) in 13 min / 630 MB with every
+rule. Two `sh:sparql` warnings on `era:RunningTrack` took 290 s each of those
+13 minutes: `LinesideDistanceIndicationRequiredForSoL` (tracks of a section of
+line must give `era:linesideDistanceIndication`) and
+`MaxPermittedTrainLengthApplicability` (tracks on freight corridors must give
+`era:maxPermittedTrainLength`). Both walk from every track to its section of
+line and on to other resources, which Oxigraph evaluates as a large join, so
+their cost grows faster than the graph.
+
+**Default: those two rules are left out** (`quality.exclude_shapes` in
+`config/environments.yaml`; the same list is the built-in default when the key
+is absent). With them out, 0088 validates in about 3 minutes (187 s, 630 MB) instead of 13; the 19 violations are unchanged. A dataset left
+with fewer checks says so in its note ("2 rule(s) left out by
+configuration: …"), as does the report's `rdfs:comment`. To check them, set
+`exclude_shapes: []` (or list only what should stay out); the exclusion list
+is part of the fingerprint a graph was validated with, so changing it
+re-validates every graph once. `exclude_shapes` matches node shapes, property
+shapes and named `sh:sparql` constraints by IRI or regex.
+
+The largest graphs (0080: 12M, 0087: 6.6M triples) may still end `partial`
+at the 60-minute budget; raise `time_budget_minutes` for complete runs.
 
 **Storage.** `violation` (one row per kept result: focus, severity, shape,
 component, path, value, message; indexed on `(env, focus)`),

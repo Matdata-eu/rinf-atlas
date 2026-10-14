@@ -188,11 +188,20 @@ def build_html(cfg: Settings, env: Env, turtle: bytes, shapes_ttl: bytes) -> byt
         return out.read_bytes() if out.exists() else None
 
 
+def run_fingerprint(cfg: Settings, shapes_fp: str | None) -> str | None:
+    """What a graph was validated with: the shapes, plus the rules left out by configuration
+    (so changing `quality.exclude_shapes` validates every graph again)."""
+    excl = sorted(cfg.quality.exclude_shapes)
+    if shapes_fp is None or not excl:
+        return shapes_fp
+    return hashlib.sha256((shapes_fp + "\n" + "\n".join(excl)).encode()).hexdigest()
+
+
 def validate_dataset(cfg: Settings, conn: psycopg.Connection, store: ox.Store, env: Env, graph: str,
                      fp: str | None = None) -> str:
     """Validate one provider graph and store the outcome. Returns the qa status."""
     q = cfg.quality
-    fp = fp or shapes_fingerprint(store, q.shapes_graph)
+    fp = fp or run_fingerprint(cfg, shapes_fingerprint(store, q.shapes_graph))
     if fp is None:
         _set_outcome(conn, env.key, graph, "skipped", None, "ERA's shapes graph is not mirrored yet")
         apply_flags(conn, env.key, graph)
@@ -250,6 +259,7 @@ def validate_pending(cfg: Settings, conn: psycopg.Connection, store: ox.Store, e
         log.info("%s: ERA shapes graph %s not mirrored, data quality skipped", env.key, cfg.quality.shapes_graph)
         return 0
     publish_shapes(conn, store, env.key, cfg.quality.shapes_graph, fp)
+    fp = run_fingerprint(cfg, fp)
     with conn.cursor() as cur:
         cur.execute("""SELECT graph_iri FROM dataset WHERE env=%s AND kind='provider' AND status='loaded'
                          AND (%s OR qa_shapes IS DISTINCT FROM %s) ORDER BY triples NULLS LAST, graph_iri""",
