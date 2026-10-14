@@ -22,6 +22,23 @@ const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 
 let map: maplibregl.Map;
 let loaded = false;
+const loadWaiters: ((m: maplibregl.Map) => void)[] = [];
+
+/** Runs fn with the map once its style has loaded (overlays such as the compatibility layer). */
+export function onMapReady(fn: (m: maplibregl.Map) => void) {
+  if (loaded) fn(map); else loadWaiters.push(fn);
+}
+
+/** Extra clickable line layers (overlays); picked like the data lines. */
+const overlayLayers: string[] = [];
+export function addPickableLayer(id: string) { if (!overlayLayers.includes(id)) overlayLayers.push(id); }
+
+/** Optional extra line in the hover tooltip for a feature (e.g. its compatibility status). */
+let tipNote: ((f: MapGeoJSONFeature) => string | null) | null = null;
+export function setTipNote(fn: typeof tipNote) { tipNote = fn; }
+
+/** Layer id the overlays are inserted below (the selection highlight stays on top). */
+export const OVERLAY_BEFORE = 'sel-fill';
 
 const geomIs = (...types: string[]): ExpressionSpecification => ['in', ['geometry-type'], ['literal', types]];
 
@@ -138,7 +155,10 @@ export function initMap(container: HTMLElement) {
     compact: true,
     customAttribution: ok ? `<a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a>` : undefined,
   })));
-  map.on('load', () => { loaded = true; onMoveEnd(); refreshData(); });
+  map.on('load', () => {
+    loaded = true; onMoveEnd(); refreshData();
+    for (const fn of loadWaiters.splice(0)) fn(map);
+  });
 
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'meta')) for (const id of DATA_LAYERS) {
@@ -185,10 +205,11 @@ function wireInteraction(container: HTMLElement) {
   const pickFeature = (pt: maplibregl.PointLike): MapGeoJSONFeature | undefined => {
     const [x, y] = Array.isArray(pt) ? pt : [(pt as maplibregl.Point).x, (pt as maplibregl.Point).y];
     const pad = 5;
-    const fs = map.queryRenderedFeatures([[x - pad, y - pad], [x + pad, y + pad]], { layers: DATA_LAYERS });
+    const layers = [...DATA_LAYERS, ...overlayLayers.filter((id) => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none')];
+    const fs = map.queryRenderedFeatures([[x - pad, y - pad], [x + pad, y + pad]], { layers });
     // Prefer points over lines over polygons (points are drawn on top), then the class
-    // drawn on top (earlier in the class list).
-    const rank = (f: MapGeoJSONFeature) => DATA_LAYERS.length - DATA_LAYERS.indexOf(f.layer.id);
+    // drawn on top (earlier in the class list). Overlay lines rank like data lines.
+    const rank = (f: MapGeoJSONFeature) => DATA_LAYERS.length - DATA_LAYERS.indexOf(overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id);
     return fs.sort((a, b) => rank(a) - rank(b) || classRank(a.properties.class) - classRank(b.properties.class))[0];
   };
 
@@ -206,6 +227,13 @@ function wireInteraction(container: HTMLElement) {
     const small = document.createElement('small');
     small.textContent = f.properties.label ? meta?.label ?? String(f.properties.class ?? '') : 'Click for details';
     tip.append(strong, document.createElement('br'), sw, small);
+    const note = tipNote?.(f);
+    if (note) {
+      const n = document.createElement('small');
+      n.className = 'tip-note';
+      n.textContent = note;
+      tip.append(document.createElement('br'), n);
+    }
     tip.hidden = false;
     // Keep the tooltip inside the map: flip to the left/top near the edges.
     const x = e.point.x + 14 + tip.offsetWidth > container.clientWidth ? e.point.x - 14 - tip.offsetWidth : e.point.x + 14;

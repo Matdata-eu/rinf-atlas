@@ -2,6 +2,7 @@
 import type { FilterValue, Meta, QueryState } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
+export type SideTab = 'filters' | 'results' | 'vehicle';
 
 export interface MapView { lng: number; lat: number; zoom: number }
 
@@ -18,7 +19,7 @@ export interface AppState {
   selected: string | null; // feature IRI
   detailTab: DetailTab;
   orm: boolean;
-  sideTab: 'filters' | 'results';
+  sideTab: SideTab;
   meta: Meta | null; // per-env metadata (not in the URL)
 }
 

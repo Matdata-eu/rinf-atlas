@@ -83,6 +83,41 @@ export interface Dataset {
   error: string | null; dataset_id: string | null; file_name: string | null; features: number;
 }
 
+// ---------- vehicle compatibility (shapes/compatibility.ttl) ----------
+export type CompatKind = 'terms' | 'number' | 'boolean';
+export interface CompatRule {
+  key: string;
+  label: string;
+  comment: string | null;
+  /** ERA ontology path from era:VehicleType to the characteristic (predicate IRIs). */
+  path: string[];
+  /** SHACL constraint component applied to the infrastructure values: hasValue, in, minInclusive... */
+  constraint: string;
+  kind: CompatKind;
+  datatype: string | null;
+  unit: string | null;
+  facets: string[];
+  applies_to: 'track' | 'section';
+  values?: TermCount[];
+  range?: { min: number | null; max: number | null; count: number };
+}
+export interface CompatRules { track_classes: string[]; section_class: string; rules: CompatRule[] }
+/** characteristic key -> IRIs / booleans (terms, boolean) or a number. */
+export type VehicleValues = Record<string, (string | boolean)[] | number>;
+export type CompatColour = 'green' | 'yellow' | 'red';
+export interface CompatResponse {
+  env: string; checked: string[]; ignored: string[];
+  counts: Record<CompatColour, number>;
+  green: (number | string)[]; yellow: (number | string)[]; red: (number | string)[];
+}
+export type CompatResult = 'ok' | 'unknown' | 'fail';
+export interface CompatCheck { key: string; result: CompatResult; values: { value: TermValue; label: string }[] }
+export interface CompatExplain {
+  iri: string; id: number | string; status: CompatColour; checked: string[]; ignored: string[];
+  section: CompatCheck[];
+  tracks: { id: number | string; iri: string; label: string | null; class: string; status: CompatColour; results: CompatCheck[] }[];
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -118,6 +153,12 @@ export const api = {
   describe: (env: string, iri: string, direction: 'out' | 'in', signal?: AbortSignal) =>
     request<DescribeResponse>(`/describe?${qs({ env, iri, direction })}`, { signal }),
   datasets: (env: string) => request<Dataset[]>(`/datasets?${qs({ env })}`),
+  compatRules: (env: string, signal?: AbortSignal) => request<CompatRules>(`/compatibility/rules?${qs({ env })}`, { signal }),
+  /** Status of every section of line for a vehicle profile (ids per colour). */
+  compat: (env: string, profile: VehicleValues, signal?: AbortSignal) =>
+    post<CompatResponse>('/compatibility', { env, profile }, signal),
+  compatExplain: (env: string, profile: VehicleValues, iri: string, signal?: AbortSignal) =>
+    post<CompatExplain>('/compatibility/explain', { env, profile, iri }, signal),
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
   exportUrl: (st: QueryState, format: 'csv' | 'xlsx') => {
     const { facets: _facets, ...rest } = st;

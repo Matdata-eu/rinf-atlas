@@ -73,6 +73,53 @@ the full query state, which Martin's table sources can't express), `web`
   `sync`/`reindex`/`generate-shapes` from another process are queued in the
   `job` table and run by the loop.
 
+## Vehicle compatibility
+A lightweight check of where a vehicle type can run, from a profile the user
+fills in by hand (the "Vehicle" tab). Only PostGIS is read.
+
+- Rules are declarative, in `shapes/compatibility.ttl`: one `sh:NodeShape`
+  targeting `era:VehicleType` with `atlas:compatibility true`. Each
+  `sh:property` is one vehicle characteristic: `sh:path` is its property in
+  the ERA ontology (a sequence path for characteristics on
+  `era:VehicleTypeConfigParameterSet`, e.g. the pantograph head),
+  `atlas:compareTo` the indexed infrastructure facet(s), and
+  `atlas:constraint` the SHACL constraint component the vehicle's value is
+  plugged into and applied to the infrastructure values (`sh:hasValue`,
+  `sh:in`, `sh:minInclusive`, `sh:maxInclusive`, `sh:minExclusive`,
+  `sh:maxExclusive`). In effect a profile becomes a SHACL shape on the tracks:
+  a 1435 mm vehicle is `sh:hasValue <.../nominal-track-gauges/30>` on
+  `era:wheelSetGauge`, a 200 m train is `sh:minInclusive 200` on
+  `era:maxPermittedTrainLength`.
+- The worker validates the rules against the facet shapes (`atlas
+  check-shapes` lists them) and publishes them as JSON in `compat_def`; rule
+  changes need no reindex. The API compiles a profile to SQL over
+  `feature.facets` (`?|`, `<@`, jsonpath comparisons), not pyshacl over the
+  graph, so a Europe-wide check is one query (cached per profile and data
+  version).
+- Per track and characteristic: compatible, not compatible, or unknown when
+  the track has no value for the facet. A track is red if any characteristic
+  fails, else yellow if any is unknown, else green. A section of line takes
+  the best of its running tracks (`running-track` and `track`, found through
+  the `era:isPartOf` / `era:hasPart` links that also give them geometry; the
+  worker now keeps those links even for tracks with their own geometry):
+  green if one track is fully compatible, yellow if no track fails but some
+  characteristics are unknown (or no track is indexed), red if every track
+  fails. Rules with `atlas:appliesTo "section"` check the section itself and
+  can only make it worse. Empty characteristics are not checked.
+- Not every vehicle parameter is a compatibility constraint: maximum speed
+  only limits the speed, so it has no rule. Ordered scales (gauging profiles,
+  EN 15528 line categories, ETCS baselines) are compared by set membership:
+  the user picks every value the vehicle is compatible with.
+- The map draws a separate vector source (sections of line only, independent
+  of the current filters) and colours it with MapLibre feature-state from the
+  `{green|yellow|red: [feature id]}` response, so recolouring never refetches
+  tiles; clicking a section shows the per-track explanation. Kept apart from
+  generic thematic colouring on purpose, so the two can be merged later.
+- Profiles live in `localStorage` (with four illustrative examples) and are
+  exported / imported as JSON or as Turtle with `era:VehicleType` instances.
+  When ERATV (the register of authorised vehicle types) is published as linked
+  data, profiles could be imported from it instead of typed by hand.
+
 ## Open points
 - KilometricPost geometry via LRS (`era:hasLRS` + `era:measuredDistance`).
 - UAT v4.0.0 adds TAF/TAP message classes as InfrastructureElement

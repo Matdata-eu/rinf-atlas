@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS feature_link (
 );
 CREATE INDEX IF NOT EXISTS feature_link_idx   ON feature_link (env, iri, class);
 CREATE INDEX IF NOT EXISTS feature_link_g_idx ON feature_link (env, graph_iri);
+CREATE INDEX IF NOT EXISTS feature_link_target_idx ON feature_link (env, target);
 
 -- Labels for IRI-valued facet values (SKOS concepts, organisations, countries...).
 CREATE TABLE IF NOT EXISTS term (
@@ -95,6 +96,13 @@ CREATE TABLE IF NOT EXISTS class_def (
     position   int  NOT NULL DEFAULT 100
 );
 ALTER TABLE class_def ADD COLUMN IF NOT EXISTS min_zoom int NOT NULL DEFAULT 0;
+
+-- Vehicle compatibility rules compiled from shapes/compatibility.ttl (one row,
+-- JSON of atlas.shapes.CompatSet), written by the worker with facet_def.
+CREATE TABLE IF NOT EXISTS compat_def (
+    id   int   PRIMARY KEY DEFAULT 1,
+    def  jsonb NOT NULL
+);
 
 -- Hash of the compiled shapes the features were last indexed with, per env.
 CREATE TABLE IF NOT EXISTS index_state (

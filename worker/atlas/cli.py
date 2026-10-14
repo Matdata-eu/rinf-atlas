@@ -143,6 +143,11 @@ def cmd_check_shapes(a) -> None:
         if a.verbose:
             for f in c.facets:
                 print(f"    {f.key:32} {f.kind:8} {f.path}")
+    if shapes.compat:
+        cp = shapes.compat
+        print(f"compatibility: {len(cp.rules)} rules on {', '.join(cp.track_classes)} / {cp.section_class}")
+        for r in cp.rules:
+            print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}")
 
 
 def cmd_run(a) -> None:

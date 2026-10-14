@@ -1,9 +1,11 @@
 """Discover new/changed datasets per environment and keep mirror + index current."""
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
+from dataclasses import asdict
 
 import psycopg
 
@@ -18,7 +20,7 @@ IM_ROLE = "http://data.europa.eu/949/body/organisation/organisationRole/{code}_I
 
 
 def publish_defs(conn: psycopg.Connection, shapes: ShapeSet) -> None:
-    """Write compiled shapes to class_def / facet_def for the API."""
+    """Write compiled shapes to class_def / facet_def (and the compatibility rules to compat_def) for the API."""
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_def")
         cur.execute("DELETE FROM class_def")
@@ -34,6 +36,9 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet) -> None:
             cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit)
                            VALUES (%s,'*',%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
                         (f.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit))
+        cur.execute("DELETE FROM compat_def")
+        if shapes.compat:
+            cur.execute("INSERT INTO compat_def (id, def) VALUES (1, %s)", (json.dumps(asdict(shapes.compat)),))
     conn.commit()
 
 

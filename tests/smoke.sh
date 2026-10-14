@@ -54,6 +54,22 @@ python3 -c "import zipfile,sys; z=zipfile.ZipFile('/tmp/atlas-export.xlsx'); n=s
   || fail "XLSX export is not a workbook with one sheet per class"
 rm -f /tmp/atlas-export.xlsx
 
+# Vehicle compatibility: standard gauge fits every section of the sample, Iberian gauge none.
+nrules=$(curl -fsS "$BASE/api/compatibility/rules?env=prod" | json "len(d['rules'])")
+echo "compatibility rules: $nrules"; [ "$nrules" -ge 5 ] || fail "compatibility rules missing"
+sols=$(curl -fsS "$BASE/api/meta?env=prod" | json "next(c['count'] for c in d['classes'] if c['class']=='section-of-line')")
+gauge="http://data.europa.eu/949/concepts/nominal-track-gauges"
+green=$(post compatibility "{\"env\":\"prod\",\"profile\":{\"wheelSetGauge\":[\"$gauge/30\"]}}" | json "d['counts']['green']")
+red=$(post compatibility "{\"env\":\"prod\",\"profile\":{\"wheelSetGauge\":[\"$gauge/70\"]}}" | json "d['counts']['red']")
+echo "sections of line: $sols, 1435 mm green: $green, 1668 mm red: $red"
+[ "$green" -ge 1 ] || fail "no section compatible with standard gauge"
+[ "$red" -eq "$sols" ] || fail "Iberian gauge should be incompatible with every section ($red of $sols)"
+first=$(post compatibility "{\"env\":\"prod\",\"profile\":{\"wheelSetGauge\":[\"$gauge/30\"]}}" | json "d['green'][0]")
+why=$(curl -fsS "$BASE/api/feature?env=prod&id=$first" | json "d['iri']")
+tracks=$(post compatibility/explain "{\"env\":\"prod\",\"iri\":\"$why\",\"profile\":{\"wheelSetGauge\":[\"$gauge/30\"],\"trainLength\":5000}}" \
+  | json "str(d['status']) + ' ' + str(len(d['tracks']))")
+echo "explain $why: $tracks"; [ "${tracks%% *}" != "green" ] || fail "a 5 km train should not fit ($tracks)"
+
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"
 

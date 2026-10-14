@@ -35,6 +35,22 @@
 #                       text = only added to full-text search, no facet
 #   sh:datatype         optional; used for range formatting
 #   sh:order            facet order in the panel
+#
+# Vehicle compatibility rules (shapes/compatibility.ttl): a sh:NodeShape with
+#   atlas:compatibility true   marks the rule shape (at most one; no atlas:key)
+#   atlas:trackClass    class key(s) whose features are the tracks of a section
+#   atlas:sectionClass  class key of the sections of line (default "section-of-line")
+# and per sh:property (one vehicle characteristic):
+#   sh:path             the characteristic's ERA property from era:VehicleType
+#                       (an IRI or a sequence of IRIs; used for Turtle export)
+#   atlas:characteristic  key in vehicle profiles and the API
+#   atlas:compareTo     infrastructure facet key(s) compared with (repeatable)
+#   atlas:constraint    sh:hasValue | sh:in | sh:minInclusive | sh:maxInclusive |
+#                       sh:minExclusive | sh:maxExclusive, applied to the
+#                       infrastructure values with the vehicle value(s)
+#   atlas:appliesTo     "track" (default) | "section"
+#   atlas:unit          unit of the number the user enters
+#   rdfs:label, rdfs:comment, sh:datatype, sh:order, atlas:enabled false
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl:   <http://www.w3.org/2002/07/owl#>

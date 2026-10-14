@@ -1,13 +1,14 @@
 import './style.css';
 import { api, type Env } from './api';
 import { openAbout } from './about';
+import { initCompat } from './compat';
 import { initDatasets, openDatasets } from './datasets';
 import { initDetail } from './detail';
 import { initFacets } from './facets';
 import { fitBbox, initMap, TILE_MODE } from './map';
 import { initResults } from './results';
 import { setTheme, themePref, type ThemePref } from './theme';
-import { changed, debounce, h, queryState, readHash, store, writeHash } from './state';
+import { changed, debounce, h, queryState, readHash, store, writeHash, type SideTab } from './state';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const envSelect = $<HTMLSelectElement>('env-select');
@@ -84,9 +85,10 @@ function initSide() {
     tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
     $('pane-filters').hidden = t !== 'filters';
     $('pane-results').hidden = t !== 'results';
+    $('pane-vehicle').hidden = t !== 'vehicle';
   };
   tabs.forEach((b) => b.addEventListener('click', () => {
-    store.set({ sideTab: b.dataset.tab as 'filters' | 'results' });
+    store.set({ sideTab: b.dataset.tab as SideTab });
     side.classList.add('expanded');
   }));
   $('sheet-toggle').addEventListener('click', () => side.classList.toggle('expanded'));
@@ -125,6 +127,7 @@ async function main() {
   initFacets();
   initResults();
   initDetail();
+  initCompat();
   initDatasets();
   initSide();
   initMapTools();

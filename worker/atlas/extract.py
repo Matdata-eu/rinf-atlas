@@ -211,9 +211,11 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                 for s, term in ex.pairs(cls, path):
                     if s not in geoms and isinstance(term, ox.NamedNode):
                         links.append((env, graph, s, cls.key, rule, term.value))
+        # Kept even when the feature has a geometry of its own: they also say what a
+        # feature is part of (the vehicle compatibility check finds a section's tracks).
         for path in cls.geometry_from:
             for s, term in ex.pairs(cls, path):
-                if s not in geoms and isinstance(term, ox.NamedNode):
+                if isinstance(term, ox.NamedNode):
                     links.append((env, graph, s, cls.key, "from", term.value))
 
         for s in subs:
