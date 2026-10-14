@@ -227,8 +227,9 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 
 /* ---------- results ---------- */
+.result-row { display: flex; align-items: flex-start; gap: 2px; }
 .result {
-  width: 100%; display: flex; align-items: flex-start; gap: 10px; text-align: left;
+  flex: 1; min-width: 0; width: 100%; display: flex; align-items: flex-start; gap: 10px; text-align: left;
   border: 0; background: none; padding: 8px 6px; border-radius: 6px; cursor: pointer;
 }
 .result .swatch { margin-top: 4px; }
@@ -236,6 +237,11 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .result.selected { background: var(--accent-soft); }
 .result-text { display: flex; flex-direction: column; min-width: 0; }
 .result-text small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zoom-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; font-size: 16px; }
+.zoom-btn svg { display: block; }
+.zoom-btn:disabled { opacity: 0.35; cursor: default; background: none; }
+.result-row .zoom-btn { margin-top: 3px; opacity: 0.55; }
+.result-row:hover .zoom-btn, .result-row .zoom-btn:focus-visible { opacity: 1; }
 .results .empty { padding: 16px 4px; }
 .export-bar { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 2px 0 8px; }
 .export-bar .muted { margin-right: auto; }

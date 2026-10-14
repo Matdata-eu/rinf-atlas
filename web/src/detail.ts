@@ -1,7 +1,7 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
 import { api, ApiError, isAbort, type DescribeResponse, type Feature, type RdfTerm, type Triple } from './api';
 import type { GraphHandle } from './graph';
-import { fitGeometry, setSelectionGeometry } from './map';
+import { fitGeometry, flyTo, setSelectionGeometry } from './map';
 import { literalText, prefixed, shortIri } from './rdf';
 import { changed, fmt, h, store, unitLabel, type DetailTab } from './state';
 
@@ -13,6 +13,22 @@ let stack: string[] = []; // describe navigation (stack[0] = selected feature)
 let direction: 'out' | 'in' = 'out';
 let graph: GraphHandle | null = null;
 let ctl: AbortController | null = null;
+/** Pending "zoom to" request: fit the map once this feature's geometry has loaded. */
+let zoomWanted: { iri: string; fallback?: [number, number] } | null = null;
+
+export const ZOOM_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="4.75" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14M7 4.8v4.4M4.8 7h4.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+/** Selects a feature and fits the map to its geometry; `fallback` (lon, lat) is used when it has none. */
+export function zoomToFeature(iri: string, fallback?: [number, number]) {
+  if (store.get().selected === iri && feature && stack[0] === iri) { zoomNow(feature.geometry, fallback); return; }
+  zoomWanted = { iri, fallback };
+  store.set({ selected: iri }); // open() fits the map once the feature has loaded
+}
+
+function zoomNow(g: GeoJSON.Geometry | null, fallback?: [number, number]) {
+  if (g) fitGeometry(g);
+  else if (fallback) flyTo(...fallback);
+}
 
 const describeCache = new Map<string, Promise<DescribeResponse>>();
 export function describe(iri: string, dir: 'out' | 'in' = 'out'): Promise<DescribeResponse> {
@@ -54,9 +70,14 @@ async function open(iri: string) {
     setSelectionGeometry(feature.geometry);
   } catch (e) {
     if (isAbort(e)) return;
+    if (zoomWanted?.iri === iri && zoomWanted.fallback) flyTo(...zoomWanted.fallback);
     featureErr = e instanceof ApiError && e.status === 404 ? 'Not in the index (it may still be described live).' : (e as Error).message;
   }
   render();
+  if (zoomWanted?.iri === iri) {
+    if (feature) zoomNow(feature.geometry, zoomWanted.fallback); // after render, so the map has its final size
+    zoomWanted = null;
+  }
 }
 
 function classInfo(c: string) {
@@ -84,6 +105,7 @@ function render() {
         kicker(),
         h('h2', {}, title),
         h('a', { class: 'iri', href: s.selected, target: '_blank', rel: 'noopener', title: 'Open IRI' }, s.selected)),
+      zoomButton(),
       h('button', { class: 'icon-btn', 'aria-label': 'Close details', onclick: close }, '×')),
     h('div', { class: 'tabs detail-tabs', role: 'tablist' }, ...tabs.map(([k, label]) =>
       h('button', { class: 'tab', role: 'tab', 'aria-selected': String(s.detailTab === k), 'data-dtab': k,
@@ -94,6 +116,14 @@ function render() {
   if (s.detailTab === 'properties') renderProperties(body);
   else if (s.detailTab === 'describe') renderDescribe(body);
   else renderGraph(body);
+}
+
+function zoomButton(): HTMLElement {
+  const g = feature?.geometry;
+  const title = g ? 'Zoom to this feature' : feature ? 'This feature has no geometry' : featureErr ? 'Not in the index' : 'Loading…';
+  const b = h('button', { class: 'icon-btn zoom-btn', title, 'aria-label': title, disabled: !g, onclick: () => g && fitGeometry(g) });
+  b.innerHTML = ZOOM_ICON;
+  return b;
 }
 
 function renderProperties(body: HTMLElement) {
