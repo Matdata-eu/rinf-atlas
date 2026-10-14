@@ -652,6 +652,11 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/export') {
       // CSV only (the mock has no XLSX writer); good enough to exercise the download.
       const st = JSON.parse(Buffer.from(url.searchParams.get('state') || '', 'base64url').toString() || '{}');
+      if (url.searchParams.get('format') === 'ttl') {
+        const body = features.filter((f) => matches(f, st)).map((f) => `<${f.iri}> <http://www.w3.org/2000/01/rdf-schema#label> ${JSON.stringify(f.label)} .`);
+        res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock.ttl"' });
+        return res.end(body.join('\n') + '\n');
+      }
       const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const rows = features.filter((f) => matches(f, st)).map((f) => [f.iri, f.label, f.class, ...repPoint(f.geometry)].map(q).join(','));
       res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock.csv"' });

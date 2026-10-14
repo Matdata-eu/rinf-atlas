@@ -27,6 +27,7 @@ from starlette.background import BackgroundTask
 
 from . import export as xp
 from . import profile as pf
+from . import turtle as ttl
 from .query import QueryState, SearchRequest, Where, split_key
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://atlas:atlas@db:5432/atlas")
@@ -34,6 +35,8 @@ CONFIG = Path(os.environ.get("ATLAS_CONFIG", "/app/config/environments.yaml"))
 TERMS_LIMIT = int(os.environ.get("ATLAS_TERMS_LIMIT", "200"))
 LOW_DETAIL_ZOOM = int(os.environ.get("ATLAS_LOW_DETAIL_ZOOM", "8"))
 TILE_CACHE_SECONDS = int(os.environ.get("ATLAS_TILE_CACHE_SECONDS", "300"))
+# Turtle export queries ERA live (batches of 100 IRIs), so it is capped.
+TTL_EXPORT_MAX = int(os.environ.get("ATLAS_TTL_EXPORT_MAX", "20000"))
 
 pool: ConnectionPool | None = None
 _envs: dict[str, dict] = {}
@@ -139,6 +142,7 @@ def meta(env: str):
         "facets": [{"key": f["key"], "class": f["class"], "label": f["label"], "kind": f["kind"],
                     "datatype": f["datatype"], "unit": f["unit"], "position": f["position"]}
                    for f in d["facets"] if f["kind"] not in HIDDEN_KINDS],
+        "limits": {"ttl_export": TTL_EXPORT_MAX},
         "datasets": {"total": ds["total"], "loaded": ds["loaded"], "failed": ds["failed"], "pending": ds["pending"],
                      "last_ingest": ds["last_ingest"].isoformat() if ds["last_ingest"] else None,
                      "last_check": ds["last_check"].isoformat() if ds["last_check"] else None},
@@ -365,14 +369,17 @@ def tiles(z: int, x: int, y: int, state: str):
 
 
 @app.get("/api/export")
-def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx)$"),
+def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
            values: str = Query("label", pattern="^(label|iri)$")):
     """Every feature matching the query state (classes, facets, datasets, search, bbox)
-    as CSV (one table, streamed) or XLSX (one sheet per class)."""
+    as CSV (one table, streamed), XLSX (one sheet per class) or Turtle (the outgoing
+    triples of each entity, live from ERA, streamed)."""
     st = _decode_state(state)
-    _env(st.env)
+    e = _env(st.env)
     d = _defs()
     sql, p = Where(st, d["owners"]).build()
+    if format == "ttl":
+        return _export_ttl(st, e, sql, p)
     present = {r["class"] for r in _q(f"SELECT DISTINCT f.class FROM feature f WHERE {sql}", p)}
     order = [c["class"] for c in d["classes"]]
     classes = sorted(present, key=lambda c: (order.index(c) if c in order else len(order), c))
@@ -398,6 +405,27 @@ def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx)$"),
     path = xp.write_xlsx(batches, lambda c: xp.columns_for([c], d["facets"]), vals, class_labels, info)
     return FileResponse(path, filename=f"{name}.xlsx", background=BackgroundTask(os.unlink, path),
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+def _export_ttl(st: QueryState, e: dict, sql: str, p: list) -> StreamingResponse:
+    iris = [r["iri"] for r in _q(f"SELECT DISTINCT f.iri FROM feature f WHERE {sql} ORDER BY f.iri LIMIT %s",
+                                 p + [TTL_EXPORT_MAX + 1])]
+    if len(iris) > TTL_EXPORT_MAX:
+        raise HTTPException(413, f"Turtle export is limited to {TTL_EXPORT_MAX} entities (it queries ERA live); "
+                                 "narrow the selection")
+    stamp = datetime.now(UTC)
+
+    def fetch(query: str) -> list[dict]:
+        r = httpx.post(e["sparql"], data={"query": query}, timeout=120,
+                       headers={"Accept": "application/sparql-results+json", "User-Agent": "rinf-atlas/0.1"})
+        r.raise_for_status()
+        return r.json()["results"]["bindings"]
+
+    head = ttl.header([f"RINF Atlas export: outgoing triples of {len(iris)} entities",
+                       f"Source: {e['sparql']} ({st.env}), {stamp:%Y-%m-%d %H:%M} UTC"])
+    name = f"rinf-atlas-{st.env}-{stamp:%Y%m%d-%H%M}.ttl"
+    return StreamingResponse(ttl.stream(iris, fetch, head), media_type="text/turtle; charset=utf-8",
+                             headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.get("/api/feature")

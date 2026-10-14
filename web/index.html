@@ -50,7 +50,9 @@
               <span class="muted">Export results</span>
               <button id="export-csv" class="btn btn-small" type="button" title="Download every matching feature as one CSV table (UTF-8)">CSV</button>
               <button id="export-xlsx" class="btn btn-small" type="button" title="Download every matching feature as an Excel workbook, one sheet per class">Excel</button>
+              <button id="export-ttl" class="btn btn-small" type="button" title="Download the outgoing triples of every matching entity as Turtle, fetched live from ERA">Turtle</button>
             </div>
+            <p id="export-msg" class="export-msg" hidden></p>
             <ol id="results" class="results"></ol>
             <button id="results-more" class="btn btn-block" hidden>Load more</button>
           </section>
