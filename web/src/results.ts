@@ -67,9 +67,17 @@ function render(reset: boolean) {
 }
 
 /** Starts a browser download of the current results; the browser streams it to disk. */
-function download(format: 'csv' | 'xlsx') {
+function download(format: 'csv' | 'xlsx' | 'ttl') {
   const s = store.get();
   if (!s.env) return;
+  const msg = document.getElementById('export-msg') as HTMLParagraphElement;
+  const max = s.meta?.limits?.ttl_export;
+  msg.hidden = true;
+  if (format === 'ttl' && max != null && total > max) {
+    msg.textContent = `Turtle export fetches every entity live from ERA and is limited to ${fmt.format(max)} entities; narrow the selection (${fmt.format(total)} now).`;
+    msg.hidden = false;
+    return;
+  }
   const a = h('a', { href: api.exportUrl(queryState(s), format), download: '' });
   document.body.append(a);
   a.click();
@@ -81,8 +89,12 @@ export function initResults() {
   document.getElementById('export-csv')!.addEventListener('click', () => download('csv'));
   document.getElementById('export-xlsx')!.addEventListener('click', () => download('xlsx'));
   document.getElementById('export-gis')!.addEventListener('click', openGis);
+  document.getElementById('export-ttl')!.addEventListener('click', () => download('ttl'));
   store.subscribe((s, prev) => {
-    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) reload();
+    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) {
+      reload();
+      (document.getElementById('export-msg') as HTMLParagraphElement).hidden = true;
+    }
     else if (changed(s, prev, 'selected')) {
       for (const b of list.querySelectorAll<HTMLButtonElement>('.result')) b.classList.toggle('selected', b.dataset.iri === s.selected);
     }
