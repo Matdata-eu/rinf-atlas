@@ -135,6 +135,11 @@ dataset explorer API, vocabulary graphs) and the provider-graph pattern.
 `.env` sets the port, database password, `ATLAS_ENVS` (subset of
 environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs).
 
+To publish a privacy statement for your instance, put a page at
+`site/privacy.html` (start from `site/privacy.example.html`); the app then
+links it as **Privacy**. [docs/privacy.md](docs/privacy.md) explains how and
+lists what the app processes, as a basis for what to disclose.
+
 ## Layout
 
 | Path | |
@@ -143,11 +148,13 @@ environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs).
 | `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, live describe |
 | `web/` | TypeScript + MapLibre + vis-network frontend (built into the nginx image) |
 | `shapes/` | facet shapes (edit these) |
+| `site/` | optional pages for your instance, such as `privacy.html` |
 | `db/init.sql` | PostGIS schema |
 | `docs/api.md` | HTTP API contract |
 | `docs/datasets.md` | how datasets are updated |
 | `docs/architecture.md` | architecture overview |
 | `docs/DESIGN.md` | design notes |
+| `docs/privacy.md` | adding a privacy statement; what the app processes |
 
 ## Feedback
 

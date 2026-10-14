@@ -9,3 +9,4 @@ web/dist/
 .ruff_cache/
 .pytest_cache/
 tests/fixtures/*.nt
+site/privacy.html

@@ -67,6 +67,9 @@ services:
     restart: unless-stopped
     ports:
       - "${ATLAS_PORT:-8080}:80"
+    volumes:
+      # Optional pages for this instance; site/privacy.html adds a "Privacy" link (docs/privacy.md).
+      - ./site:/usr/share/nginx/html/site:ro
     depends_on:
       - api
 
