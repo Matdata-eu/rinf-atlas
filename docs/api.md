@@ -99,21 +99,29 @@ like a UI filter: terms as comma separated values
 
 **One geometry type per collection.** QGIS and GDAL give a layer a single
 geometry type, taken from the first features they read, so a class mixing
-types breaks there. When a class (in an environment) has features of more
-than one geometry family (point = Point/MultiPoint, line =
-LineString/MultiLineString, polygon = Polygon/MultiPolygon; anything else is
-`other`), it is listed as one collection per family:
-`{env}.{class}.point`, `.line`, `.polygon` (e.g. `prod.operational-point.point`,
-titled "Operational Point (points)"), each with its own extent and only the
-features of that family. Within one collection, single and multi geometries
-of a family are both sent as the multi type (`ST_Multi`), so every feature has
+types breaks there. Geometries are sorted into three families: point
+(Point/MultiPoint), line (LineString/MultiLineString) and polygon
+(Polygon/MultiPolygon). A GeometryCollection (the worker collects a feature's
+several WKT literals into one, e.g. an operational point with a point and a
+polygon; nested collections included) is split into its parts with
+`ST_CollectionExtract`: the feature belongs to every family it has a part of,
+and in each it carries only that part. When a class (in an environment) has
+more than one family, it is listed as one collection per family:
+`{env}.{class}.point`, `.line`, `.polygon` (e.g.
+`prod.operational-point.point`, titled "Operational Point (points)"). A feature
+with a point and a polygon is then in both, with the same `id`, `iri` and
+properties. Extents, `numberMatched`, paging, `bbox` (tested against the part)
+and `items/{fid}` (404 when the feature has no part of that family) all use the
+family's part. Within a collection, singles, multis and collection parts are
+all sent as the multi type when they differ (`ST_Multi`), so every feature has
 the type in `geometryType`. Classes with a single family keep their
-`{env}.{class}` id. For a mixed class, `{env}.{class}` still answers when asked
-for directly (all its features, mixed types, also those without a geometry)
-but is not listed: listing it would hand GIS clients a layer they mistype.
-Features without a geometry appear only in a class's own `{env}.{class}`
-collection. The families are read from the database, cached until the data
-changes.
+`{env}.{class}` id (with their features without a geometry). For a mixed class,
+`{env}.{class}` still answers when asked for directly (all its features as
+stored, GeometryCollections included, and those without a geometry) but is not
+listed: listing it would hand GIS clients a layer they cannot type. Geometry
+types outside the three families (curves, TINs; empty geometries) are only in
+that combined collection; the worker does not produce them. The families are
+read from the database, cached until the data changes.
 
 Features: `id` is the Atlas feature id (it can change on a re-index; `iri` is
 stable). Properties are flat and the same on every feature of a collection:

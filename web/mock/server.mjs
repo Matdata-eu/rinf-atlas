@@ -188,12 +188,25 @@ for (const op of ops) {
       facets: { ...common, 'platform-height': [{ value: h, label: String(h) }] } });
   }
 }
+// One operational point with a point and a station-area polygon, stored like the real API stores
+// several WKT literals: a GeometryCollection (the OGC API splits it over two layers).
+{
+  const [lon, lat] = [4.3, 50.7];
+  features.push({
+    id: 'BE99999', iri: `${FI}operationalPoints/BE99999`, class: 'operational-point', label: 'Halle-Vorming (point + area)', country: 'BEL',
+    geometry: { type: 'GeometryCollection', geometries: [{ type: 'Point', coordinates: [lon, lat] },
+      { type: 'Polygon', coordinates: [[[lon - 0.01, lat - 0.005], [lon + 0.01, lat - 0.005], [lon + 0.01, lat + 0.005], [lon - 0.01, lat + 0.005], [lon - 0.01, lat - 0.005]]] }] },
+    facets: { country: [countryTerm('BEL')], im: [imTerm('BEL')], 'op-type': [term(`${ERA}concepts/op-types/rinf/100`, 'shunting yard')],
+      uopid: [{ value: 'BE99999', label: 'BE99999' }] },
+  });
+}
 for (const f of features) f.graph = `${ERA}graph/rinf/${f.country}`;
 const byIri = new Map(features.map((f) => [f.iri, f]));
 
 // ---------- query evaluation ----------
 const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const coordsOf = (g) => (g.type === 'Point' ? [g.coordinates] : g.type === 'LineString' ? g.coordinates : g.coordinates.flat());
+const coordsOf = (g) => (g.type === 'GeometryCollection' ? g.geometries.flatMap(coordsOf)
+  : g.type === 'Point' ? [g.coordinates] : g.type === 'LineString' ? g.coordinates : g.coordinates.flat());
 const repPoint = (g) => { const c = coordsOf(g); return c[Math.floor(c.length / 2)]; };
 
 function matchFilter(f, key, cond) {
@@ -261,7 +274,8 @@ const lit = (value, datatype, lang) => ({ type: 'literal', value: String(value),
 const RDF = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', RDFS = 'http://www.w3.org/2000/01/rdf-schema#';
 const GSP = 'http://www.opengis.net/ont/geosparql#', XSD = 'http://www.w3.org/2001/XMLSchema#';
 const SKOS = 'http://www.w3.org/2004/02/skos/core#', WGS = 'http://www.w3.org/2003/01/geo/wgs84_pos#';
-const toWkt = (g) => g.type === 'Point' ? `POINT(${g.coordinates.join(' ')})`
+const toWkt = (g) => g.type === 'GeometryCollection' ? `GEOMETRYCOLLECTION(${g.geometries.map(toWkt).join(', ')})`
+  : g.type === 'Point' ? `POINT(${g.coordinates.join(' ')})`
   : g.type === 'LineString' ? `LINESTRING(${g.coordinates.map((c) => c.join(' ')).join(', ')})`
   : `POLYGON((${g.coordinates[0].map((c) => c.join(' ')).join(', ')}))`;
 
@@ -279,8 +293,8 @@ function describeOut(iri) {
     if (f.class === 'operational-point') {
       add(`${ERA}uopid`, lit(f.id));
       add(`${ERA}opType`, uri(f.facets['op-type'][0].value));
-      add(`${WGS}lat`, lit(f.geometry.coordinates[1].toFixed(6), `${XSD}double`));
-      add(`${WGS}long`, lit(f.geometry.coordinates[0].toFixed(6), `${XSD}double`));
+      add(`${WGS}lat`, lit(repPoint(f.geometry)[1].toFixed(6), `${XSD}double`));
+      add(`${WGS}long`, lit(repPoint(f.geometry)[0].toFixed(6), `${XSD}double`));
       add(`${ERA}opName`, lit(f.label, null, f.country === 'BEL' ? 'nl' : 'nl'));
     }
     if (f.class === 'section-of-line') {
@@ -375,14 +389,23 @@ function gis(req, res, url) {
   const envs = view ? [view.env] : ENVS.map((e) => e.key);
   // One collection per class, or per geometry family (point/line/polygon) when a class mixes
   // them; the combined one then stays reachable but unlisted (like the real API).
-  const family = (f) => (/Point/.test(f.geometry.type) ? 'point' : /LineString/.test(f.geometry.type) ? 'line' : 'polygon');
+  // GeometryCollections count in every family they have a part of (nested ones too).
+  const famOf = (t) => (/Point/.test(t) ? 'point' : /LineString/.test(t) ? 'line' : 'polygon');
+  const parts = (g) => (g.type === 'GeometryCollection' ? g.geometries.flatMap(parts) : [g]);
+  const families = (f) => new Set(parts(f.geometry).map((g) => famOf(g.type)));
+  const MULTI = { point: 'MultiPoint', line: 'MultiLineString', polygon: 'MultiPolygon' };
+  const partOf = (g, fam) => {
+    const ps = parts(g).filter((p) => famOf(p.type) === fam);
+    // one type per layer: everything in a split family as its multi type
+    return { type: MULTI[fam], coordinates: ps.flatMap((p) => (p.type.startsWith('Multi') ? p.coordinates : [p.coordinates])) };
+  };
   const colls = envs.flatMap((env) => CLASSES.filter((c) => (!view?.classes?.length || view.classes.includes(c.class)) && features.some((f) => f.class === c.class))
     .flatMap((c) => {
-      const fams = [...new Set(features.filter((f) => f.class === c.class).map(family))];
+      const fams = [...new Set(features.filter((f) => f.class === c.class).flatMap((f) => [...families(f)]))];
       const whole = { env, c, id: `${env}.${c.class}`, fam: null, listed: fams.length === 1 };
       return fams.length === 1 ? [whole] : [whole, ...fams.map((fam) => ({ env, c, id: `${env}.${c.class}.${fam}`, fam, listed: true }))];
     }));
-  const inColl = (k, f) => f.class === k.c.class && (!k.fam || family(f) === k.fam);
+  const inColl = (k, f) => f.class === k.c.class && (!k.fam || families(f).has(k.fam));
   const coll = (k) => ({
     id: k.id, title: `${k.c.label} (${[k.env.toUpperCase(), k.fam && `${k.fam}s`].filter(Boolean).join(', ')})`, itemType: 'feature',
     crs: OGC_CRS, storageCrs: OGC_CRS[0],
@@ -405,7 +428,7 @@ function gis(req, res, url) {
   if (!hit) { ogcError(res, 404, 'NotFound', 'no such collection'); return true; }
   if (!cm[2]) { send(res, 200, coll(hit)); return true; }
   const st = { ...(view || { env: hit.env, filters: {} }), classes: [hit.c.class], filters: { ...(view?.filters || {}) } };
-  const toFeature = (f) => ({ type: 'Feature', id: f.id, geometry: f.geometry, properties: { iri: f.iri, label: f.label, class: hit.c.label,
+  const toFeature = (f) => ({ type: 'Feature', id: f.id, geometry: hit.fam ? partOf(f.geometry, hit.fam) : f.geometry, properties: { iri: f.iri, label: f.label, class: hit.c.label,
     ...Object.fromEntries(facetsOf(hit.c.class).map((d) => { const vs = f.facets[d.key] || []; return [d.key, vs.length ? vs.map((v) => v.label ?? v.value).join('; ') : null]; })) } });
   if (cm[3]) {
     const f = features.find((x) => x.id === cm[3] && inColl(hit, x) && matches(x, st));
