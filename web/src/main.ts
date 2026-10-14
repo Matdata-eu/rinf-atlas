@@ -85,7 +85,6 @@ function initSide() {
     tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
     $('pane-filters').hidden = t !== 'filters';
     $('pane-results').hidden = t !== 'results';
-    $('pane-vehicle').hidden = t !== 'vehicle';
   };
   tabs.forEach((b) => b.addEventListener('click', () => {
     store.set({ sideTab: b.dataset.tab as SideTab });

@@ -5,7 +5,7 @@ All notable changes to this project are documented here: https://github.com/Matd
 ## Unreleased
 
 ### Added
-- Vehicle compatibility check (the "Vehicle" tab): describe a vehicle type by
+- Vehicle compatibility check (the "Vehicle check" map tool): describe a vehicle type by
   the technical characteristics you know (track gauge, gauging, energy supply,
   pantograph head, contact wire heights, ETCS level, class B protection, train
   detection, line category, train length, wheel diameter) and the map colours

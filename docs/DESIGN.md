@@ -75,7 +75,9 @@ the full query state, which Martin's table sources can't express), `web`
 
 ## Vehicle compatibility
 A lightweight check of where a vehicle type can run, from a profile the user
-fills in by hand (the "Vehicle" tab). Only PostGIS is read.
+fills in by hand (the "Vehicle check" map tool: a floating panel, a bottom
+sheet on phones, and a legend on the map while the check is on). Only
+PostGIS is read.
 
 - Rules are declarative, in `shapes/compatibility.ttl`: one `sh:NodeShape`
   targeting `era:VehicleType` with `atlas:compatibility true`. Each

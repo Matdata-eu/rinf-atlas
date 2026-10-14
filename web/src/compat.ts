@@ -1,4 +1,4 @@
-// Vehicle compatibility: the "Vehicle" side pane (profiles kept in this browser), the
+// Vehicle compatibility: the "Vehicle check" map panel (profiles kept in this browser), the
 // green / yellow / red thematic layer of sections of line, its map legend, and the
 // explanation shown in the detail panel. Self-contained: its own source and layers.
 import type * as maplibregl from 'maplibre-gl';
@@ -214,17 +214,47 @@ function renderLegend() {
     : h('ul', { class: 'compat-rows' + (busy ? ' busy' : '') }, ...rows);
   legend.replaceChildren(
     h('div', { class: 'compat-legend-head' },
-      h('button', { class: 'link compat-legend-name', title: 'Edit the vehicle profile', onclick: () => store.set({ sideTab: 'vehicle' }) }, p?.name ?? 'Vehicle'),
-      h('button', { class: 'icon-btn', title: 'Hide vehicle compatibility', 'aria-label': 'Hide vehicle compatibility', onclick: () => setShow(false) }, '×')),
+      h('span', { class: 'compat-legend-name', title: p?.name ?? '' }, p?.name ?? 'Vehicle'),
+      h('button', { class: 'btn btn-small compat-legend-edit', type: 'button', title: 'Open the vehicle check panel to edit the profile',
+        'aria-expanded': String(store.get().vehicleOpen), 'aria-controls': 'vehicle-panel', onclick: () => setPanelOpen(true) }, 'Edit'),
+      h('button', { class: 'icon-btn', type: 'button', title: 'Turn the vehicle check off', 'aria-label': 'Turn the vehicle check off', onclick: () => setShow(false) }, '×')),
     body,
     h('p', { class: 'muted small compat-legend-help' }, 'Sections of line, by their running tracks. ',
-      h('button', { class: 'link small', title: RULE_HELP, onclick: () => store.set({ sideTab: 'vehicle' }) }, 'How?')));
+      h('button', { class: 'link small', type: 'button', title: RULE_HELP, onclick: () => setPanelOpen(true, true) }, 'How?')));
 }
 
-// ---------- side pane ----------
+// ---------- panel ----------
+const panel = document.getElementById('vehicle-panel') as HTMLElement;
+const panelBtn = document.getElementById('vehicle-btn') as HTMLButtonElement;
+
+/** Open or close the vehicle check panel (store.vehicleOpen). `help`: also unfold "How sections are coloured". */
+export function setPanelOpen(open: boolean, help = false) {
+  store.set({ vehicleOpen: open });
+  if (open && help) {
+    const d = pane.querySelector<HTMLDetailsElement>('.compat-help');
+    if (d) { d.open = true; d.scrollIntoView({ block: 'nearest' }); }
+  }
+}
+
+function applyPanel(focus: boolean) {
+  const open = store.get().vehicleOpen;
+  const wasOpen = !panel.hidden;
+  panel.hidden = !open;
+  document.body.classList.toggle('vehicle-open', open);
+  panelBtn.setAttribute('aria-pressed', String(open));
+  panelBtn.setAttribute('aria-expanded', String(open));
+  panelBtn.classList.toggle('compat-on', saved.show);
+  if (!open) panel.classList.remove('expanded');
+  renderLegend();
+  if (!focus || open === wasOpen) return;
+  if (open) (pane.querySelector<HTMLElement>('.compat-show input') ?? panel).focus();
+  else if (panel.contains(document.activeElement) || document.activeElement === document.body) panelBtn.focus();
+}
+
 function setShow(on: boolean) {
   saved.show = on; persist();
   setVisible(on);
+  panelBtn.classList.toggle('compat-on', on);
   const box = pane.querySelector<HTMLInputElement>('.compat-show input');
   if (box) box.checked = on;
   renderResult();
@@ -562,6 +592,12 @@ export function compatBlock(f: Feature): HTMLElement | null {
 
 export function initCompat() {
   document.querySelector('.map-wrap')?.append(legend);
+  panelBtn.addEventListener('click', () => setPanelOpen(!store.get().vehicleOpen));
+  document.getElementById('vehicle-close')!.addEventListener('click', () => setPanelOpen(false));
+  panel.querySelector('.vehicle-handle')!.addEventListener('click', () => panel.classList.toggle('expanded'));
+  panel.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !(e.target as HTMLElement).closest('select')) { e.stopPropagation(); setPanelOpen(false); }
+  });
   setTipNote(tipNote);
   onMapReady((m) => {
     mapRef = m;
@@ -570,6 +606,8 @@ export function initCompat() {
   });
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'env') && s.env) { result = null; applyResult(null); updateSource(); loadRules(s.env); }
+    if (changed(s, prev, 'vehicleOpen')) applyPanel(true);
   });
   renderPane();
+  applyPanel(false);
 }

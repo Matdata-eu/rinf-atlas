@@ -2,7 +2,7 @@
 import type { FilterValue, Meta, QueryState } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
-export type SideTab = 'filters' | 'results' | 'vehicle';
+export type SideTab = 'filters' | 'results';
 
 export interface MapView { lng: number; lat: number; zoom: number }
 
@@ -20,6 +20,8 @@ export interface AppState {
   detailTab: DetailTab;
   orm: boolean;
   sideTab: SideTab;
+  /** The vehicle check panel is open (the map colouring has its own on/off, kept per browser). */
+  vehicleOpen: boolean;
   meta: Meta | null; // per-env metadata (not in the URL)
 }
 
@@ -44,7 +46,7 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters', meta: null,
+  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters', vehicleOpen: false, meta: null,
 });
 
 /** Did any of the given keys change between prev and next? */
