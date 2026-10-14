@@ -24,6 +24,20 @@ class Env:
 
 
 @dataclass
+class Quality:
+    """Validation of provider graphs against ERA's SHACL shapes (config `quality:`)."""
+    enabled: bool = True
+    shapes_graph: str = "http://data.europa.eu/949/graph/rinf/shacl"
+    max_triples: int = 15_000_000
+    time_budget_minutes: float = 60
+    max_results_per_constraint: int = 10_000
+    max_results_per_graph: int = 200_000
+    html_max_results: int = 20_000
+    exclude_shapes: list[str] = field(default_factory=list)
+    shacl_report_bin: str = "shacl-report"
+
+
+@dataclass
 class Settings:
     envs: dict[str, Env]
     provider_graph_pattern: str
@@ -32,6 +46,7 @@ class Settings:
     shapes_dir: Path
     mirror_dir: Path
     tmp_dir: Path
+    quality: Quality = field(default_factory=Quality)
 
     def env(self, key: str) -> Env:
         if key not in self.envs:
@@ -77,6 +92,19 @@ def settings() -> Settings:
             raise SystemExit(f"ATLAS_ENVS: unknown environment(s) {', '.join(unknown)}; "
                              f"known: {', '.join(envs)} (see config/environments.yaml)")
         envs = {k: v for k, v in envs.items() if k.lower() in wanted}
+    q = raw.get("quality") or {}
+    quality = Quality(
+        enabled=_flag(os.environ.get("ATLAS_QUALITY"), bool(q.get("enabled", True))),
+        shapes_graph=q.get("shapes_graph", Quality.shapes_graph),
+        max_triples=int(os.environ.get("ATLAS_QUALITY_MAX_TRIPLES") or q.get("max_triples", Quality.max_triples)),
+        time_budget_minutes=float(os.environ.get("ATLAS_QUALITY_MINUTES")
+                                  or q.get("time_budget_minutes", Quality.time_budget_minutes)),
+        max_results_per_constraint=int(q.get("max_results_per_constraint", Quality.max_results_per_constraint)),
+        max_results_per_graph=int(q.get("max_results_per_graph", Quality.max_results_per_graph)),
+        html_max_results=int(q.get("html_max_results", Quality.html_max_results)),
+        exclude_shapes=list(q.get("exclude_shapes") or []),
+        shacl_report_bin=os.environ.get("ATLAS_SHACL_REPORT_BIN", "shacl-report"),
+    )
     return Settings(
         envs=envs,
         provider_graph_pattern=raw.get("provider_graph_pattern", r"^http://data\.europa\.eu/949/graph/[A-Z0-9]{4}$"),
@@ -85,4 +113,11 @@ def settings() -> Settings:
         shapes_dir=Path(os.environ.get("ATLAS_SHAPES", "/app/shapes")),
         mirror_dir=Path(os.environ.get("ATLAS_MIRROR", "/data/mirror")),
         tmp_dir=Path(os.environ.get("ATLAS_TMP", "/data/tmp")),
+        quality=quality,
     )
+
+
+def _flag(v: str | None, default: bool) -> bool:
+    if v is None or not v.strip():
+        return default
+    return v.strip().lower() not in ("0", "false", "no", "off")

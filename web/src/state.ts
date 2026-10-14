@@ -18,6 +18,8 @@ export interface AppState {
   selected: string | null; // feature IRI
   detailTab: DetailTab;
   orm: boolean;
+  /** Highlight features with data quality issues on the map. */
+  qa: boolean;
   sideTab: 'filters' | 'results';
   meta: Meta | null; // per-env metadata (not in the URL)
 }
@@ -43,7 +45,7 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters', meta: null,
+  view: EUROPE, selected: null, detailTab: 'properties', orm: false, qa: false, sideTab: 'filters', meta: null,
 });
 
 /** Did any of the given keys change between prev and next? */
@@ -77,6 +79,7 @@ export function readHash(): Partial<AppState> {
   if (p.get('ds')) out.graphs = p.get('ds')!.split(' ').filter(Boolean);
   if (p.get('v') === '1') out.limitToView = true;
   if (p.get('orm') === '1') out.orm = true;
+  if (p.get('qa') === '1') out.qa = true;
   const m = p.get('map')?.split('/').map(Number);
   if (m && m.length === 3 && m.every(Number.isFinite)) out.view = { zoom: m[0], lat: m[1], lng: m[2] };
   if (p.get('sel')) out.selected = p.get('sel');
@@ -95,6 +98,7 @@ export function writeHash(s: AppState) {
   if (s.graphs.length) p.set('ds', s.graphs.join(' '));
   if (s.limitToView) p.set('v', '1');
   if (s.orm) p.set('orm', '1');
+  if (s.qa) p.set('qa', '1');
   p.set('map', `${s.view.zoom.toFixed(2)}/${s.view.lat.toFixed(5)}/${s.view.lng.toFixed(5)}`);
   if (s.selected) { p.set('sel', s.selected); if (s.detailTab !== 'properties') p.set('tab', s.detailTab); }
   const hash = '#' + p.toString();

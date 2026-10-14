@@ -99,6 +99,18 @@ function initMapTools() {
   const orm = $<HTMLInputElement>('orm-toggle');
   orm.checked = store.get().orm;
   orm.addEventListener('change', () => store.set({ orm: orm.checked }));
+  // Data quality highlight, offered once the backend reports that it validates datasets.
+  const qa = $<HTMLInputElement>('qa-toggle');
+  const qaTool = $('qa-tool'), qaLegend = $('qa-legend');
+  const showQa = () => {
+    const s = store.get();
+    qaTool.hidden = !s.meta?.quality?.enabled;
+    qa.checked = s.qa;
+    qaLegend.hidden = qaTool.hidden || !s.qa;
+  };
+  qa.addEventListener('change', () => store.set({ qa: qa.checked }));
+  store.subscribe((s, prev) => { if (changed(s, prev, 'qa', 'meta')) showQa(); });
+  showQa();
   $('zoom-results').addEventListener('click', async () => {
     try {
       const { bbox } = await api.extent(queryState(store.get(), false));

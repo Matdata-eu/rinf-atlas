@@ -21,6 +21,14 @@ gunzip -c "$here/fixtures/lu-sample.nt.gz" > "$here/fixtures/lu-sample.nt"
   atlas load-file --env prod --graph "$GRAPH" /fixtures/lu-sample.nt
 rm -f "$here/fixtures/lu-sample.nt"
 
+# ERA's SHACL shapes arrive like a vocabulary graph; loading them validates the sample.
+echo "loading ERA SHACL shapes (validates the sample)"
+gunzip -c "$here/fixtures/era-shacl.nt.gz" > "$here/fixtures/era-shacl.nt"
+# Read-write: the shapes use blank nodes, which are rewritten into a file next to the input.
+"${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures" worker \
+  atlas load-file --env prod --vocab --graph http://data.europa.eu/949/graph/rinf/shacl /fixtures/era-shacl.nt
+rm -f "$here/fixtures/era-shacl.nt"
+
 post() { curl -fsS -X POST "$BASE/api/$1" -H 'content-type: application/json' -d "$2"; }
 
 ops=$(curl -fsS "$BASE/api/meta?env=prod" | json "next(c['count'] for c in d['classes'] if c['class']=='operational-point')")
@@ -56,6 +64,41 @@ rm -f /tmp/atlas-export.xlsx
 
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"
+
+# Data quality: validation results against ERA's SHACL shapes.
+G=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$GRAPH")
+dq() { curl -fsS "$BASE/api/datasets?env=prod" | json "next(x['quality'] for x in d if x['graph_iri']=='$GRAPH')$1"; }
+echo "dataset quality: $(dq '')"
+[ "$(dq "['status']")" = ok ] || fail "dataset quality status is not ok"
+issues=$(dq "['violations'] + sum(x['quality']['warnings'] + x['quality']['infos'] for x in d if x['graph_iri']=='$GRAPH')")
+[ "$issues" -gt 0 ] || fail "no SHACL results on the sample"
+[ "$(curl -fsS "$BASE/api/meta?env=prod" | json "d['quality']['enabled'] and d['quality']['validated']")" -ge 1 ] \
+  || fail "meta.quality does not report the validated dataset"
+rules=$(curl -fsS "$BASE/api/quality/summary?env=prod&graph=$G&limit=500" | json "sum(r['count'] for r in d)")
+echo "results per rule add up to: $rules"; [ "$rules" -eq "$issues" ] || fail "quality summary counts $rules results, dataset $issues"
+curl -fsS "$BASE/api/quality/report?env=prod&graph=$G&format=ttl" -o /tmp/atlas-report.ttl
+grep -q "a sh:ValidationReport" /tmp/atlas-report.ttl || fail "report is not a sh:ValidationReport"
+results=$(grep -c "sh:result \[" /tmp/atlas-report.ttl || true)
+echo "report results: $results"; [ "$results" -gt 0 ] || fail "report has no sh:result"
+rm -f /tmp/atlas-report.ttl
+curl -fsS "$BASE/api/quality/shapes?env=prod" -o /tmp/atlas-shapes.ttl
+grep -q "sh:NodeShape" /tmp/atlas-shapes.ttl || fail "shapes download has no node shapes"
+rm -f /tmp/atlas-shapes.ttl
+if [ "$(dq "['html']")" = True ]; then
+  curl -fsS -D /tmp/atlas-report.hdr -o /tmp/atlas-report.html "$BASE/api/quality/report?env=prod&graph=$G&format=html"
+  grep -qi '^content-security-policy: sandbox' /tmp/atlas-report.hdr || fail "HTML report not served sandboxed"
+  grep -qi '<html' /tmp/atlas-report.html || fail "HTML report is not a page"
+  rm -f /tmp/atlas-report.hdr /tmp/atlas-report.html
+  echo "shacl-report HTML viewer: present"
+fi
+flagged=$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"]}' \
+  | json "sum(v['count'] for v in d['facets']['quality']['values'])")
+echo "features with a quality value: $flagged"; [ "$flagged" -gt 0 ] || fail "quality facet has no values"
+bad=$(post search "$(python3 -c "import json; sh='http://www.w3.org/ns/shacl#'; print(json.dumps({'env':'prod','classes':[],'filters':{'quality':[sh+'Violation',sh+'Warning']},'limit':1}))")")
+echo "$bad" | json "d['items'][0]['qa']" | grep -qE '^[23]$' || fail "search item of the quality filter lacks qa >= 2"
+fid=$(echo "$bad" | json "d['items'][0]['id']")
+nres=$(curl -fsS "$BASE/api/feature?env=prod&id=$fid" | json "len(d['quality']['results'])")
+echo "feature $fid quality results: $nres"; [ "$nres" -gt 0 ] || fail "feature detail has no quality results"
 
 curl -fsS "$BASE/" | grep -q "<title>RINF Atlas</title>" || fail "web UI not served"
 # MapLibre's module worker must be served as JavaScript or the map stays blank.

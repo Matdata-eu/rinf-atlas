@@ -25,6 +25,14 @@ let loaded = false;
 
 const geomIs = (...types: string[]): ExpressionSpecification => ['in', ['geometry-type'], ['literal', types]];
 
+/** Data quality highlight: worst SHACL severity of the feature (tile property `qa`). */
+export const QA_COLORS = { 3: '#d92d20', 2: '#f79009', 1: '#2e90fa' } as const;
+const QA_COLOR = ['match', ['to-number', ['coalesce', ['get', 'qa'], 0]],
+  3, QA_COLORS[3], 2, QA_COLORS[2], 1, QA_COLORS[1], 'rgba(0,0,0,0)'] as unknown as ExpressionSpecification;
+const hasIssue = (...types: string[]): ExpressionSpecification =>
+  ['all', geomIs(...types), ['>=', ['to-number', ['coalesce', ['get', 'qa'], 0]], 1]] as unknown as ExpressionSpecification;
+const QA_LAYERS = ['qa-line', 'qa-circle'];
+
 function colorExpr(s: AppState): ExpressionSpecification | string {
   const cls = s.meta?.classes ?? [];
   if (!cls.length) return '#888';
@@ -87,6 +95,9 @@ export function initMap(container: HTMLElement) {
         { id: 'rinf-fill', type: 'fill', source: SRC, ...sl, filter: geomIs('Polygon', 'MultiPolygon'),
           layout: { 'fill-sort-key': sortKeyExpr(s) },
           paint: { 'fill-color': colorExpr(s), 'fill-opacity': 0.35, 'fill-outline-color': colorExpr(s) } },
+        { id: 'qa-line', type: 'line', source: SRC, ...sl, filter: hasIssue('LineString', 'MultiLineString', 'Polygon', 'MultiPolygon'),
+          layout: { 'line-cap': 'round', 'line-join': 'round', visibility: s.qa ? 'visible' : 'none' },
+          paint: { 'line-color': QA_COLOR, 'line-opacity': 0.75, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 4, 10, 7, 15, 12] } },
         { id: 'rinf-line', type: 'line', source: SRC, ...sl, filter: geomIs('LineString', 'MultiLineString'),
           layout: { 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': sortKeyExpr(s) },
           paint: { 'line-color': colorExpr(s), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.2, 10, 2.5, 15, 5] } },
@@ -96,6 +107,13 @@ export function initMap(container: HTMLElement) {
             'circle-color': colorExpr(s),
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 10, 4.5, 15, 7],
             'circle-stroke-color': '#fff', 'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 10, 1.2],
+          } },
+        { id: 'qa-circle', type: 'circle', source: SRC, ...sl, filter: hasIssue('Point', 'MultiPoint'),
+          layout: { visibility: s.qa ? 'visible' : 'none' },
+          paint: {
+            'circle-opacity': 0, 'circle-stroke-color': QA_COLOR,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 10, 8, 15, 11],
+            'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 10, 2.5, 15, 3],
           } },
         { id: 'sel-fill', type: 'fill', source: 'selection', filter: geomIs('Polygon', 'MultiPolygon'),
           paint: { 'fill-color': '#ffd400', 'fill-opacity': 0.45 } },
@@ -147,6 +165,7 @@ export function initMap(container: HTMLElement) {
       map.setLayoutProperty(id, id === 'rinf-fill' ? 'fill-sort-key' : id === 'rinf-line' ? 'line-sort-key' : 'circle-sort-key', sortKeyExpr(s));
     }
     if (changed(s, prev, 'orm')) map.setLayoutProperty('orm', 'visibility', s.orm ? 'visible' : 'none');
+    if (changed(s, prev, 'qa')) for (const id of QA_LAYERS) map.setLayoutProperty(id, 'visibility', s.qa ? 'visible' : 'none');
     if (changed(s, prev, 'env', 'classes', 'filters', 'graphs', 'q')) refreshData();
   });
   return map;
@@ -170,7 +189,7 @@ function refreshData() {
       type: 'FeatureCollection',
       features: r.items.filter((it) => it.lon != null && it.lat != null).map((it) => ({
         type: 'Feature', geometry: { type: 'Point', coordinates: [it.lon!, it.lat!] },
-        properties: { id: it.id, iri: it.iri, class: it.class, label: it.label },
+        properties: { id: it.id, iri: it.iri, class: it.class, label: it.label, qa: it.qa ?? null },
       })),
     });
   }).catch((e) => { if (!isAbort(e)) console.warn('geojson refresh failed', e); });

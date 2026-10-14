@@ -46,3 +46,18 @@ poll_interval_minutes: 30
 
 # Graphs never indexed as provider data, even if they match the pattern.
 exclude_graphs: []
+
+# Data quality: after a provider graph is (re)loaded, the worker validates it
+# against the SHACL shapes ERA publishes in its repository (the shapes graph is
+# mirrored like the vocabularies) and stores the results in PostGIS. Only new
+# or changed graphs are validated, and all of them again when ERA changes the
+# shapes. See docs/datasets.md ("Data quality").
+quality:
+  enabled: true                       # ATLAS_QUALITY=0 turns validation off
+  shapes_graph: http://data.europa.eu/949/graph/rinf/shacl
+  max_triples: 15000000               # larger graphs are not validated (ATLAS_QUALITY_MAX_TRIPLES)
+  time_budget_minutes: 60             # per graph; then the report is marked partial (ATLAS_QUALITY_MINUTES)
+  max_results_per_constraint: 10000   # results stored per shape and constraint (all are counted)
+  max_results_per_graph: 200000       # results stored per graph
+  html_max_results: 20000             # build a shacl-report HTML viewer up to this many results (0 = never)
+  exclude_shapes: []                  # shape IRIs or regexes to skip

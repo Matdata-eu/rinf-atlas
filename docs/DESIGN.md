@@ -73,6 +73,94 @@ the full query state, which Martin's table sources can't express), `web`
   `sync`/`reindex`/`generate-shapes` from another process are queued in the
   `job` table and run by the loop.
 
+## Data quality
+
+ERA publishes the SHACL shapes RINF data must conform to in the repository
+itself (`http://data.europa.eu/949/graph/rinf/shacl`: PROD about 7 600
+triples, 76 node shapes, 211 `sh:sparql` constraints, 7 SPARQL-based targets,
+GeoSPARQL `geof:distance` in some of them). The worker validates every
+provider graph against them and stores the results in PostGIS, so the UI and
+API read them like any other index data.
+
+**Where it runs.** In the worker, on the local Oxigraph mirror, after a graph
+is (re)indexed. The shapes graph is mirrored with the vocabularies on every
+sync; a graph is validated again when its data changed or when the shapes'
+fingerprint (sha256 of the sorted triples) differs from the one it was last
+validated with, so a new shapes release re-validates everything once, smallest
+graph first. `atlas validate [--env E] [--graph G] [--force]` runs it by hand.
+
+**Engine options considered.**
+
+| Option | Verdict |
+|---|---|
+| pySHACL (rdflib) | Correct and complete, but rdflib holds the graph in Python objects: roughly 1 KB+ per triple and hours for the 12M-triple 0080 graph. Not feasible in the worker's memory. |
+| [shacl-report](https://github.com/Matdata-eu/shacl-report)'s built-in engine (Rust, SHACL Core + SPARQL, passes the W3C suite) | Fast, but fails on ERA's shapes (`custom function geof:distance not supported`), has no SPARQL targets, and is in-memory (~400 MB per 100k triples here). Used for what it is best at instead: the report viewer (below). |
+| A SHACL engine on a triple store (Jena, TopBraid, RDF4J) | Another JVM service and a second copy of the data. |
+| **Own validator on the mirror** (`worker/atlas/shacl.py`) | **Chosen.** Targets and value lists come from SPARQL on the mirror; Core constraints are evaluated in Python; `sh:sparql` constraints and SPARQL targets run as SPARQL on Oxigraph (which supports `geof:distance`). No new service, the data is already there. |
+
+**How the validator stays fast enough.**
+
+- One SPARQL query per node shape fetches every (focus node, path, value)
+  of its property shapes; Core constraints (`sh:class`, `sh:datatype`,
+  `sh:min/maxCount`, `sh:in`, `sh:pattern`, ranges, `sh:node`, `sh:or`/
+  `sh:and`/`sh:not`/`sh:xone`, `sh:closed`, …) are then checked in Python.
+  `sh:class` looks types up in the whole mirror with the subclass closure of
+  the ontology, so values that are concepts or countries resolve.
+- The provider graph and the vocabularies are copied into one default graph
+  of a scratch Oxigraph store on disk: queries over a union default graph were
+  5 to 20 times slower.
+- SPARQL constraints of class-targeted shapes get a seed pattern
+  (`?this rdf:type ?t` for the target classes) injected at the start: many of
+  ERA's constraints begin with `OPTIONAL { $this rdfs:label ?l }`, which made
+  Oxigraph enumerate every labelled resource first. Constraints that only use
+  `$this` inside `FILTER NOT EXISTS` are pre-bound with `VALUES` in batches.
+- Scratch queries run in a child process (`python -m atlas.shacl`) so a
+  runaway query can be killed (`query_timeout`, 15 min) without losing the
+  rest; that constraint is reported in the run's note.
+- A per-graph time budget (`quality.time_budget_minutes`, 60) and result caps
+  (`max_results_per_constraint` 10 000, `max_results_per_graph` 200 000) make
+  a run `partial` instead of endless; counts per shape/constraint stay exact
+  even when results are capped. Graphs above `quality.max_triples` (15M) are
+  `skipped`.
+
+Measured on this container (PROD shapes): the LU sample in 5 s, 0082 (115k
+triples) in 27 s / 190 MB, 0088 (676k triples) in 13 min / 630 MB, of which
+four RunningTrack SPARQL warnings took 290 s each. The largest graphs (0080:
+12M, 0087: 6.6M) will mostly end `partial` at the time budget; raise it (or
+exclude the slowest shapes with `quality.exclude_shapes`) for complete runs.
+
+**Storage.** `violation` (one row per kept result: focus, severity, shape,
+component, path, value, message; indexed on `(env, focus)`),
+`quality_count` (exact counts per shape/constraint/severity), the report
+(gzipped Turtle, plus the shacl-report HTML) in `quality_report`, the shapes
+Turtle in `quality_shapes`, and totals/status on `dataset`. Each feature gets
+a builtin `quality` facet with the severities found on it (or `NoIssues`), so
+filtering, counts, exports and the map need nothing new; tiles and search add
+`qa`, the worst severity, computed from that facet. Only results whose focus
+node is an indexed feature reach the map; the others (tracks without
+geometry, contact line systems, …) are in the dataset counts and the report.
+
+**shacl-report integration.** Every report is a standard
+`sh:ValidationReport` (Turtle) and the shapes are downloadable, so both open
+in shacl-report (or any SHACL tool). When the `shacl-report` binary is in the
+worker image (copied from `ghcr.io/matdata-eu/shacl-report`), the worker also
+renders its self-contained HTML viewer for reports up to
+`quality.html_max_results` results, with the environment's SPARQL endpoint
+preset; the API serves it inline in a CSP sandbox. shacl-report has no way to
+open a remote report by URL (its public mode refuses URL loading), so the UI
+links to a configurable instance (`ATLAS_SHACL_REPORT_URL`) with "drop both
+files" instructions rather than deep links.
+
+**Trade-offs and limits.** The validator implements the SHACL Core and SPARQL
+features ERA's shapes use, not the whole spec: no
+`sh:qualifiedValueShapesDisjoint`, no SHACL-AF, and `sh:or`/`sh:and`/`sh:not`/
+`sh:xone`/`sh:node` only when the shapes they combine constrain the value
+itself (true for ERA's). Anything else is counted in the run note as
+unsupported rather than guessed. Results on blank-node focus nodes keep the
+mirror's skolem IRIs (`urn:atlas:bnode:…`). A large provider takes minutes of worker
+CPU per sync, after indexing, so a new dataset appears on the map before its
+quality data. The results are as fresh as the mirror, not live.
+
 ## Open points
 - KilometricPost geometry via LRS (`era:hasLRS` + `era:measuredDistance`).
 - UAT v4.0.0 adds TAF/TAP message classes as InfrastructureElement
