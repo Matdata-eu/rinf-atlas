@@ -12,14 +12,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "maplibre-gl": "^5.24.0",
+    "maplibre-gl": "^6.14.0",
     "vis-data": "^8.0.5",
     "vis-network": "^10.1.2"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
-    "@types/node": "^22.20.5",
-    "typescript": "~5.9.3",
+    "@types/node": "^26.6.5",
+    "typescript": "~7.0.2",
     "vite": "^8.3.4"
   }
 }
