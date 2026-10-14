@@ -1,5 +1,6 @@
 // Results list: POST /api/search, paged by 50.
 import { api, isAbort, type SearchItem } from './api';
+import { ZOOM_ICON, zoomToFeature } from './detail';
 import { flyTo } from './map';
 import { changed, debounce, fmt, h, queryState, store } from './state';
 
@@ -37,7 +38,12 @@ function render(reset: boolean) {
   badge.textContent = fmt.format(total);
   const rows = items.map((it) => {
     const c = colors.get(it.class);
-    return h('li', {},
+    const zoom = h('button', {
+      class: 'icon-btn zoom-btn', title: 'Zoom to this feature', 'aria-label': `Zoom to ${it.label || it.id}`,
+      onclick: () => zoomToFeature(it.iri, [it.lon, it.lat]),
+    });
+    zoom.innerHTML = ZOOM_ICON;
+    return h('li', { class: 'result-row' },
       h('button', {
         class: 'result' + (it.iri === s.selected ? ' selected' : ''), 'data-iri': it.iri,
         onclick: (ev: Event) => {
@@ -47,7 +53,8 @@ function render(reset: boolean) {
         },
       },
       h('span', { class: 'swatch', style: `background:${c?.color ?? '#888'}` }),
-      h('span', { class: 'result-text' }, h('span', { class: 'lbl' }, it.label || it.id), h('small', {}, `${c?.label ?? it.class} · ${it.id}`))));
+      h('span', { class: 'result-text' }, h('span', { class: 'lbl' }, it.label || it.id), h('small', {}, `${c?.label ?? it.class} · ${it.id}`))),
+      zoom);
   });
   if (!items.length) rows.push(h('li', { class: 'muted empty' }, 'No matching features.'));
   list.replaceChildren(...rows);
