@@ -233,7 +233,10 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
         counts[cls.key] = len(subs)
 
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM feature WHERE env=%s AND graph_iri=%s", (env, graph))
+        # Features are upserted, and only those gone from the graph are deleted, so a
+        # feature keeps its id across re-extraction: map tiles (cached by browsers and by
+        # the map itself) and id lists such as the vehicle compatibility result must
+        # keep referring to the same features after a sync.
         cur.execute("DELETE FROM feature_link WHERE env=%s AND graph_iri=%s", (env, graph))
         cur.execute("""CREATE TEMP TABLE IF NOT EXISTS stage_feature (
             env text, iri text, class text, class_iri text, graph_iri text, label text,
@@ -248,10 +251,15 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                    facets, to_tsvector('simple', unaccent(coalesce(search_text, '')))
             FROM (SELECT *, ST_CollectionHomogenize(atlas_geom(wkt)) AS g FROM stage_feature) s
             ON CONFLICT (env, iri, class) DO UPDATE SET
+                class_iri = EXCLUDED.class_iri,
                 graph_iri = EXCLUDED.graph_iri, label = EXCLUDED.label, geom = EXCLUDED.geom,
                 geom_source = EXCLUDED.geom_source, facets = EXCLUDED.facets, search = EXCLUDED.search,
                 geom3857 = EXCLUDED.geom3857
         """)
+        cur.execute("""
+            DELETE FROM feature f WHERE f.env = %s AND f.graph_iri = %s
+              AND NOT EXISTS (SELECT 1 FROM stage_feature s WHERE s.iri = f.iri AND s.class = f.class)
+        """, (env, graph))
         if links:
             with cur.copy("COPY feature_link (env, graph_iri, iri, class, rule, target) FROM STDIN") as cp:
                 for link in links:

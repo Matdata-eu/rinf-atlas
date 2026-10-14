@@ -503,8 +503,9 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
   box-shadow: var(--shadow); padding: 6px 10px 8px; font-size: 12px;
 }
 .compat-legend-head { display: flex; align-items: center; gap: 4px; }
-.compat-legend-head .icon-btn { font-size: 18px; padding: 0 6px; margin-left: auto; }
-.compat-legend-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text); }
+.compat-legend-head .icon-btn { font-size: 18px; padding: 0 6px; }
+.compat-legend-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text); flex: 1; }
+.compat-legend-edit { padding: 1px 8px; font-size: 12px; }
 .compat-legend .compat-rows li { padding: 1px 0; }
 .compat-legend-help { margin: 2px 0 0; }
 .map-tip .tip-note { color: var(--text); }
@@ -519,10 +520,42 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .compat-result { font-weight: 600; }
 .compat-result.ok { color: var(--ok); }
 .compat-result.unknown { color: var(--warn); }
+.compat-note-reason { font-weight: 600; color: var(--text); }
 .compat-result.fail { color: var(--danger); }
+
+/* "Vehicle check": a map tool with a floating panel (a bottom sheet on phones), like the line profile */
+.map-tools .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.map-tools .btn.compat-on:not([aria-pressed="true"])::after {
+  content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: 1px;
+  background: conic-gradient(#12b76a 0 33%, #f5b301 0 66%, #e5484d 0);
+}
+.vehicle-panel {
+  position: absolute; top: calc(var(--map-tools-bottom, 44px) + 10px); left: 10px; z-index: 4; width: 380px; max-width: calc(100% - 20px);
+  max-height: calc(100% - var(--map-tools-bottom, 44px) - 20px); display: flex; flex-direction: column;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.vehicle-panel[hidden] { display: none; }
+.vehicle-panel .vehicle-handle { display: none; }
+.vehicle-panel-head { display: flex; align-items: center; gap: 8px; padding: 6px 6px 4px 14px; border-bottom: 1px solid var(--border); flex: none; }
+.vehicle-panel-head h2 { margin: 0; font-size: 15px; flex: 1; }
+.vehicle-panel-body { overflow: auto; padding: 8px 14px 14px; min-height: 0; overscroll-behavior: contain; }
+.vehicle-panel-body .compat-intro { margin-top: 0; }
 
 @media (max-width: 760px) {
   .compat-legend { bottom: calc(34% + 10px); right: 8px; width: 220px; }
+  body.vehicle-open .side { display: none; }
+  body.vehicle-open .compat-legend { display: none; }
+  .vehicle-panel {
+    position: absolute; top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
+    height: 60%; max-height: none; z-index: 7; border-radius: 14px 14px 0 0; border-width: 1px 0 0;
+    box-shadow: 0 -4px 16px rgb(0 0 0 / 15%); transition: height 0.2s ease;
+  }
+  .vehicle-panel.expanded { height: 88%; }
+  .vehicle-panel .vehicle-handle { display: flex; }
+  .vehicle-panel-head { padding: 0 6px 2px 12px; }
+  .vehicle-panel-body { padding: 8px 12px 20px; }
+  body.vehicle-open .maplibregl-ctrl-bottom-left, body.vehicle-open .maplibregl-ctrl-bottom-right { bottom: 60%; }
 }
 
 /* ---------- line profile ---------- */
@@ -696,10 +729,12 @@ body.profile-open .map-msg { bottom: calc(var(--profile-h) + 36px); }
 }
 
 /* Map legends stay above the line profile panel when both are open. */
+body.profile-open .vehicle-panel { max-height: calc(100% - var(--profile-h) - var(--map-tools-bottom, 44px) - 20px); }
 body.profile-open .legend { bottom: calc(var(--profile-h) + 34px); max-height: calc(100% - var(--profile-h) - 110px); }
 body.profile-open .compat-legend { bottom: calc(var(--profile-h) + 32px); }
 .map-wrap:has(.profile.expanded) .legend, .map-wrap:has(.profile.expanded) .compat-legend { display: none; }
 @media (max-width: 760px) {
   body.profile-open .legend { bottom: auto; max-height: calc(48% - 70px); }
   body.profile-open .compat-legend { bottom: calc(52% + 10px); }
+  body.profile-open .vehicle-panel { max-height: none; }
 }

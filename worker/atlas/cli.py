@@ -190,7 +190,11 @@ def cmd_check_shapes(a) -> None:
         cp = shapes.compat
         print(f"compatibility: {len(cp.rules)} rules on {', '.join(cp.track_classes)} / {cp.section_class}")
         for r in cp.rules:
-            print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}")
+            extra = "".join([f"  missing={r.when_missing}" if r.when_missing != "unknown" else "",
+                             f"  none={r.none_value}" if r.none_value else "",
+                             f"  noneFrom={r.none_from}" if r.none_from else "",
+                             f"  section={','.join(r.section_facets)}" if r.section_facets else ""])
+            print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}{extra}")
 
 
 def cmd_run(a) -> None:

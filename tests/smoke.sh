@@ -184,6 +184,22 @@ n=$(post profile "$route" | json "len(d['sections'])")
 curl -fsS "$BASE/api/meta?env=prod" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(any(f['kind']=='link' for f in d['facets']))" \
   || fail "link facets must not be offered as filters"
 
+# The coloured layer's tiles carry the result's ids at every zoom (z3..z14), and the ids
+# stay the same when the graph is indexed again (the map and browsers cache tiles).
+profile="{\"wheelSetGauge\":[\"$gauge/30\"]}"
+before=$(python3 "$here/compat_tiles.py" "$BASE" "$profile") || fail "compatibility tiles do not match the result"
+gunzip -c "$here/fixtures/lu-sample.nt.gz" > "$here/fixtures/lu-sample.nt"
+"${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures:ro" worker \
+  atlas load-file --env prod --graph "$GRAPH" /fixtures/lu-sample.nt >/dev/null
+rm -f "$here/fixtures/lu-sample.nt"
+after=$(python3 "$here/compat_tiles.py" "$BASE" "$profile") || fail "compatibility tiles do not match the result after reloading"
+[ "$before" = "$after" ] || fail "feature ids changed when the graph was loaded again"
+# No contact line: red with the reason for an electric vehicle, compatible for a bi-mode one
+# (a small extra graph: a section with a non-electrified track and a track without contact line).
+"${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures:ro" worker \
+  atlas load-file --env prod --graph "http://data.europa.eu/949/graph/test-no-contact-line" /fixtures/no-contact-line.ntriples >/dev/null
+python3 "$here/compat_contact_line.py" "$BASE" || fail "non-electrified tracks are not handled"
+
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"
 

@@ -39,7 +39,7 @@ Back / Forward, every parameter that is absent is reset to its default.
 | `tab` | Detail tab of the selected feature: `describe` or `graph` | `properties` |
 | `nav` | Describe tab: the IRIs followed from the selected feature, `,` separated items | none |
 | `dir` | Describe tab: `in` = incoming triples | `out` |
-| `side` | Side panel tab: `results` or `vehicle` | `filters` |
+| `side` | Side panel tab: `results` | `filters` |
 | `col` | Map colouring: facet key, plain or `class/key` | off |
 | `colh` | Legend entries hidden, `,` separated items (`bin:0`, `__nodata__`, values) | none |
 | `qa` | `1` = show data issues on the map | off |
@@ -47,6 +47,7 @@ Back / Forward, every parameter that is absent is reset to its default.
 | `lpr` | Line profile rows (facet keys), `,` separated; `-` = no rows | the user's own rows |
 | `veh` | Vehicle compatibility on the map with this vehicle, see [Vehicle](#vehicle) | off |
 | `vehn` | Name of that vehicle | `Shared vehicle` |
+| `vp` | `1` = the Vehicle check panel is open | closed |
 | `orm` | `1` = OpenRailwayMap overlay | off |
 
 `tab`, `nav` and `dir` are read only with `sel`; `colh` only with `col`;
@@ -132,7 +133,8 @@ absent.
 - **Push.** A new history entry is added for navigation, so Back undoes it.
   Navigation is a change of environment, classes, filters, datasets, search
   text, selection, detail tab, Describe step or direction, map colouring,
-  data issues, opening or changing the line profile, or switching vehicle.
+  data issues, opening or changing the line profile, opening or closing
+  the Vehicle check panel, or switching vehicle.
   Several such changes within 1.5 s share one entry, for example ticking a
   few values.
 - **Replace.** Continuous changes replace the current entry. These are pan
@@ -153,6 +155,7 @@ form once the page has opened them:
 | `ds` and `colh` separated by spaces | `,` separated |
 | full IRIs in `sel`, `ds`, `f` | `prefix:local` |
 | `map` with fixed decimals (`8.00/50.85000/4.35000`) | `8/50.85/4.35` |
+| `side=vehicle` (the vehicle check was a side tab) | `vp=1` |
 
 ## Keeping links short
 

@@ -2,7 +2,7 @@
 import type { FilterValue, Meta, ProfileSpec, QueryState, Theme, VehicleValues } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
-export type SideTab = 'filters' | 'results' | 'vehicle';
+export type SideTab = 'filters' | 'results';
 
 export interface MapView { lng: number; lat: number; zoom: number }
 
@@ -41,6 +41,8 @@ export interface AppState {
   profileRows: string[] | null;
   /** Vehicle compatibility shown on the map, for this profile; null = off. */
   vehicle: SharedVehicle | null;
+  /** The vehicle check panel is open (the map colouring has its own on/off, kept per browser). */
+  vehicleOpen: boolean;
   meta: Meta | null; // per-env metadata (not in the URL)
   theme: Theme | null; // legend of the current colouring (not in the URL)
 }
@@ -66,7 +68,7 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, qa: false, sideTab: 'filters',
+  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, qa: false, sideTab: 'filters', vehicleOpen: false,
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, meta: null, theme: null,
 });
 

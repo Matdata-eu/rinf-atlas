@@ -20,12 +20,25 @@
 #   atlas:appliesTo    "track" (default: compared with the running tracks of a
 #                      section of line) or "section" (the section itself)
 #   atlas:unit         unit of the value the user enters (that of the facet)
+#   atlas:whenMissing  what a track without a value means: atlas:Unknown
+#                      (default; yellow) or atlas:Incompatible (red)
+#   atlas:noneValue    an IRI the user can pick besides the real values, meaning
+#                      "the vehicle also runs where the system is absent" (e.g.
+#                      not electrified, for bi-mode vehicles): a track without a
+#                      value is then compatible
+#   atlas:noneFrom     characteristic key of the rule (with atlas:noneValue)
+#                      that says whether the system is absent: a track without a
+#                      value for this rule fails or passes as above only when it
+#                      has no value for that rule either (no contact line), and
+#                      is unknown otherwise (contact line without the parameter)
+#   atlas:missingReason  shown in the per-track explanation for such a track
 #
 # Shape-level: atlas:trackClass (repeatable) and atlas:sectionClass name the
 # indexed classes (shape keys) that are evaluated.
 #
 # A characteristic left empty in a profile is not checked. A track without a
-# value for the facet makes that characteristic "unknown". See docs/DESIGN.md
+# value for the facet makes that characteristic "unknown", unless the rule says
+# otherwise with atlas:whenMissing. See docs/DESIGN.md
 # for how tracks are aggregated into a status per section of line.
 #
 # These rules are deliberately simple (one characteristic against one facet).
@@ -42,7 +55,10 @@ shape:vehicle-compatibility
     atlas:compatibility true ;
     rdfs:label "Vehicle compatibility" ;
     sh:targetClass era:VehicleType ;
-    atlas:trackClass "running-track", "track" ;
+    # Every track class: the facets the rules compare are indexed on all of them,
+    # and a track without a value takes the value of its section of line when the
+    # section class indexes the same facet.
+    atlas:trackClass "running-track", "track", "siding" ;
     atlas:sectionClass "section-of-line" ;
     sh:property [
         sh:path era:wheelSetGauge ;
@@ -66,9 +82,15 @@ shape:vehicle-compatibility
         sh:path era:energySupplySystem ;
         atlas:characteristic "energySupplySystem" ;
         rdfs:label "Energy supply system" ;
-        rdfs:comment "Voltage and frequency the vehicle can draw power from. Leave empty for diesel or battery vehicles." ;
+        rdfs:comment "Voltage and frequency the vehicle can draw power from. Add \"Not electrified\" for a bi-mode vehicle that can also run without a contact line. Leave empty for diesel or battery vehicles." ;
         atlas:compareTo "contactLineSystem.energySupplySystem" ;
         atlas:constraint sh:hasValue ;
+        # A track without an energy supply system has no contact line (RINF
+        # requires the system on every electrified track; a contact line system of
+        # type "Not electrified" has none): an electric vehicle cannot run there.
+        atlas:whenMissing atlas:Incompatible ;
+        atlas:noneValue <http://data.europa.eu/949/concepts/contact-line-systems/40> ;
+        atlas:missingReason "No contact line" ;
         sh:order 30 ;
     ] ;
     sh:property [
@@ -78,6 +100,9 @@ shape:vehicle-compatibility
         rdfs:comment "Pantograph head(s) fitted; compared with the TSI and other pantograph heads the track accepts." ;
         atlas:compareTo "tsiPantographHead", "otherPantographHead" ;
         atlas:constraint sh:hasValue ;
+        atlas:whenMissing atlas:Incompatible ;
+        atlas:noneFrom "energySupplySystem" ;
+        atlas:missingReason "No contact line" ;
         sh:order 40 ;
     ] ;
     sh:property [
@@ -87,6 +112,9 @@ shape:vehicle-compatibility
         rdfs:comment "Highest contact wire the pantograph reaches; the track's maximum contact wire height must not be above it." ;
         atlas:compareTo "contactLineSystem.maximumContactWireHeight" ;
         atlas:constraint sh:maxInclusive ;
+        atlas:whenMissing atlas:Incompatible ;
+        atlas:noneFrom "energySupplySystem" ;
+        atlas:missingReason "No contact line" ;
         sh:datatype xsd:double ;
         atlas:unit "M" ;
         sh:order 50 ;
@@ -98,9 +126,26 @@ shape:vehicle-compatibility
         rdfs:comment "Lowest contact wire the pantograph works with; the track's minimum contact wire height must not be below it." ;
         atlas:compareTo "contactLineSystem.minimumContactWireHeight" ;
         atlas:constraint sh:minInclusive ;
+        atlas:whenMissing atlas:Incompatible ;
+        atlas:noneFrom "energySupplySystem" ;
+        atlas:missingReason "No contact line" ;
         sh:datatype xsd:double ;
         atlas:unit "M" ;
         sh:order 60 ;
+    ] ;
+    sh:property [
+        sh:path ( era:configDependentParameter era:catenaryMaxRatedCurrent ) ;
+        atlas:characteristic "maxTrainCurrent" ;
+        rdfs:label "Maximum current drawn from the contact line" ;
+        rdfs:comment "Highest current the vehicle (or train) draws from the contact line; the track's maximum train current must not be below it." ;
+        atlas:compareTo "contactLineSystem.maxTrainCurrent" ;
+        atlas:constraint sh:minInclusive ;
+        atlas:whenMissing atlas:Incompatible ;
+        atlas:noneFrom "energySupplySystem" ;
+        atlas:missingReason "No contact line" ;
+        sh:datatype xsd:integer ;
+        atlas:unit "A" ;
+        sh:order 65 ;
     ] ;
     sh:property [
         sh:path era:etcsEquipmentOnBoardLevel ;

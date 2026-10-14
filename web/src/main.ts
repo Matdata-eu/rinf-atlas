@@ -128,7 +128,6 @@ function initSide() {
     tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
     $('pane-filters').hidden = t !== 'filters';
     $('pane-results').hidden = t !== 'results';
-    $('pane-vehicle').hidden = t !== 'vehicle';
   };
   tabs.forEach((b) => b.addEventListener('click', () => {
     store.set({ sideTab: b.dataset.tab as SideTab });
@@ -141,6 +140,12 @@ function initSide() {
 
 // ---------- map tools ----------
 function initMapTools() {
+  // Panels under the map buttons start below them, also when the buttons wrap to a second row.
+  const tools = document.querySelector<HTMLElement>('.map-tools');
+  const wrap = document.querySelector<HTMLElement>('.map-wrap');
+  if (tools && wrap && 'ResizeObserver' in window) {
+    new ResizeObserver(() => wrap.style.setProperty('--map-tools-bottom', `${tools.offsetTop + tools.offsetHeight}px`)).observe(tools);
+  }
   const orm = $<HTMLInputElement>('orm-toggle');
   orm.checked = store.get().orm;
   orm.addEventListener('change', () => store.set({ orm: orm.checked }));

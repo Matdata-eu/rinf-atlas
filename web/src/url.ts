@@ -145,13 +145,13 @@ export function decView(s: string): MapView | null {
 
 // ---------- the whole hash ----------
 const DETAIL_TABS: DetailTab[] = ['properties', 'describe', 'graph'];
-const SIDE_TABS: SideTab[] = ['filters', 'results', 'vehicle'];
+const SIDE_TABS: SideTab[] = ['filters', 'results'];
 
 /** URL-backed state with the value it has when its parameter is absent (applied on Back / Forward). */
 export const URL_DEFAULTS: Partial<AppState> = {
   classes: [], filters: {}, graphs: [], q: '', limitToView: false, orm: false, qa: false,
   selected: null, detailTab: 'properties', describe: null, sideTab: 'filters',
-  colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null,
+  colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, vehicleOpen: false,
 };
 
 /** The state a hash describes; only the parameters present (see URL_DEFAULTS for the rest). */
@@ -177,8 +177,10 @@ export function parseHash(hash: string): Partial<AppState> {
     const dir = get('dir') === 'in' ? 'in' : 'out';
     if (nav.length || dir === 'in') out.describe = { for: out.selected, path: nav, dir };
   }
-  const side = get('side') as SideTab;
-  if (SIDE_TABS.includes(side)) out.sideTab = side;
+  const side = get('side');
+  if (SIDE_TABS.includes(side as SideTab)) out.sideTab = side as SideTab;
+  // legacy: the vehicle check was a side tab (side=vehicle); it is now a map tool panel
+  if (get('vp') === '1' || side === 'vehicle') out.vehicleOpen = true;
   if (get('col')) {
     out.colorBy = get('col');
     const h = get('colh');
@@ -228,6 +230,7 @@ export function hashParams(s: AppState): [string, string][] {
     p.push(['veh', encVehicle(s.vehicle.values)]);
     if (s.vehicle.name) p.push(['vehn', s.vehicle.name]);
   }
+  if (s.vehicleOpen) p.push(['vp', '1']);
   if (s.orm) p.push(['orm', '1']);
   return p;
 }
@@ -247,7 +250,7 @@ export const buildHash = (s: AppState) => '#' + hashParams(s).map(([k, v]) => `$
 function navSignature(s: AppState): string {
   const d = s.selected ? describeOf(s) : null;
   return JSON.stringify([s.env, s.classes, encFilters(s.filters), s.graphs, s.q, s.selected, s.selected ? s.detailTab : null,
-    d && [d.path, d.dir], s.colorBy, s.qa, s.profileOpen, s.profile, s.vehicle?.name ?? null]);
+    d && [d.path, d.dir], s.colorBy, s.qa, s.profileOpen, s.profile, s.vehicleOpen, s.vehicle?.name ?? null]);
 }
 
 // ---------- history ----------

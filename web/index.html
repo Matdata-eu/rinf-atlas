@@ -35,7 +35,6 @@
           <div class="tabs" role="tablist">
             <button role="tab" class="tab" data-tab="filters" aria-selected="true">Filters</button>
             <button role="tab" class="tab" data-tab="results" aria-selected="false">Results <span id="result-count" class="badge"></span></button>
-            <button role="tab" class="tab" data-tab="vehicle" aria-selected="false" title="Vehicle compatibility">Vehicle</button>
           </div>
         </div>
         <div class="side-body">
@@ -64,7 +63,6 @@
             <ol id="results" class="results"></ol>
             <button id="results-more" class="btn btn-block" hidden>Load more</button>
           </section>
-          <section id="pane-vehicle" class="pane" hidden aria-label="Vehicle compatibility"></section>
         </div>
       </aside>
 
@@ -80,9 +78,18 @@
             <span><i class="qa-dot sev-warning"></i>Warning</span>
             <span><i class="qa-dot sev-info"></i>Info</span>
           </div>
+          <button id="vehicle-btn" class="btn btn-raised" type="button" aria-pressed="false" aria-expanded="false" aria-controls="vehicle-panel" title="Where can a vehicle type run? Colour the sections of line by compatibility">Vehicle check</button>
         </div>
         <div id="map-msg" class="map-msg" hidden></div>
         <section id="profile" class="profile" aria-label="Line profile" hidden></section>
+        <section id="vehicle-panel" class="vehicle-panel" role="dialog" aria-modal="false" aria-labelledby="vehicle-panel-title" hidden>
+          <button class="sheet-handle vehicle-handle" type="button" aria-label="Expand or shrink the vehicle check"><span></span></button>
+          <div class="vehicle-panel-head">
+            <h2 id="vehicle-panel-title">Vehicle check</h2>
+            <button id="vehicle-close" class="icon-btn" type="button" title="Close the panel (the colouring stays on)" aria-label="Close the vehicle check panel">×</button>
+          </div>
+          <div id="pane-vehicle" class="vehicle-panel-body"></div>
+        </section>
       </section>
 
       <aside id="detail" class="detail" aria-label="Feature details" hidden></aside>

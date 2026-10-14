@@ -105,7 +105,9 @@ the full query state, which Martin's table sources can't express), `web`
 
 ## Vehicle compatibility
 A lightweight check of where a vehicle type can run, from a profile the user
-fills in by hand (the "Vehicle" tab). Only PostGIS is read.
+fills in by hand (the "Vehicle check" map tool: a floating panel, a bottom
+sheet on phones, and a legend on the map while the check is on). Only
+PostGIS is read.
 
 - Rules are declarative, in `shapes/compatibility.ttl`: one `sh:NodeShape`
   targeting `era:VehicleType` with `atlas:compatibility true`. Each
@@ -129,12 +131,32 @@ fills in by hand (the "Vehicle" tab). Only PostGIS is read.
 - Per track and characteristic: compatible, not compatible, or unknown when
   the track has no value for the facet. A track is red if any characteristic
   fails, else yellow if any is unknown, else green. A section of line takes
-  the best of its running tracks (`running-track` and `track`, found through
-  the "part of" links):
+  the best of its tracks (every track class: `running-track`, `track`,
+  `siding`, found through the "part of" links):
   green if one track is fully compatible, yellow if no track fails but some
   characteristics are unknown (or no track is indexed), red if every track
   fails. Rules with `atlas:appliesTo "section"` check the section itself and
   can only make it worse. Empty characteristics are not checked.
+- Parameters are looked up wherever RINF puts them. The facets a rule
+  compares are indexed on every track class, also where that class's own
+  facet shape does not list them (a track typed `era:Track` gets the
+  parameters of `running-track.ttl`), and a track without a value takes the
+  value of its section of line when the section class indexes the same facet.
+- No contact line. RINF models a non-electrified track as a contact line
+  system of type "Not electrified" (`.../contact-line-systems/40`) without an
+  energy supply system, pantograph heads or wire heights, or as a track
+  without any contact line system. Treating that as unknown made such
+  sections yellow ("no data") for every electric vehicle. Rules now say what
+  a missing value means: `atlas:whenMissing atlas:Incompatible` on the energy
+  supply rule makes a track without an energy supply system red ("No contact
+  line" in the explanation). The contact-line-dependent rules (pantograph
+  head, contact wire heights, maximum train current) name it with
+  `atlas:noneFrom`: they fail only where the energy supply is missing too,
+  and stay unknown on an electrified track that lacks the parameter. The
+  energy supply rule's `atlas:noneValue` ("Not electrified") is offered in
+  the profile: a bi-mode vehicle that has it is compatible with tracks
+  without a contact line (on electrified tracks its electric systems are
+  checked as before).
 - Not every vehicle parameter is a compatibility constraint: maximum speed
   only limits the speed, so it has no rule. Ordered scales (gauging profiles,
   EN 15528 line categories, ETCS baselines) are compared by set membership:
@@ -142,7 +164,11 @@ fills in by hand (the "Vehicle" tab). Only PostGIS is read.
 - The map draws a separate vector source (sections of line only, independent
   of the current filters) and colours it with MapLibre feature-state from the
   `{green|yellow|red: [feature id]}` response, so recolouring never refetches
-  tiles; clicking a section shows the per-track explanation. Kept apart from
+  tiles; clicking a section shows the per-track explanation. This relies on
+  feature ids being stable: re-extraction upserts features (and deletes only
+  those gone from the graph) so a feature keeps its id across syncs, and the
+  tile URL carries the result's data `version` so tiles from an older index
+  are never mixed with a newer result. Kept apart from
   generic thematic colouring on purpose, so the two can be merged later.
 - Profiles live in `localStorage` (with four illustrative examples) and are
   exported / imported as JSON or as Turtle with `era:VehicleType` instances.

@@ -1,0 +1,15 @@
+<http://example.org/rinf-atlas-test/sol/no-contact-line> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/SectionOfLine> .
+<http://example.org/rinf-atlas-test/sol/no-contact-line> <http://www.w3.org/2000/01/rdf-schema#label> "Test section without a contact line"@en .
+<http://example.org/rinf-atlas-test/sol/no-contact-line> <http://data.europa.eu/949/hasPart> <http://example.org/rinf-atlas-test/track/no-cls> .
+<http://example.org/rinf-atlas-test/sol/no-contact-line> <http://www.opengis.net/ont/geosparql#hasGeometry> <http://example.org/rinf-atlas-test/geom/no-contact-line> .
+<http://example.org/rinf-atlas-test/geom/no-contact-line> <http://www.opengis.net/ont/geosparql#asWKT> "LINESTRING(6.05 49.70, 6.09 49.72)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+<http://example.org/rinf-atlas-test/track/not-electrified> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/RunningTrack> .
+<http://example.org/rinf-atlas-test/track/not-electrified> <http://www.w3.org/2000/01/rdf-schema#label> "Track with a contact line system of type not electrified"@en .
+<http://example.org/rinf-atlas-test/track/not-electrified> <http://data.europa.eu/949/isPartOf> <http://example.org/rinf-atlas-test/sol/no-contact-line> .
+<http://example.org/rinf-atlas-test/track/not-electrified> <http://data.europa.eu/949/wheelSetGauge> <http://data.europa.eu/949/concepts/nominal-track-gauges/30> .
+<http://example.org/rinf-atlas-test/track/not-electrified> <http://data.europa.eu/949/contactLineSystem> <http://example.org/rinf-atlas-test/cls/not-electrified> .
+<http://example.org/rinf-atlas-test/cls/not-electrified> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/ContactLineSystem> .
+<http://example.org/rinf-atlas-test/cls/not-electrified> <http://data.europa.eu/949/contactLineSystemType> <http://data.europa.eu/949/concepts/contact-line-systems/40> .
+<http://example.org/rinf-atlas-test/track/no-cls> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/RunningTrack> .
+<http://example.org/rinf-atlas-test/track/no-cls> <http://www.w3.org/2000/01/rdf-schema#label> "Track without a contact line system"@en .
+<http://example.org/rinf-atlas-test/track/no-cls> <http://data.europa.eu/949/wheelSetGauge> <http://data.europa.eu/949/concepts/nominal-track-gauges/30> .

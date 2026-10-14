@@ -1,4 +1,4 @@
-// Vehicle compatibility: the "Vehicle" side pane (profiles kept in this browser), the
+// Vehicle compatibility: the "Vehicle check" map panel (profiles kept in this browser), the
 // green / yellow / red thematic layer of sections of line, its map legend, and the
 // explanation shown in the detail panel. Self-contained: its own source and layers.
 // The profile shown on the map is mirrored in store.vehicle (its content, so a shared link
@@ -23,13 +23,15 @@ const STATUS_TEXT: Record<CompatColour, string> = {
 const STATUS_HELP: Record<CompatColour, string> = {
   green: 'at least one running track meets every filled-in characteristic',
   yellow: 'no track fails, but some characteristics could not be checked (no data on the section)',
-  red: 'every running track fails at least one filled-in characteristic',
+  red: 'every running track fails at least one filled-in characteristic (an electric vehicle fails on a track without a contact line)',
 };
 const RESULT_TEXT: Record<CompatCheck['result'], string> = { ok: 'Compatible', unknown: 'No data', fail: 'Not compatible' };
 const RESULT_ICON: Record<CompatCheck['result'], string> = { ok: '✓', unknown: '?', fail: '✗' };
 export const RULE_HELP = 'A section of line is green when at least one of its running tracks is compatible with every ' +
   'characteristic you filled in, yellow when no track is incompatible but some characteristics could not be checked ' +
   'because the section has no data for them, and red when every track is incompatible on at least one characteristic. ' +
+  'A track without a contact line is incompatible with an electric vehicle (energy supply, pantograph, contact wire and ' +
+  'current), unless you add “Not electrified” to its energy supply systems for a bi-mode vehicle. ' +
   'Characteristics left empty are not checked.';
 const TOP_N = 8;
 
@@ -166,8 +168,14 @@ async function loadRules(env: string) {
 // ---------- map layer ----------
 let mapRef: maplibregl.Map | null = null;
 
+// Data version of the last result. The tile URL carries it, so the coloured tiles
+// always come from the same index as the ids in the result: after a sync the map
+// reloads them instead of keeping (or the browser serving) tiles from before.
+let tilesVersion = '';
+
 function sourceTiles(): string {
-  return api.tilesUrl({ env: store.get().env, classes: [sectionClass()], filters: {} });
+  const url = api.tilesUrl({ env: store.get().env, classes: [sectionClass()], filters: {} });
+  return tilesVersion ? `${url}&v=${encodeURIComponent(tilesVersion)}` : url;
 }
 
 function ensureLayers(m: maplibregl.Map) {
@@ -211,6 +219,7 @@ function applyResult(r: CompatResponse | null) {
   statusById.clear();
   if (r) for (const c of ['green', 'yellow', 'red'] as const) for (const id of r[c]) statusById.set(String(id), c);
   setVisible(saved.show);
+  if (r?.version && r.version !== tilesVersion) { tilesVersion = r.version; updateSource(); }
   if (!mapRef) return;
   if (TILE_MODE === 'vector') {
     mapRef.removeFeatureState({ source: SRC, sourceLayer: 'features' });
@@ -256,19 +265,49 @@ function renderLegend() {
     : h('ul', { class: 'compat-rows' + (busy ? ' busy' : '') }, ...rows);
   legend.replaceChildren(
     h('div', { class: 'compat-legend-head' },
-      h('button', { class: 'link compat-legend-name', title: 'Edit the vehicle profile', onclick: () => store.set({ sideTab: 'vehicle' }) }, p?.name ?? 'Vehicle'),
-      h('button', { class: 'icon-btn', title: 'Hide vehicle compatibility', 'aria-label': 'Hide vehicle compatibility', onclick: () => setShow(false) }, '×')),
+      h('span', { class: 'compat-legend-name', title: p?.name ?? '' }, p?.name ?? 'Vehicle'),
+      h('button', { class: 'btn btn-small compat-legend-edit', type: 'button', title: 'Open the vehicle check panel to edit the profile',
+        'aria-expanded': String(store.get().vehicleOpen), 'aria-controls': 'vehicle-panel', onclick: () => setPanelOpen(true) }, 'Edit'),
+      h('button', { class: 'icon-btn', type: 'button', title: 'Turn the vehicle check off', 'aria-label': 'Turn the vehicle check off', onclick: () => setShow(false) }, '×')),
     shared && saved.active === SHARED_ID ? h('p', { class: 'compat-shared-note small' }, 'Profile from a shared link. ',
       h('button', { class: 'link small', type: 'button', onclick: saveShared }, 'Save to my profiles')) : '',
     body,
     h('p', { class: 'muted small compat-legend-help' }, 'Sections of line, by their running tracks. ',
-      h('button', { class: 'link small', title: RULE_HELP, onclick: () => store.set({ sideTab: 'vehicle' }) }, 'How?')));
+      h('button', { class: 'link small', type: 'button', title: RULE_HELP, onclick: () => setPanelOpen(true, true) }, 'How?')));
 }
 
-// ---------- side pane ----------
+// ---------- panel ----------
+const panel = document.getElementById('vehicle-panel') as HTMLElement;
+const panelBtn = document.getElementById('vehicle-btn') as HTMLButtonElement;
+
+/** Open or close the vehicle check panel (store.vehicleOpen). `help`: also unfold "How sections are coloured". */
+export function setPanelOpen(open: boolean, help = false) {
+  store.set({ vehicleOpen: open });
+  if (open && help) {
+    const d = pane.querySelector<HTMLDetailsElement>('.compat-help');
+    if (d) { d.open = true; d.scrollIntoView({ block: 'nearest' }); }
+  }
+}
+
+function applyPanel(focus: boolean) {
+  const open = store.get().vehicleOpen;
+  const wasOpen = !panel.hidden;
+  panel.hidden = !open;
+  document.body.classList.toggle('vehicle-open', open);
+  panelBtn.setAttribute('aria-pressed', String(open));
+  panelBtn.setAttribute('aria-expanded', String(open));
+  panelBtn.classList.toggle('compat-on', saved.show);
+  if (!open) panel.classList.remove('expanded');
+  renderLegend();
+  if (!focus || open === wasOpen) return;
+  if (open) (pane.querySelector<HTMLElement>('.compat-show input') ?? panel).focus();
+  else if (panel.contains(document.activeElement) || document.activeElement === document.body) panelBtn.focus();
+}
+
 function setShow(on: boolean) {
   saved.show = on; persist(); publish();
   setVisible(on);
+  panelBtn.classList.toggle('compat-on', on);
   const box = pane.querySelector<HTMLInputElement>('.compat-show input');
   if (box) box.checked = on;
   renderResult();
@@ -373,6 +412,11 @@ function renderEditorHeads() {
   }
 }
 
+/** The "none" option of a rule (e.g. not electrified), saying what picking it means. */
+function noneLabel(r: CompatRule, label: string): string {
+  return `${label} (also runs where the track has ${r.missing_reason ? r.missing_reason.toLowerCase() : 'none'})`;
+}
+
 function termEditor(r: CompatRule, body: HTMLElement) {
   const p = active()!;
   const cur = (Array.isArray(p.values[r.key]) ? p.values[r.key] : []) as (string | boolean)[];
@@ -380,7 +424,8 @@ function termEditor(r: CompatRule, body: HTMLElement) {
   const known = ruleValues(r);
   let values: { value: string | boolean; label: string; count: number | null }[] = r.kind === 'boolean'
     ? [true, false].map((b) => ({ value: b, label: b ? 'Yes' : 'No', count: known.get(String(b))?.count ?? 0 }))
-    : (r.values ?? []).map((v) => ({ value: v.value as string, label: valueLabel(v.value, v.label), count: v.count }));
+    : (r.values ?? []).map((v) => ({ value: v.value as string, count: v.count,
+      label: String(v.value) === r.none_value ? noneLabel(r, valueLabel(v.value, v.label)) : valueLabel(v.value, v.label) }));
   for (const v of cur) if (!values.some((x) => String(x.value) === String(v))) values.unshift({ value: v, label: valueLabel(v), count: null });
   const needle = (needles.get(r.key) ?? '').toLowerCase();
   const shown = needle ? values.filter((v) => v.label.toLowerCase().includes(needle) || String(v.value).toLowerCase().includes(needle)) : values;
@@ -557,6 +602,7 @@ function checksTable(checks: CompatCheck[]): HTMLElement {
     return h('tr', {},
       h('th', {}, r?.label ?? c.key),
       h('td', {}, h('span', { class: `compat-result ${c.result}` }, `${RESULT_ICON[c.result]} ${RESULT_TEXT[c.result]}`),
+        c.note ? h('div', { class: 'compat-note-reason small' }, c.note) : null,
         vals.length ? h('div', { class: 'muted small' }, `Track: ${vals.join(', ')}`) : null));
   })));
 }
@@ -606,6 +652,12 @@ export function compatBlock(f: Feature): HTMLElement | null {
 /** `fromLink`: the page was opened with a state in its URL; its vehicle (or none) wins over this browser's. */
 export function initCompat(fromLink = false) {
   document.querySelector('.map-wrap')?.append(legend);
+  panelBtn.addEventListener('click', () => setPanelOpen(!store.get().vehicleOpen));
+  document.getElementById('vehicle-close')!.addEventListener('click', () => setPanelOpen(false));
+  panel.querySelector('.vehicle-handle')!.addEventListener('click', () => panel.classList.toggle('expanded'));
+  panel.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !(e.target as HTMLElement).closest('select')) { e.stopPropagation(); setPanelOpen(false); }
+  });
   setTipNote(tipNote);
   onMapReady((m) => {
     mapRef = m;
@@ -615,7 +667,9 @@ export function initCompat(fromLink = false) {
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'env') && s.env) { result = null; applyResult(null); updateSource(); loadRules(s.env); }
     if (changed(s, prev, 'vehicle') && !sameVehicle(s.vehicle, current())) adopt(s.vehicle); // Back / Forward, edited link
+    if (changed(s, prev, 'vehicleOpen')) applyPanel(true);
   });
   if (fromLink) adopt(store.get().vehicle); else publish();
   renderPane();
+  applyPanel(false);
 }
