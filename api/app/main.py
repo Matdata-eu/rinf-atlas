@@ -351,12 +351,19 @@ def tiles(z: int, x: int, y: int, state: str):
     dedup = "DISTINCT ON (class, geom)" if low else ""
     # A coarser tile grid at low zoom: fewer vertices and more pixel-duplicates removed.
     extent = 512 if low else 4096
+    mvt_geom = f"ST_AsMVTGeom({geom}, bounds.b, {extent}, {extent // 64}, true)"
+    if tol:
+        # A line shorter than a pixel snaps to nothing and is dropped, which leaves gaps
+        # in a network of short sections at low zoom (and their colours with them). Keep
+        # it as a one-unit line at its start, drawn as a dot by the round line caps.
+        start = f"ST_AsMVTGeom(ST_StartPoint(ST_GeometryN(f.geom3857, 1)), bounds.b, {extent}, {extent // 64}, true)"
+        mvt_geom = (f"coalesce({mvt_geom}, CASE WHEN GeometryType(f.geom3857) IN ('LINESTRING', 'MULTILINESTRING') "
+                    f"THEN ST_MakeLine({start}, ST_Translate({start}, 1, 0)) END)")
     rows = _q(f"""
         WITH bounds AS (SELECT ST_TileEnvelope(%s, %s, %s) AS b),
         mvt AS (
             SELECT {dedup} * FROM (
-                SELECT f.id AS fid, {props},
-                       ST_AsMVTGeom({geom}, bounds.b, {extent}, {extent // 64}, true) AS geom
+                SELECT f.id AS fid, {props}, {mvt_geom} AS geom
                 FROM feature f, bounds
                 WHERE f.geom3857 && ST_Expand(bounds.b, (ST_XMax(bounds.b) - ST_XMin(bounds.b)) / 64) AND {sql}
             ) t WHERE geom IS NOT NULL)

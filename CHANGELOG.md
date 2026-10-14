@@ -31,3 +31,6 @@ All notable changes to this project are documented here: https://github.com/Matd
   colours out at the zoom levels whose tiles were already loaded. The
   compatibility result also carries a data `version` that the map puts in the
   tile URL of the coloured layer.
+- Below zoom 10, lines shorter than a pixel are kept in the tiles as a dot
+  instead of being dropped, so networks of short sections of line (and their
+  compatibility colours) no longer break up at low zoom.
