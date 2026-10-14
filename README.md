@@ -192,8 +192,8 @@ the data the app shows or the services it loads at runtime:
   (Directive (EU) 2016/797, Regulation (EU) 2019/777). The infrastructure
   managers who submit it remain responsible for it, and ERA's
   [RINF terms of use](https://www.era.europa.eu/system/files/2022-11/rinf_terms_of_use_en.pdf)
-  apply. No data is stored in this repository except the small test extract in
-  `tests/fixtures/`, which credits its source. This project is not affiliated
+  apply. No data is stored in this repository except the small test extracts in
+  `tests/fixtures/`, which credit their sources. This project is not affiliated
   with ERA.
 - **ERA vocabulary**: the facet shapes in `shapes/` use class and property IRIs
   and labels from the [ERA ontology](https://data-interop.era.europa.eu/era-vocabulary/)
@@ -205,11 +205,20 @@ the data the app shows or the services it loads at runtime:
 - **Rail overlay** (optional): [OpenRailwayMap](https://www.openrailwaymap.org/) tiles
   (CC-BY-SA 2.0, data ODbL), free only for small, public, non-commercial use
   ([conditions](https://wiki.openstreetmap.org/wiki/OpenRailwayMap/API)).
-- **ERA SHACL shapes** (the data quality rules) are mirrored from ERA's
-  repository like the data; `tests/fixtures/era-shacl.nt.gz` is a copy for the
-  tests. The worker image includes the
-  [shacl-report](https://github.com/Matdata-eu/shacl-report) binary
-  (Apache-2.0) to render the reports.
+- **ERA SHACL shapes** (the data quality rules), © ERA, are licensed under the
+  [EUPL 1.2](third_party/era-ontology/LICENSE), as the shapes and ERA's
+  [ontology repository](https://gitlab.com/era-europa-eu/public/interoperable-data-programme/era-ontology/era-ontology)
+  state. The worker mirrors them from ERA's repository like the data, or, when
+  `quality.shapes_tag` is set, downloads them from that GitLab repository at
+  the tag (same licence) into its cache; they are not part of the images.
+  `tests/fixtures/era-shacl.nt.gz` is an unmodified copy for the tests,
+  credited in [tests/fixtures/README.md](tests/fixtures/README.md).
+- **shacl-report**: the worker image includes the
+  [shacl-report](https://github.com/Matdata-eu/shacl-report) 1.0.0 binary
+  (Apache-2.0, by Mathias Vanden Auweele) to render the reports; its `LICENSE`
+  and `THIRD_PARTY_NOTICES.md` (the licences of the libraries compiled into it
+  and embedded in its HTML reports, all permissive) ship with it in the image
+  under `/usr/share/licenses/shacl-report/`.
 - **Dependencies** are under permissive licences (MIT, BSD, ISC, Apache-2.0)
   or weak copyleft used unmodified: psycopg (LGPL-3.0) and, at build time only,
   lightningcss (MPL-2.0). The PostGIS image (GPL-2.0) runs as an unmodified,
