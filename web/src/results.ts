@@ -38,9 +38,11 @@ function render(reset: boolean) {
   badge.textContent = fmt.format(total);
   const rows = items.map((it) => {
     const c = colors.get(it.class);
+    const located = it.lon != null && it.lat != null;
+    const zoomTitle = located ? 'Zoom to this feature' : 'This feature has no location on the map';
     const zoom = h('button', {
-      class: 'icon-btn zoom-btn', title: 'Zoom to this feature', 'aria-label': `Zoom to ${it.label || it.id}`,
-      onclick: () => zoomToFeature(it.iri, [it.lon, it.lat]),
+      class: 'icon-btn zoom-btn', title: zoomTitle, 'aria-label': located ? `Zoom to ${it.label || it.id}` : zoomTitle,
+      disabled: !located, onclick: () => zoomToFeature(it.iri, [it.lon!, it.lat!]),
     });
     zoom.innerHTML = ZOOM_ICON;
     return h('li', { class: 'result-row' },
@@ -49,7 +51,7 @@ function render(reset: boolean) {
         onclick: (ev: Event) => {
           const describe = (ev as MouseEvent).ctrlKey || (ev as MouseEvent).metaKey;
           store.set({ selected: it.iri, detailTab: describe ? 'describe' : 'properties' });
-          flyTo(it.lon, it.lat); // after the detail panel opened, so the map has its final size
+          if (located) flyTo(it.lon!, it.lat!); // after the detail panel opened, so the map has its final size
         },
       },
       h('span', { class: 'swatch', style: `background:${c?.color ?? '#888'}` }),

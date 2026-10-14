@@ -22,6 +22,9 @@ _CRS = re.compile(r"^\s*<([^>]*)>\s*")
 # Some providers append the validity period to rdfs:label; it is noise in lists.
 _VALIDITY = re.compile(r"\s*\(from \d{4}-\d{2}-\d{2} until \d{4}-\d{2}-\d{2}\)\s*$")
 _NUM = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+# Explicit plus signs on coordinates ("POINT (+23.1 54.7)") are valid WKT for
+# some providers but PostGIS rejects them, which silently drops the geometry.
+_PLUS = re.compile(r"(?<![\deE])\+(?=[\d.])")
 
 
 def normalize_wkt(wkt: str) -> str | None:
@@ -37,6 +40,7 @@ def normalize_wkt(wkt: str) -> str | None:
     if m:
         crs = m.group(1)
         wkt = wkt[m.end():]
+    wkt = _PLUS.sub("", wkt)
     if not wkt:
         return None
     nums = _NUM.findall(wkt)

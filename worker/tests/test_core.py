@@ -22,6 +22,11 @@ def test_wkt_linestring_flipped_when_latlon():
     assert normalize_wkt("LINESTRING (50.1 4.1, 50.2 4.2)") == "LINESTRING (4.1 50.1, 4.2 50.2)"
 
 
+def test_wkt_plus_signs_stripped():
+    assert normalize_wkt("POINT (+23.135931 54.710154)") == "POINT (23.135931 54.710154)"
+    assert normalize_wkt("POINT (+5.4710154E+1 +2.3135931E+1)") == "POINT (2.3135931E+1 5.4710154E+1)"
+
+
 def test_repo_shapes_compile():
     s = load_shapes(SHAPES)
     keys = {c.key for c in s.classes}
