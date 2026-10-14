@@ -56,8 +56,20 @@ function render(reset: boolean) {
   more.textContent = `Load more (${fmt.format(total - items.length)} left)`;
 }
 
+/** Starts a browser download of the current results; the browser streams it to disk. */
+function download(format: 'csv' | 'xlsx') {
+  const s = store.get();
+  if (!s.env) return;
+  const a = h('a', { href: api.exportUrl(queryState(s), format), download: '' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
+
 export function initResults() {
   more.addEventListener('click', () => load(false));
+  document.getElementById('export-csv')!.addEventListener('click', () => download('csv'));
+  document.getElementById('export-xlsx')!.addEventListener('click', () => download('xlsx'));
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) reload();
     else if (changed(s, prev, 'selected')) {

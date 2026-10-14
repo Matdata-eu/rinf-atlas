@@ -17,5 +17,7 @@ All notable changes to this project are documented here. The format follows
 - Web UI: map with per-class colours, shared and per-class facets, results
   list, describe and graph views, Datasets dialog, light/dark theme, About
   dialog with credits and a link to this repository for feedback.
+- Export of the current results (selected classes, facets, datasets, search
+  and map view) to CSV or Excel from the Results tab (`/api/export`).
 - Documentation: how datasets are updated, architecture overview, HTTP API.
 - docker-compose deployment, CI and container images on GHCR.
