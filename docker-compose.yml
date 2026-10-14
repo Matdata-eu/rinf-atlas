@@ -54,6 +54,7 @@ services:
     environment:
       DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@db:5432/atlas
       ATLAS_ENVS: ${ATLAS_ENVS:-}
+      ATLAS_PUBLIC_URL: ${ATLAS_PUBLIC_URL:-}
     volumes:
       - ./config:/app/config:ro
     depends_on:

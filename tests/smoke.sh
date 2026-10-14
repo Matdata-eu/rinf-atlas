@@ -54,6 +54,46 @@ python3 -c "import zipfile,sys; z=zipfile.ZipFile('/tmp/atlas-export.xlsx'); n=s
   || fail "XLSX export is not a workbook with one sheet per class"
 rm -f /tmp/atlas-export.xlsx
 
+# GIS access: OGC API - Features (unfiltered and filtered) and TileJSON / style.
+ogc="$BASE/api/ogc"
+curl -fsS "$ogc" | json "' '.join(l['rel'] for l in d['links'])" | grep -qw conformance || fail "OGC landing page lacks links"
+curl -fsS "$ogc/conformance" | grep -q 'ogcapi-features-1/1.0/conf/geojson' || fail "OGC conformance incomplete"
+curl -fsS "$ogc/collections" | json "' '.join(c['id'] for c in d['collections'])" | grep -qw prod.operational-point \
+  || fail "no prod.operational-point collection"
+ogcn=$(python3 - "$ogc/collections/prod.operational-point/items?limit=7" <<'PY'
+import json, sys, urllib.request
+url, ids, matched = sys.argv[1], [], None
+while url:  # follow the next links like a GIS client does
+    d = json.load(urllib.request.urlopen(url))
+    assert all(f["type"] == "Feature" and "opType" in f["properties"] for f in d["features"])
+    ids += [f["id"] for f in d["features"]]
+    matched = d["numberMatched"]
+    url = next((link["href"] for link in d["links"] if link["rel"] == "next"), None)
+assert len(ids) == len(set(ids)) == matched, (len(ids), len(set(ids)), matched)
+print(len(ids))
+PY
+) || fail "OGC items paging broken"
+echo "OGC items (paged): $ogcn"; [ "$ogcn" -eq "$ops" ] || fail "OGC items has $ogcn operational points, expected $ops"
+inbox=$(curl -fsS "$ogc/collections/prod.operational-point/items?bbox=$(echo "$bbox" | tr -d '[] ')&limit=1" | json "d['numberMatched']")
+[ "$inbox" -eq "$ops" ] || fail "OGC bbox of the whole extent returned $inbox"
+crs=$(curl -fsS -D - -o /dev/null "$ogc/collections/prod.tunnel/items?crs=http://www.opengis.net/def/crs/EPSG/0/3857" | tr -d '\r' | sed -n 's/^content-crs: //Ip')
+[ "$crs" = "<http://www.opengis.net/def/crs/EPSG/0/3857>" ] || fail "OGC crs parameter ignored ($crs)"
+long=$(curl -fsS "$ogc/collections/prod.tunnel/items?lengthOfTunnel=420..&limit=100" | json "len(d['features'])")
+all=$(curl -fsS "$ogc/collections/prod.tunnel/items?limit=100" | json "len(d['features'])")
+echo "tunnels >= 420 m: $long of $all"; [ "$long" -ge 1 ] && [ "$long" -lt "$all" ] || fail "OGC range facet parameter"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$ogc/collections/prod.tunnel/items?noSuchFacet=1")
+[ "$code" = 400 ] || fail "unknown OGC parameter gave $code, expected 400"
+fid=$(curl -fsS "$ogc/collections/prod.tunnel/items?limit=1" | json "d['features'][0]['id']")
+curl -fsS "$ogc/collections/prod.tunnel/items/$fid" | json "d['properties']['iri']" | grep -q '^http' || fail "OGC single item"
+station=$(python3 -c "import base64,json;print(base64.urlsafe_b64encode(json.dumps({'env':'prod','classes':['operational-point'],'filters':{'operational-point/opType':['http://data.europa.eu/949/concepts/op-types/10']}}).encode()).decode().rstrip('='))")
+fcols=$(curl -fsS "$ogc/filtered/$station/collections" | json "' '.join(c['id'] for c in d['collections'])")
+[ "$fcols" = prod.operational-point ] || fail "filtered OGC view lists $fcols"
+fn=$(curl -fsS "$ogc/filtered/$station/collections/prod.operational-point/items" | json "d['numberMatched']")
+sn=$(post facets '{"env":"prod","classes":["operational-point"],"filters":{"operational-point/opType":["http://data.europa.eu/949/concepts/op-types/10"]}}' | json "d['total']")
+echo "filtered OGC stations: $fn (facets: $sn)"; [ "$fn" -eq "$sn" ] && [ "$fn" -lt "$ops" ] || fail "filtered OGC view does not match the facets"
+curl -fsS "$BASE/api/tiles.json?state=$state" | json "d['tiles'][0]" | grep -q '/api/tiles/{z}/{x}/{y}.pbf?state=' || fail "TileJSON"
+curl -fsS "$BASE/api/style.json?env=prod" | json "len(d['layers'])" | grep -qv '^0$' || fail "style.json has no layers"
+
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"
 

@@ -506,3 +506,9 @@ def describe(env: str, iri: str, direction: str = Query("out", pattern="^(out|in
         _describe_cache.clear()
     _describe_cache[key] = (time.time(), out)
     return out
+
+
+# OGC API - Features and TileJSON for desktop GIS (imports this module, so last).
+from . import gis  # noqa: E402
+
+gis.install(app)

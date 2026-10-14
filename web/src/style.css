@@ -243,7 +243,7 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .result-row .zoom-btn { margin-top: 3px; opacity: 0.55; }
 .result-row:hover .zoom-btn, .result-row .zoom-btn:focus-visible { opacity: 1; }
 .results .empty { padding: 16px 4px; }
-.export-bar { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 2px 0 8px; }
+.export-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; margin: 2px 0 8px; }
 .export-bar .muted { margin-right: auto; }
 
 /* ---------- map ---------- */
@@ -367,3 +367,9 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .about-body p { margin: 6px 0; }
 .credits { margin: 4px 0; padding-left: 18px; }
 .credits li { margin: 3px 0; }
+.gis-dialog { width: min(640px, calc(100vw - 32px)); }
+.gis-row { margin: 14px 0 0; }
+.gis-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.gis-row p { margin: 4px 0 0; }
+.gis-input { display: flex; gap: 6px; }
+.gis-input input { flex: 1; min-width: 0; margin: 0; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }

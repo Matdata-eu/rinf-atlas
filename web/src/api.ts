@@ -123,6 +123,16 @@ export const api = {
     const { facets: _facets, ...rest } = st;
     return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format })}`;
   },
+  /** Absolute URLs for desktop GIS (docs/api.md, "GIS access") for a state; bbox is left out. */
+  gisUrls: (st: QueryState) => {
+    const { bbox: _bbox, facets: _facets, ...rest } = st;
+    const abs = new URL(BASE, location.href).href.replace(/\/$/, '');
+    const filtered = rest.classes.length > 0 || Object.keys(rest.filters).length > 0 || !!rest.q || !!rest.graphs?.length;
+    const enc = base64url(JSON.stringify(rest));
+    const ogc = filtered ? `${abs}/ogc/filtered/${enc}` : `${abs}/ogc`;
+    const items = rest.classes.length === 1 ? `${ogc}/collections/${rest.env}.${rest.classes[0]}/items` : null;
+    return { ogc, items, tilejson: `${abs}/tiles.json?state=${enc}`, style: `${abs}/style.json?state=${enc}` };
+  },
   /** Tile URL template; `state` is base64url(JSON query state without bbox). */
   tilesUrl: (st: QueryState) => {
     const { bbox: _bbox, ...rest } = st;

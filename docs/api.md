@@ -64,3 +64,57 @@ values are numbers.
   `min_zoom` (from the shapes, see `/api/meta`). Lines are simplified below
   zoom 10. Tiles are sent with `Cache-Control: public, max-age=300`.
 - Describe responses are cached in the API for 10 minutes.
+
+## GIS access (OGC API – Features, vector tiles)
+
+For desktop GIS (QGIS, ArcGIS Pro, GDAL/OGR, OWSLib); see "Use in QGIS" in the
+README. Read-only, from PostGIS, CORS open. Errors are `{code, description}`:
+400 for a bad or unknown query parameter, 404 for an unknown collection or
+feature.
+
+**OGC API – Features** (Part 1 Core + GeoJSON, Part 2 CRS by reference):
+
+| Path | Returns |
+|---|---|
+| `/api/ogc` | landing page (links to conformance, collections and `/api/openapi.json`) |
+| `/api/ogc/conformance` | `core` and `geojson` (Part 1), `crs` (Part 2) |
+| `/api/ogc/collections` | one collection per environment and class with features: id `{env}.{class}` (e.g. `prod.operational-point`), title = the shape's class label (plus the environment when several are served), spatial extent, the facet parameters in `description` |
+| `/api/ogc/collections/{id}` | one collection |
+| `/api/ogc/collections/{id}/items` | GeoJSON `FeatureCollection` with `numberMatched`, `numberReturned`, `timeStamp` and `self` / `next` / `prev` links |
+| `/api/ogc/collections/{id}/items/{fid}` | one GeoJSON feature |
+| `/api/ogc/filtered/{state}/...` | the same tree for a query state (base64url JSON, as for tiles): only that environment, only its classes (all when empty), every request narrowed by its filters, search and datasets. The state's `bbox` is ignored. The UI's **Open in GIS** button copies this URL |
+
+Items parameters: `limit` (default 100; more than 10 000 is capped),
+`offset`, `bbox` (`minx,miny,maxx,maxy`; 6 values accepted), `bbox-crs`,
+`crs` (output CRS: CRS84, the default; `http://www.opengis.net/def/crs/EPSG/0/4326`
+with lat/lon axis order; `.../EPSG/0/3857`; the response carries
+`Content-Crs`), `q` (full text as in the UI, or a full IRI), `dataset`
+(provider graph IRIs, comma separated), `values=label|iri` (IRI-valued
+properties as labels, the default, or as IRIs), `datetime` and `f=json`
+(accepted, ignored). Every facet key of the class is a parameter too, applied
+like a UI filter: terms as comma separated values
+(`?opType=http://data.europa.eu/949/concepts/op-types/10`), booleans
+`true`/`false`, ranges `min..max` with either side optional
+(`?lengthOfTunnel=1000..`). Any other parameter is a 400.
+
+Features: `id` is the Atlas feature id (it can change on a re-index; `iri` is
+stable). Properties are flat and the same on every feature of a collection:
+`iri, label, class, dataset, provider`, then one per facet of the class
+(shared facets first), `null` when absent. Several values are joined with
+`; `; a single number stays a number, a single boolean a boolean. Features
+without a geometry have `geometry: null`. Items are ordered by id.
+
+Limits (environment variables of the `api` service): `ATLAS_OGC_DEFAULT_LIMIT`
+(100), `ATLAS_OGC_MAX_LIMIT` (10000), `ATLAS_OGC_MAX_OFFSET` (5000000) and a
+statement timeout per query, `ATLAS_OGC_TIMEOUT_MS` (30000). Links are
+absolute and built from `ATLAS_PUBLIC_URL` when set (e.g.
+`https://rinf-atlas.matdata.eu`), otherwise from `X-Forwarded-Proto` and
+`X-Forwarded-Host` (nginx forwards those of a proxy in front of it, or its own
+scheme and `Host`).
+
+**Vector tiles for GIS:**
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/tiles.json?state=` or `?env=` | TileJSON 3.0.0 for `/api/tiles` with that state (or a whole environment; the default one when neither is given): `tiles`, `bounds`, `maxzoom` (`ATLAS_TILE_MAXZOOM`, 14), layer `features` with fields `id, iri, class, label` |
+| GET | `/api/style.json?state=` or `?env=` | MapLibre style (v8) drawing those tiles in the class colours: circles for point classes, lines for line classes, both for `any`, each from the class `min_zoom` |

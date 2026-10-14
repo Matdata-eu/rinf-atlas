@@ -1,6 +1,7 @@
 // Results list: POST /api/search, paged by 50.
 import { api, isAbort, type SearchItem } from './api';
 import { ZOOM_ICON, zoomToFeature } from './detail';
+import { openGis } from './gis';
 import { flyTo } from './map';
 import { changed, debounce, fmt, h, queryState, store } from './state';
 
@@ -79,6 +80,7 @@ export function initResults() {
   more.addEventListener('click', () => load(false));
   document.getElementById('export-csv')!.addEventListener('click', () => download('csv'));
   document.getElementById('export-xlsx')!.addEventListener('click', () => download('xlsx'));
+  document.getElementById('export-gis')!.addEventListener('click', openGis);
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) reload();
     else if (changed(s, prev, 'selected')) {

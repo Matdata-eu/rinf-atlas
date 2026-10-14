@@ -114,6 +114,34 @@ era:opEnd)` for sections of line, `atlas:geometryFrom` (for tracks: the
 operational point or section of line they are part of; platforms: their
 track; and so on, resolved in chains).
 
+## Use in QGIS
+
+Atlas layers load straight into a desktop GIS as OGC API – Features (one
+layer per class, with every facet as an attribute) and as vector tiles. On the
+demo:
+
+| | URL |
+|---|---|
+| OGC API – Features | `https://rinf-atlas.matdata.eu/api/ogc` |
+| One class as GeoJSON | `https://rinf-atlas.matdata.eu/api/ogc/collections/prod.operational-point/items?limit=1000` |
+| Vector tiles | `https://rinf-atlas.matdata.eu/api/tiles/{z}/{x}/{y}.pbf?state=eyJlbnYiOiJwcm9kIn0` |
+| Vector tile style | `https://rinf-atlas.matdata.eu/api/style.json?env=prod` (TileJSON: `/api/tiles.json?env=prod`) |
+
+- **Features:** Layer › Add Layer › Add WFS / OGC API – Features Layer ›
+  New, paste the URL, Connect, pick the classes. QGIS fetches what is in view,
+  page by page. ArcGIS Pro: Insert › Connections › Server › New OGC API
+  Server. GDAL: `ogrinfo OAPIF:https://rinf-atlas.matdata.eu/api/ogc`.
+- **Filtered:** in the app, choose classes and filters, open Results and
+  click **Open in GIS**; it copies an `/api/ogc/filtered/...` URL that serves
+  only what matches. Items also take the facets as query parameters, e.g.
+  `.../prod.tunnel/items?lengthOfTunnel=1000..&country=http://publications.europa.eu/resource/authority/country/BEL`.
+- **Vector tiles:** Layer › Add Layer › Add Vector Tile Layer › New Generic
+  Connection, the tiles URL as URL (max zoom 14) and the style URL as Style
+  URL for the map's class colours. Fast for a whole country, but tiles carry
+  only `id, iri, class, label` (and below zoom 8 only `id, class`).
+
+Details and limits: [docs/api.md](docs/api.md#gis-access-ogc-api--features-vector-tiles).
+
 ## Commands
 
 Run inside the worker container (`docker compose exec worker atlas ...`).
@@ -133,7 +161,9 @@ up by the loop:
 `config/environments.yaml` lists the environments (SPARQL repository,
 dataset explorer API, vocabulary graphs) and the provider-graph pattern.
 `.env` sets the port, database password, `ATLAS_ENVS` (subset of
-environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs).
+environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs). Behind a TLS
+proxy, set `ATLAS_PUBLIC_URL` (e.g. `https://rinf-atlas.example.org`) so the
+OGC API links use it.
 
 To publish a privacy statement for your instance, put a page at
 `site/privacy.html` (start from `site/privacy.example.html`); the app then
@@ -145,7 +175,7 @@ lists what the app processes, as a basis for what to disclose.
 | Path | |
 |---|---|
 | `worker/` | ingest worker (`atlas` CLI): discovery, Oxigraph mirror, SHACL-driven extraction, shape generator |
-| `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, live describe |
+| `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, export, OGC API – Features, live describe |
 | `web/` | TypeScript + MapLibre + vis-network frontend (built into the nginx image) |
 | `shapes/` | facet shapes (edit these) |
 | `site/` | optional pages for your instance, such as `privacy.html` |

@@ -334,6 +334,99 @@ function labelsFor(triples) {
   return out;
 }
 
+// ---------- OGC API - Features + TileJSON (docs/api.md, "GIS access") ----------
+const OGC_CRS = ['http://www.opengis.net/def/crs/OGC/1.3/CRS84', 'http://www.opengis.net/def/crs/EPSG/0/4326', 'http://www.opengis.net/def/crs/EPSG/0/3857'];
+const OGC_PARAMS = new Set(['limit', 'offset', 'bbox', 'bbox-crs', 'crs', 'datetime', 'f', 'q', 'dataset', 'values']);
+const decodeState = (s) => JSON.parse(Buffer.from(s, 'base64url').toString());
+const facetsOf = (cls) => FACETS.filter((f) => f.class === '*' || f.class === cls);
+const bboxOf = (fs) => {
+  const all = fs.flatMap((f) => coordsOf(f.geometry));
+  return all.length ? [Math.min(...all.map((c) => c[0])), Math.min(...all.map((c) => c[1])), Math.max(...all.map((c) => c[0])), Math.max(...all.map((c) => c[1]))] : null;
+};
+const ogcError = (res, status, code, description) => send(res, status, { code, description });
+
+/** Handles /api/ogc[/filtered/{state}]/..., /api/tiles.json and /api/style.json; false if not one of those. */
+function gis(req, res, url) {
+  const origin = `http://${req.headers.host || 'localhost'}`;
+  const p = url.pathname;
+  if (p === '/api/tiles.json' || p === '/api/style.json') {
+    const enc = url.searchParams.get('state') || Buffer.from(JSON.stringify({ env: url.searchParams.get('env') || 'prod' })).toString('base64url');
+    const st = decodeState(enc);
+    const tiles = [`${origin}/api/tiles/{z}/{x}/{y}.pbf?state=${enc}`];
+    const bounds = bboxOf(features.filter((f) => matches(f, { ...st, filters: {} }))) || [-180, -85, 180, 85];
+    if (p === '/api/tiles.json') {
+      send(res, 200, { tilejson: '3.0.0', name: 'RINF Atlas (mock)', tiles, minzoom: 0, maxzoom: 14, bounds,
+        vector_layers: [{ id: 'features', fields: { id: 'Number', iri: 'String', class: 'String', label: 'String' } }] });
+    } else {
+      const layers = CLASSES.filter((c) => !st.classes?.length || st.classes.includes(c.class)).map((c) => (c.geometry === 'Point'
+        ? { id: c.class, type: 'circle', source: 'atlas', 'source-layer': 'features', filter: ['==', 'class', c.class], paint: { 'circle-color': c.color } }
+        : { id: c.class, type: 'line', source: 'atlas', 'source-layer': 'features', filter: ['==', 'class', c.class], paint: { 'line-color': c.color } }));
+      send(res, 200, { version: 8, sources: { atlas: { type: 'vector', tiles, maxzoom: 14 } }, layers });
+    }
+    return true;
+  }
+  const m = /^\/api\/ogc(?:\/filtered\/([^/]+))?(\/.*)?$/.exec(p);
+  if (!m) return false;
+  let view = null;
+  try { view = m[1] ? decodeState(m[1]) : null; } catch { ogcError(res, 400, 'InvalidParameterValue', 'bad state'); return true; }
+  const rest = m[2] || '';
+  const root = `${origin}/api/ogc${m[1] ? `/filtered/${m[1]}` : ''}`;
+  const link = (href, rel, type = 'application/json') => ({ href, rel, type });
+  const envs = view ? [view.env] : ENVS.map((e) => e.key);
+  const colls = envs.flatMap((env) => CLASSES.filter((c) => (!view?.classes?.length || view.classes.includes(c.class)) && features.some((f) => f.class === c.class))
+    .map((c) => ({ env, c })));
+  const coll = ({ env, c }) => ({
+    id: `${env}.${c.class}`, title: `${c.label} (${env.toUpperCase()})`, itemType: 'feature', crs: OGC_CRS, storageCrs: OGC_CRS[0],
+    description: `${c.label}. Facet query parameters: ${facetsOf(c.class).map((f) => f.key).join(', ')}`,
+    extent: { spatial: { bbox: [bboxOf(features.filter((f) => f.class === c.class))], crs: OGC_CRS[0] } },
+    links: [link(`${root}/collections/${env}.${c.class}`, 'self'), link(`${root}/collections/${env}.${c.class}/items`, 'items', 'application/geo+json')],
+  });
+  if (rest === '' || rest === '/') {
+    send(res, 200, { title: 'RINF Atlas (mock)', links: [link(root, 'self'), link(`${origin}/api/openapi.json`, 'service-desc', 'application/vnd.oai.openapi+json;version=3.1'),
+      link(`${root}/conformance`, 'conformance'), link(`${root}/collections`, 'data')] });
+    return true;
+  }
+  if (rest === '/conformance') {
+    send(res, 200, { conformsTo: ['http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/core', 'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/geojson', 'http://www.opengis.net/spec/ogcapi-features-2/1.0/conf/crs'] });
+    return true;
+  }
+  if (rest === '/collections') { send(res, 200, { links: [link(`${root}/collections`, 'self')], collections: colls.map(coll) }); return true; }
+  const cm = /^\/collections\/([^/]+)(\/items(?:\/([^/]+))?)?$/.exec(rest);
+  const hit = cm && colls.find(({ env, c }) => `${env}.${c.class}` === cm[1]);
+  if (!hit) { ogcError(res, 404, 'NotFound', 'no such collection'); return true; }
+  if (!cm[2]) { send(res, 200, coll(hit)); return true; }
+  const st = { ...(view || { env: hit.env, filters: {} }), classes: [hit.c.class], filters: { ...(view?.filters || {}) } };
+  const toFeature = (f) => ({ type: 'Feature', id: f.id, geometry: f.geometry, properties: { iri: f.iri, label: f.label, class: hit.c.label,
+    ...Object.fromEntries(facetsOf(hit.c.class).map((d) => { const vs = f.facets[d.key] || []; return [d.key, vs.length ? vs.map((v) => v.label ?? v.value).join('; ') : null]; })) } });
+  if (cm[3]) {
+    const f = features.find((x) => x.id === cm[3] && matches(x, st));
+    if (!f) ogcError(res, 404, 'NotFound', 'no such feature'); else send(res, 200, toFeature(f));
+    return true;
+  }
+  const q = url.searchParams;
+  const keys = new Map(facetsOf(hit.c.class).map((f) => [f.key, f]));
+  for (const k of new Set(q.keys())) {
+    if (OGC_PARAMS.has(k)) continue;
+    const f = keys.get(k);
+    if (!f) { ogcError(res, 400, 'InvalidParameterValue', `unknown query parameter ${k}`); return true; }
+    const raw = q.getAll(k).join(',');
+    if (f.kind === 'range') { const [lo, hi] = raw.includes('..') ? raw.split('..') : [raw, raw]; st.filters[k] = { min: lo === '' ? null : Number(lo), max: hi === '' ? null : Number(hi) }; }
+    else if (f.kind === 'boolean') st.filters[k] = raw.split(',').map((v) => v === 'true');
+    else st.filters[k] = raw.split(',');
+  }
+  if (q.get('q')) st.q = q.get('q');
+  if (q.get('bbox')) st.bbox = q.get('bbox').split(',').map(Number);
+  const limit = Math.min(Number(q.get('limit') || 100), 10000), offset = Number(q.get('offset') || 0);
+  const hits = features.filter((f) => matches(f, st));
+  const page = hits.slice(offset, offset + limit);
+  const pageUrl = (o) => { const u = new URL(url.href); u.searchParams.set('offset', String(o)); u.searchParams.set('limit', String(limit)); return `${origin}${u.pathname}${u.search}`; };
+  const links = [link(`${origin}${url.pathname}${url.search}`, 'self', 'application/geo+json'), link(`${root}/collections/${cm[1]}`, 'collection')];
+  if (offset + page.length < hits.length) links.push(link(pageUrl(offset + page.length), 'next', 'application/geo+json'));
+  send(res, 200, { type: 'FeatureCollection', features: page.map(toFeature), numberMatched: hits.length, numberReturned: page.length,
+    timeStamp: new Date().toISOString(), links });
+  return true;
+}
+
 // ---------- HTTP ----------
 const send = (res, status, body) => {
   const data = body === undefined ? '' : JSON.stringify(body);
@@ -392,6 +485,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock.csv"' });
       return res.end(['IRI,Label,Class,Longitude,Latitude', ...rows].join('\r\n'));
     }
+    if (gis(req, res, url)) return;
     if (/^\/api\/tiles\/\d+\/\d+\/\d+\.pbf$/.test(p)) { res.writeHead(204); return res.end(); }
     if (p === '/api/feature') {
       const id = url.searchParams.get('id');
