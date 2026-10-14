@@ -12,15 +12,19 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 import yaml
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+from starlette.background import BackgroundTask
 
+from . import export as xp
 from .query import QueryState, SearchRequest, Where, split_key
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://atlas:atlas@db:5432/atlas")
@@ -353,6 +357,42 @@ def tiles(z: int, x: int, y: int, state: str):
     data = rows[0]["tile"] if rows and rows[0]["tile"] else b""
     return Response(bytes(data), media_type="application/vnd.mapbox-vector-tile",
                     headers={"Cache-Control": f"public, max-age={TILE_CACHE_SECONDS}"})
+
+
+@app.get("/api/export")
+def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx)$"),
+           values: str = Query("label", pattern="^(label|iri)$")):
+    """Every feature matching the query state (classes, facets, datasets, search, bbox)
+    as CSV (one table, streamed) or XLSX (one sheet per class)."""
+    st = _decode_state(state)
+    _env(st.env)
+    d = _defs()
+    sql, p = Where(st, d["owners"]).build()
+    present = {r["class"] for r in _q(f"SELECT DISTINCT f.class FROM feature f WHERE {sql}", p)}
+    order = [c["class"] for c in d["classes"]]
+    classes = sorted(present, key=lambda c: (order.index(c) if c in order else len(order), c))
+    class_labels = {c["class"]: c["label"] for c in d["classes"]}
+    vals = xp.Values(lambda iris: _labels(st.env, iris), _local, values == "label")
+    batches = xp.feature_rows(pool.connection, sql, p)
+    stamp = datetime.now(UTC)
+    name = f"rinf-atlas-{st.env}-{stamp:%Y%m%d-%H%M}"
+    if format == "csv":
+        cols = xp.columns_for(classes, d["facets"])
+        return StreamingResponse(xp.stream_csv(batches, cols, vals, class_labels), media_type="text/csv; charset=utf-8",
+                                 headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
+    filters = {k: v.model_dump() if hasattr(v, "model_dump") else v for k, v in st.filters.items()}
+    info = [("RINF Atlas export", ""), ("Environment", st.env), ("Exported (UTC)", stamp.strftime("%Y-%m-%d %H:%M")),
+            ("Classes", ", ".join(class_labels.get(c, c) for c in classes) or "(none)"),
+            ("Filters", json.dumps(filters, ensure_ascii=False) if filters else "(none)")]
+    if st.q:
+        info.append(("Search", st.q))
+    if st.graphs:
+        info.append(("Datasets", "; ".join(st.graphs)))
+    if st.bbox:
+        info.append(("Map view [w,s,e,n]", ", ".join(f"{x:.5f}" for x in st.bbox)))
+    path = xp.write_xlsx(batches, lambda c: xp.columns_for([c], d["facets"]), vals, class_labels, info)
+    return FileResponse(path, filename=f"{name}.xlsx", background=BackgroundTask(os.unlink, path),
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @app.get("/api/feature")
