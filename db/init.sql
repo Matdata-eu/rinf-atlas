@@ -25,6 +25,69 @@ ALTER TABLE dataset ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'provide
 ALTER TABLE dataset ADD COLUMN IF NOT EXISTS dataset_id text;
 ALTER TABLE dataset ADD COLUMN IF NOT EXISTS file_name text;
 
+-- Data quality: outcome of validating the dataset against ERA's SHACL shapes
+-- (worker/atlas/quality.py). qa_status: null = not validated yet, ok, partial
+-- (time budget reached), skipped (too large / no shapes), failed.
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_status     text;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_violations bigint;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_warnings   bigint;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_infos      bigint;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_focus      bigint;      -- focus nodes with at least one result
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_kept       bigint;      -- results stored in `violation`
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_checked_at timestamptz;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_shapes     text;        -- fingerprint of the shapes graph used
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_seconds    real;
+ALTER TABLE dataset ADD COLUMN IF NOT EXISTS qa_note       text;
+
+-- One row per validation result (capped per constraint and per dataset; the
+-- counts in dataset / quality_count are complete).
+CREATE TABLE IF NOT EXISTS violation (
+    env        text     NOT NULL,
+    graph_iri  text     NOT NULL,
+    focus      text     NOT NULL,       -- focus node IRI
+    severity   smallint NOT NULL,       -- 3 violation, 2 warning, 1 info
+    shape      text     NOT NULL,       -- sh:sourceShape
+    component  text     NOT NULL,       -- sh:sourceConstraintComponent
+    path       text,                    -- SPARQL property path
+    value      text,                    -- offending value, N-Triples syntax
+    message    text
+);
+CREATE INDEX IF NOT EXISTS violation_focus_idx ON violation (env, focus);
+CREATE INDEX IF NOT EXISTS violation_graph_idx ON violation (env, graph_iri);
+
+-- Results per shape and constraint for each dataset (all of them, also those not stored).
+CREATE TABLE IF NOT EXISTS quality_count (
+    env        text     NOT NULL,
+    graph_iri  text     NOT NULL,
+    shape      text     NOT NULL,
+    component  text     NOT NULL,
+    severity   smallint NOT NULL,
+    n          bigint   NOT NULL,
+    message    text
+);
+CREATE INDEX IF NOT EXISTS quality_count_idx ON quality_count (env, graph_iri);
+
+-- The sh:ValidationReport of each dataset as gzipped Turtle and, when the
+-- shacl-report CLI is available to the worker, its self-contained HTML viewer.
+CREATE TABLE IF NOT EXISTS quality_report (
+    env        text  NOT NULL,
+    graph_iri  text  NOT NULL,
+    turtle_gz  bytea,
+    html_gz    bytea,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (env, graph_iri)
+);
+
+-- ERA's shapes graph as validated with, for download next to the reports.
+CREATE TABLE IF NOT EXISTS quality_shapes (
+    env         text PRIMARY KEY,
+    graph_iri   text NOT NULL,
+    fingerprint text,
+    triples     bigint,
+    turtle_gz   bytea,
+    loaded_at   timestamptz NOT NULL DEFAULT now()
+);
+
 -- Every indexed infrastructure element. facets holds {facet_key: [values]}.
 CREATE TABLE IF NOT EXISTS feature (
     id          bigserial   PRIMARY KEY,

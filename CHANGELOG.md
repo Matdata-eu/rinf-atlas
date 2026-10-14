@@ -27,11 +27,6 @@ All notable changes to this project are documented here: https://github.com/Matd
 - API: `POST /api/theme`, `color` on `/api/tiles` and `/api/search`
   (docs/api.md, "Map colouring"); shape annotation `atlas:colorBy` lists a
   facet among the suggestions.
-
-### Changed
-- Extraction keeps the `atlas:geometryFrom` links of features that have their
-  own geometry too. The worker re-extracts every graph from the mirror once
-  after upgrading (no download).
 - Vehicle compatibility check (the "Vehicle" tab): describe a vehicle type by
   the technical characteristics you know (track gauge, gauging, energy supply,
   pantograph head, contact wire heights, ETCS level, class B protection, train
@@ -44,12 +39,6 @@ All notable changes to this project are documented here: https://github.com/Matd
   Turtle in `shapes/compatibility.ttl`; new endpoints `GET
   /api/compatibility/rules`, `POST /api/compatibility` and `POST
   /api/compatibility/explain`.
-
-### Changed
-- The worker keeps the `era:isPartOf` / `era:hasPart` links of every feature
-  (not only those without geometry of their own), so tracks can be related to
-  their section of line. The first start after upgrading re-extracts the index
-  from the mirror once (no download).
 - Line profile: lay out a national line, a series of sections of line picked
   on the map, or the route between two operational points as a strip along
   the cumulative distance, with one row per parameter of the sections'
@@ -60,7 +49,24 @@ All notable changes to this project are documented here: https://github.com/Matd
   CSV. Works as a bottom sheet with a sideways scrolling strip on phones.
   New endpoints `GET /api/lines` and `POST /api/profile`.
 - Shapes: new `atlas:kind "link"` for facets that hold IRIs of other indexed
-  features (a section's start and end operational point, the section a track
-  is part of). They show in the detail panel as links and in exports, but are
-  not filters. The worker re-indexes once after upgrading because the shapes
-  changed.
+  features (a section's start and end operational point). They show in the
+  detail panel as links and in exports, but are not filters.
+- Data quality: the worker validates every provider dataset against the SHACL
+  shapes ERA publishes (`graph/rinf/shacl`) on its local mirror and stores the
+  results in PostGIS. The Datasets dialog shows violations, warnings and info
+  per infrastructure manager with the most frequent problems; the map gets a
+  "Data issues" layer coloured by severity and a "Data quality (ERA SHACL)"
+  filter; a feature's detail panel lists its results. Reports download as
+  standard `sh:ValidationReport` Turtle and open in
+  [shacl-report](https://github.com/Matdata-eu/shacl-report), whose HTML
+  viewer is also built per dataset. New `atlas validate` command, `quality:`
+  settings and `/api/quality/*` endpoints.
+
+### Changed
+
+- The worker keeps the "part of" links (`atlas:geometryFrom`, i.e.
+  `era:isPartOf` / `era:hasPart`) of every feature, not only of those without
+  a geometry of their own, and indexes them by target. Map colouring, the
+  vehicle compatibility check and the line profile all find a section's
+  tracks through them. The first start after upgrading re-extracts every
+  graph from the mirror once (no download).

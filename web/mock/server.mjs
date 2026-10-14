@@ -92,6 +92,8 @@ const FACETS = [
   { key: 'switch-type', class: 'switch', label: 'Switch type', kind: 'terms', datatype: 'iri', position: 40 },
   { key: 'signal-type', class: 'signal', label: 'Signal type', kind: 'terms', datatype: 'iri', position: 50 },
   { key: 'platform-height', class: 'platform', label: 'Platform height', kind: 'range', datatype: 'xsd:integer', position: 60, unit: 'MilliM' },
+  // Written by the worker's validation against ERA's SHACL shapes (worst severity per feature).
+  { key: 'quality', class: '*', label: 'Data quality (ERA SHACL)', kind: 'terms', datatype: 'iri', position: 900 },
 ];
 const FACET_BY_KEY = Object.fromEntries(FACETS.map((f) => [f.key, f]));
 
@@ -327,6 +329,53 @@ for (const s of sols) {
 }
 for (const f of features) f.graph = `${ERA}graph/rinf/${f.country}`;
 const byIri = new Map(features.map((f) => [f.iri, f]));
+
+// ---------- data quality (SHACL validation results, like the worker stores them) ----------
+const SH = 'http://www.w3.org/ns/shacl#';
+const SHAPES = `${ERA}shapes/`;
+const NO_ISSUES = 'https://rinf-atlas.matdata.eu/ns#NoIssues';
+const SEV = { 3: 'violation', 2: 'warning', 1: 'info' };
+const SEV_TERM = { 3: term(`${SH}Violation`, 'Violation'), 2: term(`${SH}Warning`, 'Warning'), 1: term(`${SH}Info`, 'Info') };
+term(NO_ISSUES, 'No issues');
+const RULES = [
+  { sev: 3, shape: 'OperationalPointShape', comp: 'MinCountConstraintComponent', path: `${ERA}uopid`, message: 'Each operational point must have exactly one primary location code (uopid).' },
+  { sev: 3, shape: 'SectionOfLineShape', comp: 'DatatypeConstraintComponent', path: `${ERA}lengthOfSectionOfLine`, message: 'The length of a section of line must be an xsd:double.', value: '"12,5"' },
+  { sev: 2, shape: 'SectionOfLineShapeWarning', comp: 'MinCountConstraintComponent', path: `${ERA}solNature`, message: 'The nature of the section of line should be given.' },
+  { sev: 2, shape: 'SignalShapeSPARQLWarning', comp: 'SPARQLConstraintComponent', path: null, message: 'The signal is not located on a track of the operational point it belongs to.' },
+  { sev: 2, shape: 'SwitchShape', comp: 'ClassConstraintComponent', path: `${ERA}switchType`, message: 'The value of era:switchType must be a skos:Concept of the switch types list.', value: `<${ERA}concepts/switch-types/unknown>` },
+  { sev: 1, shape: 'TunnelShapeInfo', comp: 'MaxCountConstraintComponent', path: `${ERA}hasEmergencyPlan`, message: 'More than one emergency plan statement.' },
+];
+const ruleOf = (r) => RULES.filter((x) => x.sev === r);
+for (const f of features) {
+  const x = rnd();
+  const worst = x < 0.12 ? 3 : x < 0.3 ? 2 : x < 0.36 ? 1 : 0;
+  f.qaResults = [];
+  for (let s = worst; s >= 1; s--) if (s === worst || rnd() < 0.3) {
+    const r = pick(ruleOf(s));
+    f.qaResults.push({ severity: SEV[s], message: r.message, path: r.path ? `<${r.path}>` : null, value: r.value ?? null,
+      value_label: null, shape: SHAPES + r.shape, component: SH + r.comp, sev: s });
+  }
+  f.facets.quality = worst ? [...new Set(f.qaResults.map((r) => r.sev))].map((s) => SEV_TERM[s]) : [{ value: NO_ISSUES, label: 'No issues' }];
+}
+const qaLevel = (f) => (f.qaResults.length ? Math.max(...f.qaResults.map((r) => r.sev)) : 0);
+// Validated graphs (the DEU one failed to load in UAT, LUX is skipped as an example).
+const qaStatus = (graph) => (graph.endsWith('/LUX') ? 'skipped' : graph.endsWith('/DEU') ? null : 'ok');
+function qaCounts(graph) {
+  const fs = features.filter((f) => f.graph === graph);
+  const n = (s) => fs.reduce((a, f) => a + f.qaResults.filter((r) => r.sev === s).length, 0);
+  return { violations: n(3), warnings: n(2), infos: n(1), focus: fs.filter((f) => f.qaResults.length).length };
+}
+function reportTurtle(graph) {
+  const fs = features.filter((f) => f.graph === graph && f.qaResults.length);
+  const out = ['@prefix sh: <http://www.w3.org/ns/shacl#> .', '@prefix dct: <http://purl.org/dc/terms/> .', '',
+    `<urn:atlas:report:mock> a sh:ValidationReport ; sh:conforms ${fs.length ? 'false' : 'true'} ; dct:created "2026-10-13T03:40:00Z" .`];
+  for (const f of fs) for (const r of f.qaResults) {
+    out.push(`<urn:atlas:report:mock> sh:result [ a sh:ValidationResult ; sh:focusNode <${f.iri}> ; sh:resultSeverity sh:${r.severity[0].toUpperCase()}${r.severity.slice(1)} ;`
+      + ` sh:sourceShape <${r.shape}> ; sh:sourceConstraintComponent <${r.component}> ;${r.path ? ` sh:resultPath ${r.path} ;` : ''}${r.value ? ` sh:value ${r.value} ;` : ''}`
+      + ` sh:resultMessage ${JSON.stringify(r.message)} ] .`);
+  }
+  return out.join('\n') + '\n';
+}
 
 // ---------- query evaluation ----------
 const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -913,7 +962,11 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/meta') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
       const classes = CLASSES.map((c) => ({ min_zoom: 0, ...c, count: features.filter((f) => f.class === c.class).length }));
-      return send(res, 200, { classes, facets: FACETS, datasets: { total: 4, loaded: env === 'uat' ? 3 : 4, failed: env === 'uat' ? 1 : 0, pending: 0, last_ingest: '2026-10-13T03:12:00Z', last_check: '2026-10-14T09:30:00Z' } });
+      const qa = ['BEL', 'NLD'].map((c) => qaCounts(`${ERA}graph/rinf/${c}`));
+      const quality = { enabled: true, validated: 2, violations: qa.reduce((a, q) => a + q.violations, 0), warnings: qa.reduce((a, q) => a + q.warnings, 0),
+        infos: qa.reduce((a, q) => a + q.infos, 0), checked_at: '2026-10-13T03:40:00Z', shapes_graph: `${ERA}graph/rinf/shacl`,
+        shapes_loaded_at: '2026-10-13T03:05:00Z', shacl_report_url: 'https://shacl-report.matdata.eu/' };
+      return send(res, 200, { classes, facets: FACETS, datasets: { total: 4, loaded: env === 'uat' ? 3 : 4, failed: env === 'uat' ? 1 : 0, pending: 0, last_ingest: '2026-10-13T03:12:00Z', last_check: '2026-10-14T09:30:00Z' }, quality });
     }
     if (req.method === 'POST' && p === '/api/theme') {
       const st = await readJson(req);
@@ -935,7 +988,7 @@ const server = http.createServer(async (req, res) => {
         if (st.color && !th) return send(res, 400, { detail: `cannot colour by '${st.color}'` });
         const items = hits.slice(offset, offset + limit).map((f) => {
           const [lon, lat] = repPoint(f.geometry);
-          return { id: f.id, iri: f.iri, class: f.class, label: f.label, lon, lat, ...(th ? { v: th.v.get(f) ?? null } : {}) };
+          return { id: f.id, iri: f.iri, class: f.class, label: f.label, lon, lat, qa: qaLevel(f), ...(th ? { v: th.v.get(f) ?? null } : {}) };
         });
         return send(res, 200, { total: hits.length, items });
       }
@@ -963,9 +1016,12 @@ const server = http.createServer(async (req, res) => {
       const id = url.searchParams.get('id');
       const f = id != null ? features.find((x) => String(x.id) === id) : byIri.get(url.searchParams.get('iri') || '');
       if (!f) return send(res, 404, { detail: 'feature not found' });
-      const facetsOut = Object.fromEntries(Object.entries(f.facets).map(([k, vs]) => [k, vs.map(({ value, label }) => ({ value, label }))]));
-      const facet_kinds = Object.fromEntries(Object.keys(f.facets).map((k) => [k, LINK_KEYS.has(k) ? 'link' : FACET_BY_KEY[k]?.kind ?? 'terms']));
-      return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, facet_kinds, geometry: f.geometry });
+      const facetsOut = Object.fromEntries(Object.entries(f.facets).filter(([k]) => k !== 'quality').map(([k, vs]) => [k, vs.map(({ value, label }) => ({ value, label }))]));
+      const facet_kinds = Object.fromEntries(Object.keys(facetsOut).map((k) => [k, LINK_KEYS.has(k) ? 'link' : FACET_BY_KEY[k]?.kind ?? 'terms']));
+      const status = qaStatus(f.graph);
+      const quality = { status, checked_at: status ? '2026-10-13T03:40:00Z' : null, note: null,
+        results: status === 'ok' ? (f.qaResults || []).map(({ sev, ...r }) => r) : [], truncated: false, report: status === 'ok', html: status === 'ok' };
+      return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, facet_kinds, geometry: f.geometry, quality });
     }
     if (p === '/api/lines') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
@@ -1028,12 +1084,46 @@ const server = http.createServer(async (req, res) => {
           error: failed ? 'HTTP 503 from the ERA repository while downloading' : null,
           dataset_id: `mock${i}`, file_name: file,
           features: failed ? 0 : features.filter((f) => f.graph === graph_iri).length,
+          quality: failed ? { status: null, violations: null, warnings: null, infos: null, focus_nodes: null, kept: null, checked_at: null, seconds: null, note: null, report: false, html: false }
+            : (() => {
+              const st = qaStatus(graph_iri), q = qaCounts(graph_iri), ok = st === 'ok';
+              return { status: st, violations: ok ? q.violations : null, warnings: ok ? q.warnings : null, infos: ok ? q.infos : null,
+                focus_nodes: ok ? q.focus : null, kept: ok ? q.violations + q.warnings + q.infos : null, checked_at: st ? '2026-10-13T03:40:00Z' : null,
+                seconds: ok ? 42.5 : null, note: st === 'skipped' ? '18,400,000 triples is above the validation limit of 15,000,000' : null, report: ok, html: ok };
+            })(),
         };
       });
       rows.push({ graph_iri: `${ERA}graph/rinf/AUT`, title: 'RINF_AUT_2025.ttl', provider: 'ÖBB-Infrastruktur', country: 'AUT',
         modified: '2025-12-01T08:00:00Z', status: 'removed', triples: 0, ingested_at: '2026-01-02T03:00:00Z', error: null,
-        dataset_id: 'mock9', file_name: 'RINF_AUT_2025.ttl', features: 0 });
+        dataset_id: 'mock9', file_name: 'RINF_AUT_2025.ttl', features: 0,
+        quality: { status: null, violations: null, warnings: null, infos: null, focus_nodes: null, kept: null, checked_at: null, seconds: null, note: null, report: false, html: false } });
       return send(res, 200, rows);
+    }
+    if (p === '/api/quality/summary') {
+      if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
+      const graph = url.searchParams.get('graph') || '';
+      const counts = new Map();
+      for (const f of features) if (f.graph === graph && qaStatus(graph) === 'ok') for (const r of f.qaResults) {
+        const k = `${r.shape} ${r.component}`;
+        const cur = counts.get(k) || { shape: r.shape, component: r.component, severity: r.severity, count: 0, message: r.message, sev: r.sev };
+        cur.count++; counts.set(k, cur);
+      }
+      await sleep(120);
+      return send(res, 200, [...counts.values()].sort((a, b) => b.sev - a.sev || b.count - a.count).map(({ sev, ...r }) => r));
+    }
+    if (p === '/api/quality/report') {
+      const graph = url.searchParams.get('graph') || '';
+      if (qaStatus(graph) !== 'ok') return send(res, 404, { detail: 'no validation report for this dataset' });
+      if (url.searchParams.get('format') === 'html') {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': 'sandbox allow-scripts' });
+        return res.end(`<!doctype html><meta charset="utf-8"><title>SHACL report (mock)</title><body style="font-family:sans-serif"><h1>Mock shacl-report viewer</h1><p>The real API serves the HTML page shacl-report generated for this dataset.</p><pre>${reportTurtle(graph).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'))}</pre>`);
+      }
+      res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock-shacl-report.ttl"' });
+      return res.end(reportTurtle(graph));
+    }
+    if (p === '/api/quality/shapes') {
+      res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8', 'content-disposition': `attachment; filename="era-shacl-shapes-${env}.ttl"` });
+      return res.end(`@prefix sh: <http://www.w3.org/ns/shacl#> .\n@prefix era: <${ERA}> .\n\n<${SHAPES}OperationalPointShape> a sh:NodeShape ; sh:targetClass era:OperationalPoint ;\n  sh:property [ sh:path era:uopid ; sh:minCount 1 ; sh:maxCount 1 ] .\n`);
     }
     send(res, 404, { detail: 'not found' });
   } catch (e) {

@@ -6,6 +6,7 @@ place that goes live to ERA's SPARQL endpoint (describe + graph traversal).
 from __future__ import annotations
 
 import base64
+import gzip
 import json
 import os
 import time
@@ -39,6 +40,15 @@ LOW_DETAIL_ZOOM = int(os.environ.get("ATLAS_LOW_DETAIL_ZOOM", "8"))
 TILE_CACHE_SECONDS = int(os.environ.get("ATLAS_TILE_CACHE_SECONDS", "300"))
 # Turtle export queries ERA live (batches of 100 IRIs), so it is capped.
 TTL_EXPORT_MAX = int(os.environ.get("ATLAS_TTL_EXPORT_MAX", "20000"))
+# A shacl-report instance (https://github.com/Matdata-eu/shacl-report) the UI links to for
+# exploring a downloaded report; empty hides the link.
+SHACL_REPORT_URL = os.environ.get("ATLAS_SHACL_REPORT_URL", "https://shacl-report.matdata.eu/").strip() or None
+
+SH = "http://www.w3.org/ns/shacl#"
+SEVERITY_NAME = {3: "violation", 2: "warning", 1: "info"}
+# Worst data quality severity of a feature, from the `quality` facet the worker writes.
+QA_EXPR = (f"CASE WHEN f.facets->'quality' ? '{SH}Violation' THEN 3 WHEN f.facets->'quality' ? '{SH}Warning' THEN 2 "
+           f"WHEN f.facets->'quality' ? '{SH}Info' THEN 1 WHEN f.facets ? 'quality' THEN 0 END")
 
 pool: ConnectionPool | None = None
 _envs: dict[str, dict] = {}
@@ -151,7 +161,24 @@ def meta(env: str):
         "datasets": {"total": ds["total"], "loaded": ds["loaded"], "failed": ds["failed"], "pending": ds["pending"],
                      "last_ingest": ds["last_ingest"].isoformat() if ds["last_ingest"] else None,
                      "last_check": ds["last_check"].isoformat() if ds["last_check"] else None},
+        "quality": _quality_meta(env, d),
     }
+
+
+def _quality_meta(env: str, d: dict) -> dict:
+    enabled = any(f["key"] == "quality" for f in d["facets"])
+    r = _q("""SELECT count(*) FILTER (WHERE qa_status IN ('ok','partial')) AS validated,
+                     coalesce(sum(qa_violations), 0) AS violations, coalesce(sum(qa_warnings), 0) AS warnings,
+                     coalesce(sum(qa_infos), 0) AS infos, max(qa_checked_at) AS checked_at,
+                     (SELECT loaded_at FROM quality_shapes s WHERE s.env=%s) AS shapes_loaded_at,
+                     (SELECT graph_iri FROM quality_shapes s WHERE s.env=%s) AS shapes_graph
+              FROM dataset WHERE env=%s AND kind='provider' AND status <> 'removed'""", [env, env, env])[0]
+    return {"enabled": enabled, "validated": r["validated"], "violations": r["violations"],
+            "warnings": r["warnings"], "infos": r["infos"],
+            "checked_at": r["checked_at"].isoformat() if r["checked_at"] else None,
+            "shapes_graph": r["shapes_graph"],
+            "shapes_loaded_at": r["shapes_loaded_at"].isoformat() if r["shapes_loaded_at"] else None,
+            "shacl_report_url": SHACL_REPORT_URL}
 
 
 def _facet_keys(state: QueryState, d: dict) -> list[str]:
@@ -316,7 +343,7 @@ def search(req: SearchRequest):
         order = ("(lower(f.label) = lower(%s)) DESC, (f.label ILIKE %s) DESC, cd.position NULLS LAST, "
                  "length(f.label), f.label, f.id")
         op = [req.q.strip(), req.q.strip() + "%"]
-    rows = _q(f"""SELECT f.id, f.iri, f.class, f.label,
+    rows = _q(f"""SELECT f.id, f.iri, f.class, f.label, {QA_EXPR} AS qa,
                          ST_X(ST_PointOnSurface(f.geom)) AS lon, ST_Y(ST_PointOnSurface(f.geom)) AS lat{vcol}
                   FROM feature f LEFT JOIN class_def cd ON cd.class = f.class {vjoin}
                   WHERE {sql} ORDER BY {order} LIMIT %s OFFSET %s""",
@@ -431,7 +458,7 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
     # Below LOW_DETAIL_ZOOM, tiles carry only id + class (resolve with /api/feature?id=) and
     # features that collapse onto the same tile pixels are sent once.
     low = z < LOW_DETAIL_ZOOM
-    props = "f.id, f.class" if low else "f.id, f.iri, f.class, f.label"
+    props = f"f.id, f.class, {QA_EXPR} AS qa" if low else f"f.id, f.iri, f.class, f.label, {QA_EXPR} AS qa"
     # Colouring by a facet adds its display value `v` (see /api/theme) at every zoom.
     vjoin, vp = "", []
     if theme:
@@ -540,14 +567,41 @@ def feature(env: str, iri: str | None = None, id: int | None = None):
     labels = _labels(env, iris)
     facets_out = {}
     for k, vs in r["facets"].items():
+        if k == "quality":
+            continue  # shown as `quality` below
         facets_out[k] = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str) else
                           ("Yes" if v is True else "No" if v is False else str(v))} for v in vs]
     return {"iri": r["iri"], "label": r["label"], "classes": [x["class"] for x in rows],
             "class_iri": r["class_iri"], "graph_iri": r["graph_iri"], "provider": r["provider"],
             "dataset": r["dataset"], "geometry_source": r["geom_source"],
-            "facets": facets_out, "facet_labels": {k: facet_labels.get(k, k) for k in r["facets"]},
-            "facet_kinds": {k: d["kinds"].get(k, "terms") for k in r["facets"]},
-            "geometry": r["geometry"]}
+            "facets": facets_out, "facet_labels": {k: facet_labels.get(k, k) for k in r["facets"] if k != "quality"},
+            "facet_kinds": {k: d["kinds"].get(k, "terms") for k in r["facets"] if k != "quality"},
+            "geometry": r["geometry"], "quality": _feature_quality(env, r["iri"], r["graph_iri"])}
+
+
+FEATURE_RESULTS = 200
+
+
+def _feature_quality(env: str, iri: str, graph: str) -> dict:
+    ds = _q("""SELECT d.qa_status, d.qa_checked_at, d.qa_note, r.turtle_gz IS NOT NULL AS report, r.html_gz IS NOT NULL AS html
+               FROM dataset d LEFT JOIN quality_report r ON r.env=d.env AND r.graph_iri=d.graph_iri
+               WHERE d.env=%s AND d.graph_iri=%s""", [env, graph])
+    st = ds[0] if ds else {"qa_status": None, "qa_checked_at": None, "qa_note": None, "report": None, "html": None}
+    rows = _q("""SELECT severity, shape, component, path, value, message FROM violation
+                 WHERE env=%s AND focus=%s AND graph_iri=%s
+                 ORDER BY severity DESC, shape, component, value LIMIT %s""", [env, iri, graph, FEATURE_RESULTS + 1])
+    values = {_nt_iri(r["value"]) for r in rows} - {None}
+    labels = _labels(env, values)
+    results = [{"severity": SEVERITY_NAME.get(r["severity"], "info"), "message": r["message"], "path": r["path"],
+                "value": r["value"], "value_label": labels.get(_nt_iri(r["value"]) or ""),
+                "shape": r["shape"], "component": r["component"]} for r in rows[:FEATURE_RESULTS]]
+    return {"status": st["qa_status"], "checked_at": st["qa_checked_at"].isoformat() if st["qa_checked_at"] else None,
+            "note": st["qa_note"], "results": results, "truncated": len(rows) > FEATURE_RESULTS,
+            "report": bool(st["report"]), "html": bool(st["html"])}
+
+
+def _nt_iri(v: str | None) -> str | None:
+    return v[1:-1] if v and v.startswith("<") and v.endswith(">") else None
 
 
 # --- vehicle compatibility (rules: shapes/compatibility.ttl) -------------------
@@ -687,14 +741,78 @@ def datasets(env: str):
     _env(env)
     rows = _q("""SELECT d.graph_iri, d.title, d.provider, d.country, d.modified, d.status, d.triples,
                         d.ingested_at, d.error, d.dataset_id, d.file_name,
-                        (SELECT count(*) FROM feature f WHERE f.env=d.env AND f.graph_iri=d.graph_iri) AS features
+                        (SELECT count(*) FROM feature f WHERE f.env=d.env AND f.graph_iri=d.graph_iri) AS features,
+                        d.qa_status, d.qa_violations, d.qa_warnings, d.qa_infos, d.qa_focus, d.qa_kept,
+                        d.qa_checked_at, d.qa_seconds, d.qa_note,
+                        (SELECT r.turtle_gz IS NOT NULL FROM quality_report r
+                         WHERE r.env=d.env AND r.graph_iri=d.graph_iri) AS qa_report,
+                        (SELECT r.html_gz IS NOT NULL FROM quality_report r
+                         WHERE r.env=d.env AND r.graph_iri=d.graph_iri) AS qa_html
                  FROM dataset d WHERE d.env=%s AND d.kind='provider'
                  ORDER BY d.modified DESC NULLS LAST, d.graph_iri""", [env])
+    out = []
     for r in rows:
         for k in ("modified", "ingested_at"):
             if r[k]:
                 r[k] = r[k].isoformat()
-    return rows
+        q = {k[3:]: r.pop(k) for k in list(r) if k.startswith("qa_")}
+        r["quality"] = {
+            "status": q["status"], "violations": q["violations"], "warnings": q["warnings"], "infos": q["infos"],
+            "focus_nodes": q["focus"], "kept": q["kept"],
+            "checked_at": q["checked_at"].isoformat() if q["checked_at"] else None,
+            "seconds": q["seconds"], "note": q["note"], "report": bool(q["report"]), "html": bool(q["html"]),
+        }
+        out.append(r)
+    return out
+
+
+# --- data quality (validation against ERA's SHACL shapes, done by the worker) --
+
+def _code(graph: str) -> str:
+    return "".join(c for c in graph.rstrip("/").rsplit("/", 1)[-1] if c.isalnum() or c in "-_") or "dataset"
+
+
+@app.get("/api/quality/summary")
+def quality_summary(env: str, graph: str, limit: int = Query(50, le=500)):
+    """Results per shape and constraint for one dataset, most frequent first."""
+    _env(env)
+    rows = _q("""SELECT shape, component, severity, n, message FROM quality_count
+                 WHERE env=%s AND graph_iri=%s ORDER BY severity DESC, n DESC, shape LIMIT %s""", [env, graph, limit])
+    return [{"shape": r["shape"], "component": r["component"], "severity": SEVERITY_NAME.get(r["severity"], "info"),
+             "count": r["n"], "message": r["message"]} for r in rows]
+
+
+@app.get("/api/quality/report")
+def quality_report(env: str, graph: str, format: str = Query("ttl", pattern="^(ttl|html)$"), download: bool = False):
+    """The dataset's sh:ValidationReport (Turtle), or shacl-report's HTML viewer of it."""
+    _env(env)
+    col = "turtle_gz" if format == "ttl" else "html_gz"
+    rows = _q(f"SELECT {col} AS data, created_at FROM quality_report WHERE env=%s AND graph_iri=%s", [env, graph])
+    if not rows or rows[0]["data"] is None:
+        raise HTTPException(404, "no validation report for this dataset" if format == "ttl"
+                            else "no HTML report for this dataset (too many results, or shacl-report not installed)")
+    body = gzip.decompress(bytes(rows[0]["data"]))
+    name = f"rinf-atlas-{env}-{_code(graph)}-shacl-report"
+    if format == "ttl":
+        return Response(body, media_type="text/turtle; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}.ttl"'})
+    # Inline, in a sandbox: the page is generated by shacl-report from data published by others.
+    headers = {"Content-Security-Policy": "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox "
+                                          "allow-downloads allow-modals allow-forms"}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{name}.html"'
+    return Response(body, media_type="text/html; charset=utf-8", headers=headers)
+
+
+@app.get("/api/quality/shapes")
+def quality_shapes(env: str):
+    """ERA's SHACL shapes graph the datasets were validated with (Turtle)."""
+    _env(env)
+    rows = _q("SELECT turtle_gz FROM quality_shapes WHERE env=%s", [env])
+    if not rows or rows[0]["turtle_gz"] is None:
+        raise HTTPException(404, "shapes not mirrored yet")
+    return Response(gzip.decompress(bytes(rows[0]["turtle_gz"])), media_type="text/turtle; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="era-shacl-shapes-{env}.ttl"'})
 
 
 # --- line profile ------------------------------------------------------------

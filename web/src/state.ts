@@ -23,6 +23,8 @@ export interface AppState {
   colorBy: string | null;
   /** Legend entries switched off: values, "bin:<i>" for range classes, or NODATA / MIXED / OTHER / FADED. */
   colorHidden: string[];
+  /** Highlight features with data quality issues on the map. */
+  qa: boolean;
   sideTab: SideTab;
   /** Line profile panel open, and what it shows (null = nothing chosen yet). */
   profileOpen: boolean;
@@ -52,7 +54,7 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters',
+  view: EUROPE, selected: null, detailTab: 'properties', orm: false, qa: false, sideTab: 'filters',
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, meta: null, theme: null,
 });
 
@@ -87,6 +89,7 @@ export function readHash(): Partial<AppState> {
   if (p.get('ds')) out.graphs = p.get('ds')!.split(' ').filter(Boolean);
   if (p.get('v') === '1') out.limitToView = true;
   if (p.get('orm') === '1') out.orm = true;
+  if (p.get('qa') === '1') out.qa = true;
   const m = p.get('map')?.split('/').map(Number);
   if (m && m.length === 3 && m.every(Number.isFinite)) out.view = { zoom: m[0], lat: m[1], lng: m[2] };
   if (p.get('col')) out.colorBy = p.get('col');
@@ -115,6 +118,7 @@ export function writeHash(s: AppState) {
     p.set('col', s.colorBy);
     if (s.colorHidden.length) p.set('colh', s.colorHidden.join(' '));
   }
+  if (s.qa) p.set('qa', '1');
   p.set('map', `${s.view.zoom.toFixed(2)}/${s.view.lat.toFixed(5)}/${s.view.lng.toFixed(5)}`);
   if (s.selected) { p.set('sel', s.selected); if (s.detailTab !== 'properties') p.set('tab', s.detailTab); }
   if (s.profileOpen) p.set('lp', s.profile ? JSON.stringify(s.profile) : '');

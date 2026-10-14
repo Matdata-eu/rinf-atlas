@@ -1,10 +1,10 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
-import { api, ApiError, isAbort, type DescribeResponse, type Feature, type RdfTerm, type Triple } from './api';
+import { api, ApiError, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
 import { compatBlock } from './compat';
 import type { GraphHandle } from './graph';
 import { fitGeometry, flyTo, setSelectionGeometry } from './map';
 import { showLineProfile } from './profile';
-import { literalText, prefixed, shortIri } from './rdf';
+import { literalText, ntText, pathText, prefixed, shortIri } from './rdf';
 import { changed, fmt, h, store, unitLabel, type DetailTab } from './state';
 
 const panel = document.getElementById('detail') as HTMLElement;
@@ -162,6 +162,42 @@ function renderProperties(body: HTMLElement) {
       }, `Line profile ${v.label ?? v.value}`)) : []),
       h('button', { class: 'btn', onclick: () => store.set({ detailTab: 'describe' }) }, 'Describe live')),
   );
+  if (f.quality && store.get().meta?.quality?.enabled) body.append(qualitySection(f, f.quality));
+}
+
+const SEV_TEXT = { violation: 'Violation', warning: 'Warning', info: 'Info' } as const;
+
+/** Results of the validation against ERA's SHACL shapes whose focus node is this feature. */
+function qualitySection(f: Feature, q: FeatureQuality): HTMLElement {
+  const env = store.get().env;
+  const sec = h('section', { class: 'qa-section', 'aria-label': 'Data quality' },
+    h('h3', {}, 'Data quality ', h('small', { class: 'muted' }, 'ERA SHACL shapes')));
+  if (q.status === null || q.status === 'skipped' || q.status === 'failed') {
+    sec.append(h('p', { class: 'muted small' }, q.status === null ? 'This dataset has not been validated yet.'
+      : `This dataset was not validated${q.note ? `: ${q.note}` : '.'}`));
+    return sec;
+  }
+  const partial = q.status === 'partial' ? ' (the check of this dataset stopped early, so this list may be incomplete)' : '';
+  if (!q.results.length) {
+    sec.append(h('p', { class: 'qa-ok small' }, `No issues found on this ${f.label ? 'feature' : 'resource'}${partial}.`));
+  } else {
+    const counts = (['violation', 'warning', 'info'] as const).map((s) => [s, q.results.filter((r) => r.severity === s).length] as const).filter(([, n]) => n);
+    sec.append(h('p', { class: 'small' }, ...counts.flatMap(([s, n]) => [h('span', { class: `pill sev-${s}` }, `${n} ${SEV_TEXT[s].toLowerCase()}${n === 1 ? '' : 's'}`), ' ']),
+      partial ? h('span', { class: 'muted' }, partial) : null));
+    sec.append(h('ul', { class: 'qa-results' }, ...q.results.map((r) => h('li', { class: `sev-${r.severity}` },
+      h('div', { class: 'qa-msg' }, h('span', { class: `pill sev-${r.severity}` }, SEV_TEXT[r.severity]), ' ', r.message ?? shortIri(r.component)),
+      h('div', { class: 'qa-meta muted small' },
+        r.path ? h('span', {}, 'Path ', h('code', { title: r.path }, pathText(r.path))) : null,
+        r.value ? h('span', {}, 'Value ', h('code', { title: r.value }, r.value_label ?? ntText(r.value))) : null,
+        h('span', {}, 'Rule ', h('a', { href: r.shape.startsWith('http') ? r.shape : undefined, target: '_blank', rel: 'noopener', title: `${r.shape}\n${r.component}` }, shortIri(r.shape))))))));
+    if (q.truncated) sec.append(h('p', { class: 'muted small' }, `Showing the first ${q.results.length} results; the dataset report has them all.`));
+  }
+  const links = h('div', { class: 'row-actions' });
+  if (q.html) links.append(h('a', { class: 'btn btn-small', href: api.qualityReportUrl(env, f.graph_iri, 'html'), target: '_blank', rel: 'noopener', title: 'The whole dataset report in shacl-report' }, 'Dataset report'));
+  if (q.report) links.append(h('a', { class: 'btn btn-small', href: api.qualityReportUrl(env, f.graph_iri, 'ttl'), download: '', title: 'sh:ValidationReport (Turtle) of the whole dataset' }, 'Report .ttl'));
+  links.append(h('button', { class: 'btn btn-small', onclick: () => store.set({ qa: true }), title: 'Ring features with issues on the map' }, 'Show issues on map'));
+  sec.append(links);
+  return sec;
 }
 
 function termCell(t: RdfTerm, labels: Record<string, string>): HTMLElement {

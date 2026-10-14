@@ -9,7 +9,7 @@ from dataclasses import asdict
 
 import psycopg
 
-from . import era, mirror
+from . import era, mirror, quality
 from .config import Env, Settings
 from .extract import derive_geometry, extract_graph, refresh_facet_cache, update_term_labels
 from .shapes import ShapeSet
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 IM_ROLE = "http://data.europa.eu/949/body/organisation/organisationRole/{code}_IM"
 
 
-def publish_defs(conn: psycopg.Connection, shapes: ShapeSet) -> None:
+def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bool = True) -> None:
     """Write compiled shapes to class_def / facet_def (and the compatibility rules to compat_def) for the API."""
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_def")
@@ -36,6 +36,11 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet) -> None:
             cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
                            VALUES (%s,'*',%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
                         (f.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by))
+        if quality_enabled:
+            # Built-in shared facet filled by the data quality layer (worker/atlas/quality.py).
+            cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit)
+                           VALUES (%s,'*','Data quality (ERA SHACL)','terms',NULL,900,NULL,NULL)
+                           ON CONFLICT DO NOTHING""", (quality.FACET,))
         cur.execute("DELETE FROM compat_def")
         if shapes.compat:
             cur.execute("INSERT INTO compat_def (id, def) VALUES (1, %s)", (json.dumps(asdict(shapes.compat)),))
@@ -86,6 +91,7 @@ def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force) -> tu
     is_new = old is None or old[1] in ("pending", "removed")
     _set_status(conn, env.key, g, "loading")
     _download_into_mirror(cfg, env, store, g)
+    quality.reset(conn, env.key, g)
     extract_graph(conn, store, env.key, g, shapes)
     with conn.cursor() as cur:
         cur.execute("""UPDATE dataset SET status='loaded', error=NULL, fingerprint=%s, ingested_at=now()
@@ -94,7 +100,8 @@ def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force) -> tu
     return (1, 0) if is_new else (0, 1)
 
 
-def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env, force: bool = False) -> dict:
+def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env, force: bool = False,
+             should_stop=lambda: False) -> dict:
     """One poll of one environment. Returns a summary dict."""
     store = mirror.store(cfg.mirror_dir, env.key)
     with conn.cursor() as cur:
@@ -115,7 +122,8 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
 
     # 1. Vocabularies (ontology, SKOS, countries) — labels only, no features.
     vocab_changed = False
-    for g in env.vocab_graphs:
+    shapes_graph = [cfg.quality.shapes_graph] if cfg.quality.enabled else []
+    for g in env.vocab_graphs + [x for x in shapes_graph if x not in env.vocab_graphs]:
         if g not in graphs:
             log.warning("%s vocabulary graph %s not found", env.key, g)
             continue
@@ -157,6 +165,7 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
                 cur.execute("DELETE FROM feature_link WHERE env=%s AND graph_iri=%s", (env.key, g))
                 cur.execute("UPDATE dataset SET status='removed' WHERE env=%s AND graph_iri=%s", (env.key, g))
             conn.commit()
+            quality.remove(conn, env.key, g)
             mirror.remove_graph(store, g)
 
     if vocab_changed:
@@ -169,7 +178,17 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
     if new or changed or removed:
         derived = derive_geometry(conn, env.key)
         refresh_facet_cache(conn, env.key)
-    msg = f"new={new} changed={changed} removed={removed} failed={failed} derived_geometry={derived}"
+    # Data quality: new or changed graphs, and every graph again when ERA changed its shapes.
+    validated = 0
+    try:
+        validated = quality.validate_pending(cfg, conn, store, env, should_stop=should_stop)
+    except Exception:
+        conn.rollback()
+        log.exception("%s data quality pass failed", env.key)
+    if validated:
+        refresh_facet_cache(conn, env.key)
+    msg = (f"new={new} changed={changed} removed={removed} failed={failed} derived_geometry={derived} "
+           f"validated={validated}")
     with conn.cursor() as cur:
         cur.execute("""UPDATE ingest_run SET finished_at=now(), new_graphs=%s, changed=%s, removed=%s, message=%s
                        WHERE id=%s""", (new, changed, removed, msg, run_id))
@@ -196,6 +215,7 @@ def reindex_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: 
             continue
         try:
             extract_graph(conn, store, env.key, g, shapes)
+            quality.apply_flags(conn, env.key, g)  # the facets were rewritten; validation results still hold
             _set_status(conn, env.key, g, "loaded")
         except Exception as e:
             conn.rollback()

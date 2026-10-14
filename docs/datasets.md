@@ -52,7 +52,9 @@ the worker runs one cycle per enabled environment:
    line between their start and end points.
 8. **Remove graphs that disappeared** from the repository, from both the
    mirror and the index.
-9. **Refresh the cached facet counts** used for the unfiltered view.
+9. **Validate the data quality** of each changed graph against the SHACL
+   shapes ERA publishes (see below).
+10. **Refresh the cached facet counts** used for the unfiltered view.
 
 A graph that fails (network error, unparsable data) is marked *failed* with
 the error and retried on the next cycle; the others carry on.
@@ -74,6 +76,7 @@ Inside the worker container (`docker compose exec worker atlas …`):
 | `atlas sync` | run a cycle now (`--env prod` for one environment) |
 | `atlas sync --force` | download and re-index everything, ignoring fingerprints |
 | `atlas reindex` | re-index from the mirror (what a shape change triggers) |
+| `atlas validate` | validate the graphs not yet validated with the current SHACL shapes (`--graph G` for one, `--force` for all) |
 
 While the poll loop runs it owns the mirror, so these commands are queued and
 picked up by the loop within a minute.
@@ -85,6 +88,31 @@ The **Datasets** button at the top right of the web app (and
 file name, publication date, status (processed, processing, waiting, failed
 with the error, removed), feature and triple counts, when it was processed,
 and when the worker last checked for new datasets.
+
+## Data quality
+
+ERA publishes SHACL shapes for RINF data in the repository
+(`http://data.europa.eu/949/graph/rinf/shacl`). The worker mirrors them with
+the vocabularies and, after indexing a graph, validates it against them on
+the local mirror. The results land in PostGIS: per dataset the number of
+violations, warnings and info results (the **Data quality** column of the
+Datasets dialog, which unfolds into the most frequent problems), per feature
+its results (the feature's detail panel) and a `quality` filter plus a "Data
+issues" map layer.
+
+Each dataset's report can be downloaded as a standard `sh:ValidationReport`
+(Turtle) and opened, together with the shapes, in
+[shacl-report](https://github.com/Matdata-eu/shacl-report); when the worker
+image includes the `shacl-report` binary (the default Dockerfile does), the
+report is also rendered as shacl-report's HTML viewer, opened with
+**Report**.
+
+A graph is validated again when its data or the shapes change. Settings
+live in the `quality:` block of `config/environments.yaml`: the shapes
+graph, the per-graph time budget (60 minutes; a run that hits it is shown as
+a partial check), result caps, the maximum graph size (15M triples) and
+shapes to leave out. `ATLAS_QUALITY=0` turns validation off;
+`ATLAS_QUALITY_MAX_TRIPLES` and `ATLAS_QUALITY_MINUTES` override the limits.
 
 ## Live queries
 

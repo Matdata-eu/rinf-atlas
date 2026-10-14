@@ -85,7 +85,14 @@ Every `poll_interval_minutes` (default 30) the worker, per environment:
    and only re-downloads graphs whose fingerprint changed (one streaming
    N-Triples export per graph via the RDF4J `/statements` endpoint);
 4. replaces the graph in the local mirror, re-extracts its features, and
-   derives missing geometry; graphs that disappeared are removed.
+   derives missing geometry; graphs that disappeared are removed;
+5. validates changed graphs against the SHACL shapes ERA publishes
+   (`graph/rinf/shacl`). The Datasets dialog shows the violations and warnings
+   per dataset, the map can ring features with issues, a feature's details
+   list its results, and each report downloads as a standard
+   `sh:ValidationReport` to explore in
+   [shacl-report](https://github.com/Matdata-eu/shacl-report). See
+   [docs/datasets.md](docs/datasets.md#data-quality).
 
 ## Facets are SHACL you own
 
@@ -158,6 +165,7 @@ up by the loop:
 |---|---|
 | `atlas sync [--env prod] [--force]` | poll now; `--force` re-downloads everything |
 | `atlas reindex [--env prod]` | re-extract from the mirror (also automatic on shape changes) |
+| `atlas validate [--env prod] [--graph G] [--force]` | data quality: validate graphs against ERA's SHACL shapes (automatic after a sync) |
 | `atlas generate-shapes [--force] [--no-data]` | regenerate starter shapes into `shapes/` (keeps existing files unless `--force`) |
 | `atlas check-shapes [-v]` | parse `shapes/` and print the compiled facets |
 | `atlas load-file --env prod --graph IRI file.nt` | index a local file (testing; stop the worker first) |
@@ -169,7 +177,8 @@ dataset explorer API, vocabulary graphs) and the provider-graph pattern.
 `.env` sets the port, database password, `ATLAS_ENVS` (subset of
 environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs). Behind a TLS
 proxy, set `ATLAS_PUBLIC_URL` (e.g. `https://rinf-atlas.example.org`) so the
-OGC API links use it.
+OGC API links use it. The `quality:` block of `environments.yaml` (and
+`ATLAS_QUALITY*` in `.env`) tunes or turns off the data quality validation.
 
 To publish a privacy statement for your instance, put a page at
 `site/privacy.html` (start from `site/privacy.example.html`); the app then
@@ -228,6 +237,11 @@ the data the app shows or the services it loads at runtime:
 - **Rail overlay** (optional): [OpenRailwayMap](https://www.openrailwaymap.org/) tiles
   (CC-BY-SA 2.0, data ODbL), free only for small, public, non-commercial use
   ([conditions](https://wiki.openstreetmap.org/wiki/OpenRailwayMap/API)).
+- **ERA SHACL shapes** (the data quality rules) are mirrored from ERA's
+  repository like the data; `tests/fixtures/era-shacl.nt.gz` is a copy for the
+  tests. The worker image includes the
+  [shacl-report](https://github.com/Matdata-eu/shacl-report) binary
+  (Apache-2.0) to render the reports.
 - **Dependencies** are under permissive licences (MIT, BSD, ISC, Apache-2.0)
   or weak copyleft used unmodified: psycopg (LGPL-3.0) and, at build time only,
   lightningcss (MPL-2.0). The PostGIS image (GPL-2.0) runs as an unmodified,

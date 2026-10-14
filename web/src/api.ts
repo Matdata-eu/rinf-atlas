@@ -28,13 +28,69 @@ export interface FacetMeta {
   color_by?: number | null;
 }
 
+export interface QualityMeta {
+  /** The worker validates datasets against ERA's SHACL shapes (and the `quality` facet exists). */
+  enabled: boolean;
+  validated: number;
+  violations: number;
+  warnings: number;
+  infos: number;
+  checked_at: string | null;
+  shapes_graph: string | null;
+  shapes_loaded_at: string | null;
+  /** A shacl-report instance to explore downloaded reports with (null = no link). */
+  shacl_report_url: string | null;
+}
+
 export interface Meta {
   classes: ClassMeta[];
   facets: FacetMeta[];
   /** Turtle export queries ERA live and is capped at this many entities. */
   limits?: { ttl_export: number };
   datasets: { total: number; loaded: number; failed?: number; pending?: number; last_ingest: string | null; last_check?: string | null };
+  quality?: QualityMeta;
 }
+
+/** Worst SHACL severity found on a feature: 3 violation, 2 warning, 1 info, 0 none; null = not validated. */
+export type QaLevel = 0 | 1 | 2 | 3 | null;
+export type Severity = 'violation' | 'warning' | 'info';
+export const SH = 'http://www.w3.org/ns/shacl#';
+/** Values of the `quality` facet. */
+export const QUALITY_VALUES: Record<Severity, string> = { violation: `${SH}Violation`, warning: `${SH}Warning`, info: `${SH}Info` };
+
+export interface QualityResult {
+  severity: Severity;
+  message: string | null;
+  path: string | null;
+  /** N-Triples form of the offending value. */
+  value: string | null;
+  value_label?: string | null;
+  shape: string;
+  component: string;
+}
+
+export interface FeatureQuality {
+  /** Dataset validation: null = not yet, ok, partial, skipped, failed. */
+  status: 'ok' | 'partial' | 'skipped' | 'failed' | null;
+  checked_at: string | null;
+  note: string | null;
+  results: QualityResult[];
+  truncated: boolean;
+  /** The dataset's report can be downloaded (Turtle) / opened in shacl-report's viewer. */
+  report?: boolean;
+  html?: boolean;
+}
+
+export interface DatasetQuality {
+  status: FeatureQuality['status'];
+  violations: number | null; warnings: number | null; infos: number | null;
+  focus_nodes: number | null; kept: number | null;
+  checked_at: string | null; seconds: number | null; note: string | null;
+  /** A Turtle sh:ValidationReport / shacl-report HTML viewer can be downloaded. */
+  report: boolean; html: boolean;
+}
+
+export interface QualityRule { shape: string; component: string; severity: Severity; count: number; message: string | null }
 
 export type TermValue = string | number | boolean;
 export interface RangeFilter { min?: number | null; max?: number | null }
@@ -64,7 +120,10 @@ export interface FacetsResponse {
 }
 
 /** lon/lat are null when the feature has no geometry. `v`: display value when the search asked for a `color` key. */
-export interface SearchItem { id: string; iri: string; class: string; label: string; lon: number | null; lat: number | null; v?: string | number | null }
+export interface SearchItem {
+  id: string; iri: string; class: string; label: string; lon: number | null; lat: number | null;
+  v?: string | number | null; qa?: QaLevel;
+}
 
 /** POST /api/theme: colouring the map by a facet. */
 interface ThemeBase {
@@ -115,6 +174,7 @@ export interface Feature {
   /** terms | range | boolean | link (IRI of another indexed feature). */
   facet_kinds?: Record<string, string>;
   geometry: GeoJSON.Geometry | null;
+  quality?: FeatureQuality;
 }
 
 // ---------- line profile ----------
@@ -157,6 +217,7 @@ export interface Dataset {
   graph_iri: string; title: string | null; provider: string | null; country: string | null;
   modified: string | null; status: DatasetStatus; triples: number | null; ingested_at: string | null;
   error: string | null; dataset_id: string | null; file_name: string | null; features: number;
+  quality?: DatasetQuality;
 }
 
 // ---------- vehicle compatibility (shapes/compatibility.ttl) ----------
@@ -242,6 +303,11 @@ export const api = {
     const { mode: _mode, ...rest } = spec;
     return post<ProfileResponse>('/profile', { env, ...rest, ...(params ? { params } : {}) }, signal);
   },
+  qualitySummary: (env: string, graph: string) => request<QualityRule[]>(`/quality/summary?${qs({ env, graph })}`),
+  /** The dataset's SHACL validation report: Turtle download, or shacl-report's HTML viewer. */
+  qualityReportUrl: (env: string, graph: string, format: 'ttl' | 'html', download = false) =>
+    `${BASE}/quality/report?${qs({ env, graph, format, ...(download ? { download: 'true' } : {}) })}`,
+  qualityShapesUrl: (env: string) => `${BASE}/quality/shapes?${qs({ env })}`,
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
   exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl') => {
     const { facets: _facets, ...rest } = st;
