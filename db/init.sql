@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS feature_link (
 );
 CREATE INDEX IF NOT EXISTS feature_link_idx   ON feature_link (env, iri, class);
 CREATE INDEX IF NOT EXISTS feature_link_g_idx ON feature_link (env, graph_iri);
+CREATE INDEX IF NOT EXISTS feature_link_t_idx ON feature_link (env, target) WHERE rule = 'from';
 
 -- Labels for IRI-valued facet values (SKOS concepts, organisations, countries...).
 CREATE TABLE IF NOT EXISTS term (
@@ -85,6 +86,8 @@ CREATE TABLE IF NOT EXISTS facet_def (
 );
 ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS path text;
 ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS unit text;
+-- atlas:colorBy: suggested in the map's "Colour by" picker, lower ranks first.
+ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS color_by int;
 
 CREATE TABLE IF NOT EXISTS class_def (
     class      text PRIMARY KEY,       -- shape key
@@ -149,3 +152,32 @@ CREATE TABLE IF NOT EXISTS facet_cache (
     n      bigint NOT NULL
 );
 CREATE INDEX IF NOT EXISTS facet_cache_idx ON facet_cache (env, key);
+
+-- Map colouring ("Colour by" a facet). One theme per environment and facet key,
+-- computed by the API the first time someone colours by that facet and again
+-- when the data changes (the worker empties it after every update). theme_value
+-- holds one display value per feature: its own facet value, or for a section of
+-- line coloured by a facet of its tracks, the values rolled up from its parts.
+-- Unlogged: it is a cache and can always be recomputed.
+CREATE UNLOGGED TABLE IF NOT EXISTS theme (
+    id        serial      PRIMARY KEY,
+    env       text        NOT NULL,
+    key       text        NOT NULL,     -- facet key as in a query state, e.g. running-track/maximumPermittedSpeed
+    version   text        NOT NULL,     -- data version it was computed for
+    kind      text        NOT NULL,     -- terms|boolean|range
+    classes   text[]      NOT NULL,     -- classes coloured by their own values
+    rollup    text[]      NOT NULL,     -- line classes coloured by the values of their parts
+    slots     jsonb,                    -- terms: the values that get a palette colour, in order
+    breaks    jsonb,                    -- range: {"breaks": [class boundaries], "discrete": one class per value}
+    lo        double precision,
+    hi        double precision,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (env, key)
+);
+CREATE UNLOGGED TABLE IF NOT EXISTS theme_value (
+    theme  int    NOT NULL REFERENCES theme (id) ON DELETE CASCADE,
+    fid    bigint NOT NULL,             -- feature.id
+    v      text,                        -- terms/boolean: the value, '__mixed__' when it has several
+    n      double precision,            -- range: the highest value
+    PRIMARY KEY (theme, fid)
+);

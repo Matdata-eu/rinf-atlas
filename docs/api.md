@@ -37,11 +37,12 @@ values are numbers.
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET  | `/api/envs` | | `[{key,label,sparql,portal,default}]` |
-| GET  | `/api/meta?env=` | | `{classes:[{class,class_iri,label,color,geometry,min_zoom,count}], facets:[{key,class,label,kind,datatype,unit,position}], datasets:{total,loaded,failed,pending,last_ingest,last_check}}` (`class` `*` = facet applies to every class; `text` facets are search-only and not listed) |
+| GET  | `/api/meta?env=` | | `{classes:[{class,class_iri,label,color,geometry,min_zoom,count}], facets:[{key,class,label,kind,datatype,unit,position,color_by}], datasets:{total,loaded,failed,pending,last_ingest,last_check}}` (`class` `*` = facet applies to every class; `text` facets are search-only and not listed) |
 | POST | `/api/facets` | query state | `{total, by_class:{class:count}, facets:{key: {kind:"terms"\|"boolean", values:[{value,label,count}], more} \| {kind:"range", min, max, count}}}` |
-| POST | `/api/search` | query state + `limit` (≤500), `offset` | `{total, items:[{id,iri,class,label,lon,lat}]}` |
+| POST | `/api/search` | query state + `limit` (≤500), `offset`, optional `color` (facet key) | `{total, items:[{id,iri,class,label,lon,lat}]}`; with `color` every item also has `v`, its display value for that facet (see *Map colouring*) |
+| POST | `/api/theme` | query state + `key` (facet key, plain or `class/key`) | Legend for colouring the map by `key`. Common: `{key, kind, label, unit, classes, rollup, total, nodata}`. Terms/boolean: `values:[{value,label,count,slot}], more, other, mixed`. Range: `breaks:[number], bins:[{min,max,count}], min, max, discrete`. 400 for a text or unknown facet |
 | POST | `/api/extent` | query state | `{bbox:[w,s,e,n] \| null}` |
-| GET  | `/api/tiles/{z}/{x}/{y}.pbf?state=` | `state` = base64url(JSON query state; bbox ignored) | Mapbox Vector Tile, layer `features` |
+| GET  | `/api/tiles/{z}/{x}/{y}.pbf?state=&color=` | `state` = base64url(JSON query state; bbox ignored); optional `color` = facet key | Mapbox Vector Tile, layer `features`; with `color` each feature that has a value carries property `v` at every zoom |
 | GET  | `/api/feature?env=&iri=` or `?env=&id=` | | `{iri, label, classes:[...], class_iri, graph_iri, provider, dataset, geometry_source, facets:{key:[{value,label}]}, facet_labels:{key:label}, geometry: GeoJSON}` |
 | GET  | `/api/describe?env=&iri=&direction=out\|in` | `limit` (default 1000) | Live from ERA. `{iri, direction, triples:[{s,p,o:{type:"uri"\|"literal"\|"bnode",value,datatype?,lang?}}], labels:{iri:label}, truncated}` |
 | | | | Query states also accept `graphs: [graph IRI]` to keep only features from those datasets. A filter or `facets` key written `class/key` (e.g. `operational-point/opType`) applies to that class only; a plain key applies to every class that has the facet. The UI uses plain keys for the shared facets (country, IM) and `class/key` for the facets behind each class's filter icon. |
@@ -118,3 +119,38 @@ scheme and `Host`).
 |---|---|---|
 | GET | `/api/tiles.json?state=` or `?env=` | TileJSON 3.0.0 for `/api/tiles` with that state (or a whole environment; the default one when neither is given): `tiles`, `bounds`, `maxzoom` (`ATLAS_TILE_MAXZOOM`, 14), layer `features` with fields `id, iri, class, label` |
 | GET | `/api/style.json?state=` or `?env=` | MapLibre style (v8) drawing those tiles in the class colours: circles for point classes, lines for line classes, both for `any`, each from the class `min_zoom` |
+## Map colouring
+
+`/api/theme`, `color` on tiles and `color` on search colour the map by one
+facet. The API computes one **display value** per feature, once per
+environment, facet key and data version (cached in PostGIS; the first request
+after a data update takes a moment longer):
+
+- A feature of a class that owns the facet gets its own value. Terms and
+  boolean facets: the value, or `__mixed__` when the feature has several
+  different values. Range facets: the highest number.
+- **Roll-up**: a line class at the top of the "part of" chain that does not
+  own the facet (a section of line, when colouring by a running-track facet)
+  is coloured from its line parts (the `atlas:geometryFrom` links): the value
+  all its parts agree on, `__mixed__` when they differ, the highest number for
+  a range facet. Parts without a value are ignored. Such classes are listed in
+  `rollup`.
+- `classes` are the classes coloured by their own values (empty for a facet
+  shared by every class); features of `classes` and `rollup` without a value
+  count as `nodata`. Other classes are not coloured.
+
+Colours are assigned by the client from data that does not change with the
+query state, so filtering never repaints a value:
+
+- Terms/boolean: `slot` 0-7 is the value's place among the 8 most frequent
+  values of the whole environment (booleans: yes = 0, no = 1); values without
+  a slot share one "other values" colour (`other` counts them). `values` lists
+  the slotted values first, then the rest by count (at most 200, `more`).
+- Range: `breaks` are class boundaries for the whole environment (rounded
+  quantiles; with five or fewer distinct values, each value is its own class
+  and `discrete` is true). A value `v` falls in class `i` = the number of
+  breaks `<= v`; `bins[i]` counts the features of the query state in it.
+
+The counts follow the query state (classes, filters, datasets, search text,
+bbox) like `/api/facets`.
+

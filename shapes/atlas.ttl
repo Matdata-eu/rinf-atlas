@@ -35,6 +35,9 @@
 #                       text = only added to full-text search, no facet
 #   sh:datatype         optional; used for range formatting
 #   sh:order            facet order in the panel
+#   atlas:colorBy       integer; suggest the facet in the map's "Colour by"
+#                       picker, lower numbers first (every terms, boolean and
+#                       range facet can colour the map; these are listed first)
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl:   <http://www.w3.org/2002/07/owl#>

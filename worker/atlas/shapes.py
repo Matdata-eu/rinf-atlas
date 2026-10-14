@@ -35,6 +35,7 @@ class Facet:
     datatype: str | None = None
     unit: str | None = None
     order: int = 100
+    color_by: int | None = None  # atlas:colorBy: suggested in the map's "Colour by" picker (rank)
 
 
 @dataclass
@@ -54,13 +55,21 @@ class ClassShape:
     facets: list[Facet] = field(default_factory=list)
 
 
+# Bumped when extraction changes in a way that needs every graph re-extracted
+# (it is part of the digest, so an upgrade reindexes from the mirror by itself).
+# 2: geometryFrom links are kept for every feature (map colouring rolls part
+#    values up to their section of line), not only for features without geometry.
+EXTRACT_VERSION = 2
+
+
 @dataclass
 class ShapeSet:
     classes: list[ClassShape]
     shared: list[Facet]
 
     def digest(self) -> str:
-        blob = json.dumps([asdict(c) for c in self.classes] + [asdict(f) for f in self.shared], sort_keys=True)
+        blob = json.dumps([EXTRACT_VERSION] + [asdict(c) for c in self.classes] + [asdict(f) for f in self.shared],
+                          sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
     def all_facets(self, cls: ClassShape) -> list[Facet]:
@@ -208,7 +217,10 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
                 datatype=dt,
                 unit=r.lit(prop, ATLAS + "unit"),
                 order=int(r.lit(prop, SH + "order", "100")),
+                color_by=_int(r.lit(prop, ATLAS + "colorBy"), f"{key}.{fkey}: atlas:colorBy"),
             )
+            if fc.color_by is not None and kind == "text":
+                raise ShapeError(f"{key}.{fkey}: a text facet cannot be used to colour the map")
             (cs.facets if not is_shared else shared).append(fc)
         cs.facets.sort(key=lambda f: (f.order, f.key))
         if not is_shared:
@@ -216,6 +228,15 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
     classes.sort(key=lambda c: (c.order, c.key))
     shared.sort(key=lambda f: (f.order, f.key))
     return ShapeSet(classes=classes, shared=shared)
+
+
+def _int(v: str | None, what: str) -> int | None:
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except ValueError:
+        raise ShapeError(f"{what} must be an integer, got {v!r}") from None
 
 
 def _numeric(dt: str) -> bool:

@@ -6,6 +6,7 @@ import { initDetail } from './detail';
 import { initFacets } from './facets';
 import { fitBbox, initMap, TILE_MODE } from './map';
 import { initResults } from './results';
+import { initThematic } from './thematic';
 import { setTheme, themePref, type ThemePref } from './theme';
 import { changed, debounce, h, queryState, readHash, store, writeHash } from './state';
 
@@ -123,6 +124,7 @@ async function main() {
   store.set({ ...fromHash, env: '' });
   initMap($('map'));
   initFacets();
+  initThematic(document.querySelector('.map-wrap') as HTMLElement);
   initResults();
   initDetail();
   initDatasets();
@@ -148,7 +150,7 @@ async function main() {
 
   window.addEventListener('hashchange', () => {
     const next = readHash();
-    store.set({ classes: [], filters: {}, graphs: [], q: '', selected: null, ...next });
+    store.set({ classes: [], filters: {}, graphs: [], q: '', selected: null, colorBy: null, colorHidden: [], ...next });
   });
   if (TILE_MODE === 'geojson') document.body.classList.add('geojson-mode');
 }

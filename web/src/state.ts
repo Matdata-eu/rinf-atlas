@@ -1,5 +1,5 @@
 // Tiny observable store + URL-hash (de)serialisation for shareable links.
-import type { FilterValue, Meta, QueryState } from './api';
+import type { FilterValue, Meta, QueryState, Theme } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
 
@@ -19,7 +19,12 @@ export interface AppState {
   detailTab: DetailTab;
   orm: boolean;
   sideTab: 'filters' | 'results';
+  /** Facet key (as in filters: "class/key" or a shared key) the map is coloured by; null = class colours. */
+  colorBy: string | null;
+  /** Legend entries switched off: values, "bin:<i>" for range classes, or NODATA / MIXED / OTHER / FADED. */
+  colorHidden: string[];
   meta: Meta | null; // per-env metadata (not in the URL)
+  theme: Theme | null; // legend of the current colouring (not in the URL)
 }
 
 type Listener = (s: AppState, prev: AppState) => void;
@@ -43,7 +48,8 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters', meta: null,
+  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters',
+  colorBy: null, colorHidden: [], meta: null, theme: null,
 });
 
 /** Did any of the given keys change between prev and next? */
@@ -65,7 +71,7 @@ export function isFilterEmpty(v: FilterValue | undefined): boolean {
 }
 
 // ---------- URL hash ----------
-// #env=prod&c=tunnel,switch&f={"country":[...]}&q=brussel&v=1&map=6.2/50.8/4.4&sel=<iri>&tab=describe&orm=1
+// #env=prod&c=tunnel,switch&f={"country":[...]}&q=brussel&v=1&map=6.2/50.8/4.4&sel=<iri>&tab=describe&orm=1&col=running-track/maximumPermittedSpeed&colh=bin:0 __nodata__
 
 export function readHash(): Partial<AppState> {
   const p = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -79,6 +85,8 @@ export function readHash(): Partial<AppState> {
   if (p.get('orm') === '1') out.orm = true;
   const m = p.get('map')?.split('/').map(Number);
   if (m && m.length === 3 && m.every(Number.isFinite)) out.view = { zoom: m[0], lat: m[1], lng: m[2] };
+  if (p.get('col')) out.colorBy = p.get('col');
+  if (p.get('colh')) out.colorHidden = p.get('colh')!.split(' ').filter(Boolean);
   if (p.get('sel')) out.selected = p.get('sel');
   const tab = p.get('tab');
   if (tab === 'describe' || tab === 'graph' || tab === 'properties') out.detailTab = tab;
@@ -95,6 +103,10 @@ export function writeHash(s: AppState) {
   if (s.graphs.length) p.set('ds', s.graphs.join(' '));
   if (s.limitToView) p.set('v', '1');
   if (s.orm) p.set('orm', '1');
+  if (s.colorBy) {
+    p.set('col', s.colorBy);
+    if (s.colorHidden.length) p.set('colh', s.colorHidden.join(' '));
+  }
   p.set('map', `${s.view.zoom.toFixed(2)}/${s.view.lat.toFixed(5)}/${s.view.lng.toFixed(5)}`);
   if (s.selected) { p.set('sel', s.selected); if (s.detailTab !== 'properties') p.set('tab', s.detailTab); }
   const hash = '#' + p.toString();

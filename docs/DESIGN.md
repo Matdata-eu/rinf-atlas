@@ -69,6 +69,17 @@ the full query state, which Martin's table sources can't express), `web`
   `class/key` filter (used by the per-class facets in the UI) only that class.
 - Tiles below z8 carry only `id, class` and dedupe identical pixels; classes
   have `atlas:minZoom` (tracks 10, sidings 11, KPs 12).
+- Map colouring ("Colour by" a facet): the API writes one display value per
+  feature into the unlogged `theme_value` cache the first time a facet is
+  used (per environment and data version; the worker empties it after every
+  update), so tiles at every zoom and the legend counts only join on the
+  feature id. Sections of line are coloured from their running tracks through
+  the `atlas:geometryFrom` links, which extraction now keeps for every feature
+  (`EXTRACT_VERSION` 2, so an upgrade reindexes from the mirror once).
+  Palette slots and range breaks are per environment, not per query, so a
+  filter never repaints a value; colours are chosen in the browser from
+  colour-blind-checked palettes with light and dark steps. Suggested facets
+  come from `atlas:colorBy` in the shapes.
 - The poll loop holds a Postgres advisory lock and owns the mirror; CLI
   `sync`/`reindex`/`generate-shapes` from another process are queued in the
   `job` table and run by the loop.

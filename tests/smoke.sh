@@ -46,6 +46,24 @@ print(f'{z}/{int((lon+180)/360*k)}/{int((1-math.asinh(math.tan(math.radians(lat)
 size=$(curl -fsS "$BASE/api/tiles/$tile.pbf?state=$state" | wc -c)
 echo "tile bytes: $size"; [ "$size" -gt 100 ] || fail "empty vector tile"
 
+# Map colouring: sections of line take the speed of their running tracks.
+speed="running-track/maximumPermittedSpeed"
+theme=$(post theme "{\"env\":\"prod\",\"classes\":[],\"filters\":{},\"key\":\"$speed\"}")
+echo "theme: $(echo "$theme" | json "(d['kind'], d['rollup'], len(d['bins']), d['total'])")"
+echo "$theme" | json "d['kind']=='range' and 'section-of-line' in d['rollup'] and sum(b['count'] for b in d['bins']) > 0" | grep -q True \
+  || fail "colouring by $speed gave no classes or no roll-up to sections of line"
+energy=$(post theme '{"env":"prod","classes":[],"filters":{},"key":"running-track/contactLineSystem.energySupplySystem"}' \
+  | json "sum(v['count'] for v in d['values'])")
+[ "$energy" -gt 0 ] || fail "colouring by energy supply system found no values"
+ctile=$(curl -fsS "$BASE/api/tiles/$tile.pbf?state=$state&color=$speed" | wc -c)
+echo "coloured tile bytes: $ctile"; [ "$ctile" -gt "$size" ] || fail "coloured tile carries no values"
+solv=$(post search "{\"env\":\"prod\",\"classes\":[\"section-of-line\"],\"filters\":{},\"limit\":50,\"color\":\"$speed\"}" \
+  | json "sum(1 for i in d['items'] if i.get('v') is not None)")
+echo "sections of line with a rolled-up speed: $solv"; [ "$solv" -gt 0 ] || fail "no section of line got its tracks' speed"
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/theme" -H 'content-type: application/json' \
+  -d '{"env":"prod","classes":[],"filters":{},"key":"running-track/trackId"}')
+[ "$code" = 400 ] || fail "colouring by a text facet should be refused, got HTTP $code"
+
 opstate=$(python3 -c "import base64,json;print(base64.urlsafe_b64encode(json.dumps({'env':'prod','classes':['operational-point'],'filters':{}}).encode()).decode().rstrip('='))")
 rows=$(curl -fsS "$BASE/api/export?format=csv&state=$opstate" | python3 -c "import csv,sys; r=list(csv.reader(sys.stdin)); print(len(r)-1 if r[0][0].lstrip('\ufeff')=='IRI' else -1)")
 echo "csv export rows: $rows"; [ "$rows" -eq "$ops" ] || fail "CSV export has $rows rows, expected $ops"

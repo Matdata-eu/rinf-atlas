@@ -42,6 +42,7 @@ shape:section-of-line
     sh:property [  # RINF 1.1.0.0.0.6, 64464 instances in data
         sh:path era:solNature ;
         atlas:facet "solNature" ;
+        atlas:colorBy 20 ;
         rdfs:label "Nature of Section of Line" ;
         atlas:kind "terms" ;
         sh:order 30 ;

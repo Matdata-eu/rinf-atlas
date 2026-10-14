@@ -211,9 +211,12 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                 for s, term in ex.pairs(cls, path):
                     if s not in geoms and isinstance(term, ox.NamedNode):
                         links.append((env, graph, s, cls.key, rule, term.value))
+        # Kept even when the feature has its own geometry: derive_geometry only uses
+        # them for features without one, and map colouring rolls part values (tracks)
+        # up to the section of line they belong to.
         for path in cls.geometry_from:
             for s, term in ex.pairs(cls, path):
-                if s not in geoms and isinstance(term, ox.NamedNode):
+                if isinstance(term, ox.NamedNode):
                     links.append((env, graph, s, cls.key, "from", term.value))
 
         for s in subs:
@@ -350,6 +353,7 @@ def refresh_facet_cache(conn: psycopg.Connection, env: str) -> None:
     t0 = time.time()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_cache WHERE env=%s", (env,))
+        cur.execute("DELETE FROM theme WHERE env=%s", (env,))  # map colouring, recomputed by the API on demand
         cur.execute("""
             INSERT INTO facet_cache (env, class, key, value, n)
             SELECT f.env, f.class, kv.key, v.value, count(*)
