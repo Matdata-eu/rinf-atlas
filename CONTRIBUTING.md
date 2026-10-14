@@ -39,7 +39,7 @@ CI runs the same checks; please run them before opening a pull request.
 ```sh
 pip install ./worker -r api/requirements.txt pytest ruff
 ruff check worker api
-pytest -q worker/tests
+pytest -q worker/tests api/tests
 (cd web && npm ci && npm run build)
 
 # end to end: index the bundled Luxembourg sample and query the stack

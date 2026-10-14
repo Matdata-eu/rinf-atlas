@@ -69,6 +69,17 @@ the full query state, which Martin's table sources can't express), `web`
   `class/key` filter (used by the per-class facets in the UI) only that class.
 - Tiles below z8 carry only `id, class` and dedupe identical pixels; classes
   have `atlas:minZoom` (tracks 10, sidings 11, KPs 12).
+- Line profile (`/api/profile`): `link` facets (`atlas:kind "link"`) keep the
+  IRIs of a section's `opStart`/`opEnd` and of the section or operational
+  point a track is `partOf`. They are stored in `feature.facets` like other
+  values but never offered as filters nor counted in `facet_cache`. The API
+  chains sections through them (longest path per connected group, remaining
+  runs attached to the nearest end, gaps flagged) or routes with Dijkstra over
+  all sections of the environment (cached until the data changes), and
+  summarises track parameters per section (min/max for numbers, every value
+  with its track count otherwise). Real gradient profiles are not in RINF
+  (only "gradient for stabling tracks"), so there is no gradient row by
+  default; any facet can be chosen as a row.
 - The poll loop holds a Postgres advisory lock and owns the mirror; CLI
   `sync`/`reindex`/`generate-shapes` from another process are queued in the
   `job` table and run by the loop.

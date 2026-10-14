@@ -767,4 +767,13 @@ shape:track
         rdfs:label "Type of traffic (part of TEN-T)" ;
         atlas:kind "terms" ;
         sh:order 1010 ;
+    ] ;
+    # The section of line or operational point the track belongs to; the line
+    # profile reads track parameters through it (not a filter).
+    sh:property [
+        sh:path [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;
+        atlas:facet "partOf" ;
+        rdfs:label "Part of" ;
+        atlas:kind "link" ;
+        sh:order 900 ;
     ] .

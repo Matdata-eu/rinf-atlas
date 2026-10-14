@@ -18,6 +18,12 @@ Documentation: [how datasets are updated](docs/datasets.md),
 
 ![RINF Atlas: operational points and sections of line in Belgium](docs/screenshots/overview.png)
 
+A **line profile** lays a national line, a series of sections of line picked on
+the map, or the route between two operational points out as a strip along the
+distance, with one row per parameter of their tracks (maximum speed,
+electrification, gauge, ETCS level, gauging, line category...; rows are
+configurable), linked to the map and downloadable as CSV.
+
 Search and the map never query ERA live: a worker mirrors the RINF named
 graphs and indexes them into PostGIS. Only "describe" (and the graph
 traversal built on it) goes to ERA's SPARQL endpoint.
@@ -98,7 +104,7 @@ shape:operational-point a sh:NodeShape ;
         sh:path era:opType ;            # any SHACL path: sequence, inverse, alternative, *, +, ?
         atlas:facet "opType" ;
         rdfs:label "Type of operational point" ;
-        atlas:kind "terms" ;            # terms | range | boolean | text (search only)
+        atlas:kind "terms" ;            # terms | range | boolean | text (search only) | link
         sh:order 50 ;
     ] .
 ```

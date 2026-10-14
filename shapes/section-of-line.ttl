@@ -73,4 +73,19 @@ shape:section-of-line
         rdfs:label "Type of line referencing system (national line identification)" ;
         atlas:kind "terms" ;
         sh:order 70 ;
+    ] ;
+    # Links used by the line profile to chain sections (not filters).
+    sh:property [
+        sh:path era:opStart ;
+        atlas:facet "opStart" ;
+        rdfs:label "Start operational point" ;
+        atlas:kind "link" ;
+        sh:order 900 ;
+    ] ;
+    sh:property [
+        sh:path era:opEnd ;
+        atlas:facet "opEnd" ;
+        rdfs:label "End operational point" ;
+        atlas:kind "link" ;
+        sh:order 910 ;
     ] .

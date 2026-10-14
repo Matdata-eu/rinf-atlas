@@ -2,6 +2,7 @@
 import { api, ApiError, isAbort, type DescribeResponse, type Feature, type RdfTerm, type Triple } from './api';
 import type { GraphHandle } from './graph';
 import { fitGeometry, flyTo, setSelectionGeometry } from './map';
+import { showLineProfile } from './profile';
 import { literalText, prefixed, shortIri } from './rdf';
 import { changed, fmt, h, store, unitLabel, type DetailTab } from './state';
 
@@ -134,11 +135,16 @@ function renderProperties(body: HTMLElement) {
   const rows = Object.entries(f.facets)
     .sort(([a], [b]) => (facetMeta.get(a)?.position ?? 999) - (facetMeta.get(b)?.position ?? 999))
     .map(([k, vals]) => h('tr', {},
-      h('th', {}, facetMeta.get(k)?.label ?? k),
+      h('th', {}, facetMeta.get(k)?.label ?? f.facet_labels?.[k] ?? k),
       h('td', {}, ...vals.map((v) => {
         const unit = facetMeta.get(k)?.unit;
         const text = v.label ?? (typeof v.value === 'boolean' ? (v.value ? 'Yes' : 'No')
           : typeof v.value === 'number' && unit ? `${fmt.format(v.value)} ${unitLabel(unit)}` : String(v.value));
+        // link facets point at other indexed features: open them here
+        if (f.facet_kinds?.[k] === 'link' && typeof v.value === 'string') {
+          const iri = v.value;
+          return h('div', {}, h('button', { class: 'link', title: iri, onclick: () => store.set({ selected: iri, detailTab: 'properties' }) }, text));
+        }
         return typeof v.value === 'string' && /^https?:\/\//.test(v.value)
           ? h('div', {}, h('a', { href: v.value, target: '_blank', rel: 'noopener', title: v.value }, text))
           : h('div', {}, text);
@@ -149,6 +155,9 @@ function renderProperties(body: HTMLElement) {
       h('tr', {}, h('th', {}, 'Graph'), h('td', {}, h('code', { class: 'small' }, f.graph_iri))))),
     h('div', { class: 'row-actions' },
       f.geometry ? h('button', { class: 'btn', onclick: () => fitGeometry(f.geometry!) }, 'Zoom to feature') : null,
+      ...(f.classes.includes('section-of-line') ? (f.facets['nationalLine.lineId'] ?? []).map((v) => h('button', {
+        class: 'btn', title: 'Parameters along this national line', onclick: () => showLineProfile(String(v.value), f.graph_iri),
+      }, `Line profile ${v.label ?? v.value}`)) : []),
       h('button', { class: 'btn', onclick: () => store.set({ detailTab: 'describe' }) }, 'Describe live')),
   );
 }

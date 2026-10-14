@@ -1,6 +1,7 @@
 // RINF Atlas mock API (plain Node http, no dependencies).
 // Implements every endpoint of docs/api.md with deterministic fake data
-// for Belgium and the Netherlands. Listens on PORT (default 8000).
+// for Belgium and the Netherlands (a few national lines with running tracks
+// for the line profile). Listens on PORT (default 8000).
 import http from 'node:http';
 import { URL } from 'node:url';
 
@@ -54,6 +55,7 @@ const SWITCH_TYPES = [['simple', 'Simple switch'], ['double-slip', 'Double slip 
 const CLASSES = [
   { class: 'operational-point', class_iri: `${ERA}OperationalPoint`, label: 'Operational point', color: '#e6194b', geometry: 'Point', min_zoom: 0 },
   { class: 'section-of-line', class_iri: `${ERA}SectionOfLine`, label: 'Section of line', color: '#4363d8', geometry: 'LineString' },
+  { class: 'running-track', class_iri: `${ERA}RunningTrack`, label: 'Running track', color: '#2ca02c', geometry: 'LineString', min_zoom: 10 },
   { class: 'tunnel', class_iri: `${ERA}Tunnel`, label: 'Tunnel', color: '#9a6324', geometry: 'LineString' },
   { class: 'switch', class_iri: `${ERA}Switch`, label: 'Switch', color: '#3cb44b', geometry: 'Point', min_zoom: 11 },
   { class: 'signal', class_iri: `${ERA}Signal`, label: 'Signal', color: '#f58231', geometry: 'Point', min_zoom: 11 },
@@ -69,6 +71,16 @@ const FACETS = [
   { key: 'length', class: 'section-of-line', label: 'Length', kind: 'range', datatype: 'xsd:double', position: 20, unit: 'M' },
   { key: 'max-speed', class: 'section-of-line', label: 'Maximum speed', kind: 'range', datatype: 'xsd:integer', position: 21, unit: 'KiloM-PER-HR' },
   { key: 'electrified', class: 'section-of-line', label: 'Electrified', kind: 'boolean', datatype: 'xsd:boolean', position: 22 },
+  { key: 'nationalLine.lineId', class: 'section-of-line', label: 'Line identifier (national line identification)', kind: 'terms', datatype: 'string', position: 19 },
+  { key: 'lengthOfSectionOfLine', class: 'section-of-line', label: 'Length of section of line', kind: 'range', datatype: 'xsd:double', position: 23, unit: 'KiloM' },
+  { key: 'trackDirection', class: 'running-track', label: 'Normal running direction', kind: 'terms', datatype: 'iri', position: 24 },
+  { key: 'lineCategory', class: 'running-track', label: 'Category of line', kind: 'terms', datatype: 'iri', position: 25 },
+  { key: 'maximumPermittedSpeed', class: 'running-track', label: 'Maximum permitted speed', kind: 'range', datatype: 'xsd:integer', position: 26, unit: 'KiloM-PER-HR' },
+  { key: 'gaugingProfile', class: 'running-track', label: 'Gauging', kind: 'terms', datatype: 'iri', position: 27 },
+  { key: 'wheelSetGauge', class: 'running-track', label: 'Nominal track gauge', kind: 'terms', datatype: 'iri', position: 28 },
+  { key: 'contactLineSystem.contactLineSystemType', class: 'running-track', label: 'Type of contact line system', kind: 'terms', datatype: 'iri', position: 29 },
+  { key: 'contactLineSystem.energySupplySystem', class: 'running-track', label: 'Energy supply system (Voltage and frequency) (contact line system)', kind: 'terms', datatype: 'iri', position: 30 },
+  { key: 'etcs.etcsLevelType', class: 'running-track', label: 'European Train Control System (ETCS) level', kind: 'terms', datatype: 'iri', position: 31 },
   { key: 'tunnel-length', class: 'tunnel', label: 'Tunnel length', kind: 'range', datatype: 'xsd:double', position: 30, unit: 'M' },
   { key: 'emergency-plan', class: 'tunnel', label: 'Emergency plan', kind: 'boolean', datatype: 'xsd:boolean', position: 31 },
   { key: 'switch-type', class: 'switch', label: 'Switch type', kind: 'terms', datatype: 'iri', position: 40 },
@@ -188,6 +200,94 @@ for (const op of ops) {
       facets: { ...common, 'platform-height': [{ value: h, label: String(h) }] } });
   }
 }
+// ---------- national lines + their running tracks (for the line profile) ----------
+// Each line runs through the main operational points of the listed towns, with an
+// intermediate junction between two towns. Line 161 has a missing section (a gap).
+const LINES = [
+  ['50A', 'BEL', ['Brussel-Zuid', 'Aalst', 'Gent-Sint-Pieters', 'Brugge', 'Oostende'], 160],
+  ['36', 'BEL', ['Brussel-Noord', 'Leuven', 'Landen', 'Liège-Guillemins'], 200],
+  ['25', 'BEL', ['Brussel-Centraal', 'Mechelen', 'Antwerpen-Centraal'], 140],
+  ['161', 'BEL', ['Brussel-Zuid', 'Ottignies', 'Namur', 'Libramont', 'Arlon'], 130],
+  ['Asd-Vl', 'NLD', ['Amsterdam Centraal', 'Utrecht Centraal', '\'s-Hertogenbosch', 'Eindhoven Centraal', 'Venlo'], 140],
+];
+const C = (k, l) => term(`${ERA}concepts/${k}`, l);
+const DIR = { N: C('track-running-directions/rinf/10', 'Normal'), O: C('track-running-directions/rinf/20', 'Opposite'), B: C('track-running-directions/rinf/30', 'Both directions') };
+const OCL = C('contact-line-systems/rinf/10', 'Overhead contact line (OCL)');
+const NOT_ELEC = C('contact-line-systems/rinf/30', 'Not electrified');
+const ENERGY = { BEL: C('energy-supply-systems/rinf/DC3', 'DC 3kV'), NLD: C('energy-supply-systems/rinf/DC15', 'DC 1.5kV'), HS: C('energy-supply-systems/rinf/AC25', 'AC 25kV-50Hz') };
+const ETCS = [C('etcs-levels/rinf/NOETCS', 'No ETCS'), C('etcs-levels/rinf/1', 'ETCS level 1'), C('etcs-levels/rinf/2', 'ETCS level 2')];
+const GAUGING = [C('gauging-profiles/rinf/GB', 'GB'), C('gauging-profiles/rinf/GC', 'GC'), C('gauging-profiles/rinf/G1', 'G1')];
+const CATEGORY = [C('load-capability-line-categories/rinf/D4', 'D4'), C('load-capability-line-categories/rinf/C4', 'C4'), C('load-capability-line-categories/rinf/E4', 'E4')];
+const GAUGE = C('nominal-track-gauges/rinf/30', '1435');
+const lineSols = [];
+const opByLabel = new Map(ops.map((o) => [o.label, o]));
+let trn = 0;
+for (const [line, c, towns, vmax] of LINES) {
+  let km = 0;
+  for (let t = 0; t < towns.length - 1; t++) {
+    const A = opByLabel.get(towns[t]), B = opByLabel.get(towns[t + 1]);
+    const [x1, y1] = A.geometry.coordinates, [x2, y2] = B.geometry.coordinates;
+    const f = between(0.35, 0.65);
+    const mid = [x1 + (x2 - x1) * f + between(-0.03, 0.03), y1 + (y2 - y1) * f + between(-0.03, 0.03)];
+    km += Math.round(dist(A, B) / 1000 * f);
+    const id = `${c === 'BEL' ? 'BE' : 'NL'}${String(++opn).padStart(5, '0')}`;
+    const J = { id, iri: `${FI}operationalPoints/${id}`, class: 'operational-point', label: `Aansluiting ${line}/${km}`,
+      geometry: { type: 'Point', coordinates: mid }, country: c,
+      facets: { country: [countryTerm(c)], im: [imTerm(c)], 'op-type': [term(`${ERA}concepts/op-types/rinf/80`, 'junction')], uopid: [{ value: id, label: id }] } };
+    ops.push(J); features.push(J);
+    for (const [P, Q] of [[A, J], [J, B]]) {
+      if (line === '161' && P === J && t === 2) continue; // missing section: a gap in the line
+      const key = `L${line}_${P.id}_${Q.id}`;
+      const len = +(dist(P, Q) * 1.08 / 1000).toFixed(3);
+      // some sections are stored the other way round (opStart/opEnd swapped)
+      const [S, E] = rnd() < 0.3 ? [Q, P] : [P, Q];
+      const [sx, sy] = S.geometry.coordinates, [ex, ey] = E.geometry.coordinates;
+      const sol = {
+        id: `SOL_${key}`, iri: `${FI}sectionsOfLine/${key}`, class: 'section-of-line', label: `${S.label} – ${E.label}`,
+        geometry: { type: 'LineString', coordinates: [[sx, sy], [(sx + ex) / 2 + between(-0.01, 0.01), (sy + ey) / 2 + between(-0.01, 0.01)], [ex, ey]] },
+        country: c, opStart: S, opEnd: E,
+        facets: {
+          country: [countryTerm(c)], im: [imTerm(c)],
+          'nationalLine.lineId': [{ value: line, label: line }],
+          length: [{ value: Math.round(len * 1000), label: String(Math.round(len * 1000)) }],
+          lengthOfSectionOfLine: [{ value: len, label: String(len) }],
+        },
+      };
+      lineSols.push(sol); sols.push(sol); features.push(sol);
+      // tracks: mostly double track (one per direction), sometimes single track
+      const near = P === J ? Q : P; // the town end: slower
+      const base = Math.min(vmax, pick([vmax, vmax, vmax - 20, near.label.includes('Brussel') ? 90 : vmax]));
+      const elec = !(line === '161' && t === 3);
+      const etcs = line === '36' ? ETCS[2] : pick(ETCS);
+      const dirs = rnd() < 0.8 ? ['N', 'O'] : ['B'];
+      dirs.forEach((d, n) => {
+        const tid = `TR${String(++trn).padStart(5, '0')}`;
+        const speed = n === 1 && rnd() < 0.3 ? base - 20 : base;
+        features.push({
+          id: tid, iri: `${FI}tracks/${tid}`, class: 'running-track', label: `Track ${n + 1} ${sol.label}`,
+          geometry: sol.geometry, country: c,
+          facets: {
+            country: sol.facets.country, im: sol.facets.im,
+            partOf: [{ value: sol.iri, label: sol.label }],
+            trackDirection: [DIR[d]],
+            maximumPermittedSpeed: [{ value: speed, label: String(speed) }],
+            'contactLineSystem.contactLineSystemType': [elec ? OCL : NOT_ELEC],
+            ...(elec ? { 'contactLineSystem.energySupplySystem': [line === '36' && t === 2 ? ENERGY.HS : ENERGY[c]] } : {}),
+            wheelSetGauge: [GAUGE],
+            'etcs.etcsLevelType': [etcs],
+            gaugingProfile: [line === '25' ? GAUGING[1] : pick(GAUGING)],
+            lineCategory: [pick(CATEGORY)],
+          },
+        });
+      });
+    }
+  }
+}
+// Start / end operational point of every section (link facets: shown in the detail panel, never filters).
+for (const s of sols) {
+  s.facets.opStart = [{ value: s.opStart.iri, label: s.opStart.label }];
+  s.facets.opEnd = [{ value: s.opEnd.iri, label: s.opEnd.label }];
+}
 for (const f of features) f.graph = `${ERA}graph/rinf/${f.country}`;
 const byIri = new Map(features.map((f) => [f.iri, f]));
 
@@ -253,6 +353,171 @@ function facets(st) {
       : { kind: 'terms', values: values.slice(0, 50), more: values.length > 50 };
   }
   return { total: base.length, by_class, facets: out };
+}
+
+// ---------- line profile (same rules as api/app/profile.py, simplified) ----------
+const LINK_KEYS = new Set(['opStart', 'opEnd', 'partOf']);
+const DEFAULT_PARAMS = ['maximumPermittedSpeed', 'contactLineSystem.contactLineSystemType', 'contactLineSystem.energySupplySystem',
+  'wheelSetGauge', 'etcs.etcsLevelType', 'gaugingProfile', 'lineCategory'];
+const tracksOf = new Map();
+for (const f of features) if (f.class === 'running-track') for (const p of f.facets.partOf) {
+  if (!tracksOf.has(p.value)) tracksOf.set(p.value, []);
+  tracksOf.get(p.value).push(f);
+}
+const solLen = (s) => s.facets.lengthOfSectionOfLine?.[0].value ?? +(dist(s.opStart, s.opEnd) * 1.08 / 1000).toFixed(3);
+const stepStart = (st) => (st.rev ? st.sol.opEnd : st.sol.opStart).iri;
+const stepEnd = (st) => (st.rev ? st.sol.opStart : st.sol.opEnd).iri;
+const flip = (steps) => steps.slice().reverse().map((st) => ({ sol: st.sol, rev: !st.rev, gap: false }));
+
+function adjacency(list) {
+  const adj = new Map();
+  const add = (n, e) => { if (!adj.has(n)) adj.set(n, []); adj.get(n).push(e); };
+  for (const s of list) { add(s.opStart.iri, [s, s.opEnd.iri]); add(s.opEnd.iri, [s, s.opStart.iri]); }
+  return adj;
+}
+function dijkstra(adj, src) {
+  const d = new Map([[src, 0]]), prev = new Map(), done = new Set();
+  for (;;) {
+    let n = null;
+    for (const [k, v] of d) if (!done.has(k) && (n === null || v < d.get(n))) n = k;
+    if (n === null) break;
+    done.add(n);
+    for (const [s, m] of adj.get(n) || []) {
+      const nd = d.get(n) + solLen(s);
+      if (nd < (d.get(m) ?? Infinity)) { d.set(m, nd); prev.set(m, [n, s]); }
+    }
+  }
+  return { d, prev };
+}
+function pathTo(prev, src, dst) {
+  const out = [];
+  for (let n = dst; n !== src;) { const [p, s] = prev.get(n); out.unshift({ sol: s, rev: s.opStart.iri !== p, gap: false }); n = p; }
+  return out;
+}
+function longestRun(list) {
+  const adj = adjacency(list);
+  const leaves = [...adj.keys()].filter((n) => adj.get(n).length === 1).sort();
+  const far = (r) => [...r.d.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0][0];
+  const u = far(dijkstra(adj, leaves[0] ?? [...adj.keys()].sort()[0]));
+  const r = dijkstra(adj, u);
+  return pathTo(r.prev, u, far(r));
+}
+function orderSections(list) {
+  const remaining = new Set(list);
+  const runs = [];
+  while (remaining.size) {
+    // the connected group with the most kilometres first
+    const groups = [];
+    const seenS = new Set();
+    for (const s of remaining) {
+      if (seenS.has(s)) continue;
+      const g = [], q = [s]; seenS.add(s);
+      while (q.length) {
+        const x = q.pop(); g.push(x);
+        for (const y of remaining) if (!seenS.has(y) && [y.opStart, y.opEnd].some((o) => o === x.opStart || o === x.opEnd)) { seenS.add(y); q.push(y); }
+      }
+      groups.push(g);
+    }
+    groups.sort((a, b) => b.reduce((t, s) => t + solLen(s), 0) - a.reduce((t, s) => t + solLen(s), 0));
+    const run = longestRun(groups[0]);
+    runs.push(run);
+    for (const st of run) remaining.delete(st.sol);
+  }
+  const opDist = (a, b) => (a === b ? 0 : dist(byIri.get(a), byIri.get(b)));
+  runs.sort((a, b) => b.length - a.length);
+  let chain = runs.shift() ?? [];
+  while (runs.length) {
+    let best = null;
+    runs.forEach((r, i) => {
+      for (const cand of [r, flip(r)]) {
+        const tail = opDist(stepEnd(chain[chain.length - 1]), stepStart(cand[0]));
+        const head = opDist(stepEnd(cand[cand.length - 1]), stepStart(chain[0]));
+        if (!best || tail < best[0]) best = [tail, i, cand, true];
+        if (head < best[0]) best = [head, i, cand, false];
+      }
+    });
+    const [, i, cand, atTail] = best;
+    runs.splice(i, 1);
+    if (atTail) { cand[0].gap = stepStart(cand[0]) !== stepEnd(chain[chain.length - 1]); chain = chain.concat(cand); }
+    else { chain[0].gap = stepEnd(cand[cand.length - 1]) !== stepStart(chain[0]); chain = cand.concat(chain); }
+  }
+  if (chain.length) chain[0].gap = false;
+  return chain;
+}
+function reverseSteps(steps) {
+  // gap flags stay between the same two sections
+  return steps.slice().reverse().map((st, i) => ({ sol: st.sol, rev: !st.rev, gap: i > 0 ? steps[steps.length - i].gap : false }));
+}
+function summarize(kind, values) {
+  if (kind === 'range') {
+    const nums = values.map((v) => v.value).filter((v) => typeof v === 'number');
+    return nums.length ? { min: Math.min(...nums), max: Math.max(...nums) } : {};
+  }
+  const m = new Map();
+  for (const v of values) { const k = String(v.value); const c = m.get(k) || { value: v.value, label: v.label, n: 0 }; c.n++; m.set(k, c); }
+  return { values: [...m.values()].sort((a, b) => b.n - a.n) };
+}
+function profile(req) {
+  const solsAll = features.filter((f) => f.class === 'section-of-line');
+  let steps, mode, line = null, missing = [];
+  if (req.line) {
+    const list = solsAll.filter((s) => s.facets['nationalLine.lineId']?.some((v) => v.value === req.line));
+    const graph = list[0]?.graph ?? null;
+    line = { id: req.line, graph_iri: graph, provider: graph ? (graph.endsWith('BEL') ? 'Infrabel' : 'ProRail') : null,
+      alternatives: graph ? [{ graph_iri: graph, provider: graph.endsWith('BEL') ? 'Infrabel' : 'ProRail', sections: list.length }] : [] };
+    steps = orderSections(list); mode = 'line';
+  } else if (req.sections?.length) {
+    const list = req.sections.map((i) => byIri.get(i)).filter((f) => f?.class === 'section-of-line');
+    missing = req.sections.filter((i) => byIri.get(i)?.class !== 'section-of-line');
+    steps = orderSections([...new Set(list)]); mode = 'sections';
+  } else if (req.from && req.to) {
+    const adj = adjacency(solsAll);
+    const pts = [req.from, ...(req.via || []), req.to];
+    steps = [];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const r = dijkstra(adj, pts[i]);
+      if (!r.prev.has(pts[i + 1])) return [404, { detail: 'no connected sections of line between these operational points' }];
+      steps = steps.concat(pathTo(r.prev, pts[i], pts[i + 1]));
+    }
+    mode = 'route';
+  } else return [400, { detail: 'give a line, a list of sections, or from and to' }];
+  if (mode !== 'route' && steps.filter((s) => s.rev).length * 2 > steps.length) steps = reverseSteps(steps);
+  if (req.reverse) steps = reverseSteps(steps);
+  const wanted = req.params ?? DEFAULT_PARAMS;
+  const params = [...new Set(wanted)].map((k) => FACET_BY_KEY[k]).filter((f) => f && f.kind !== 'link')
+    .map((f) => ({ key: f.key, label: f.label, kind: f.kind, unit: f.unit ?? null }));
+  let km = 0, gaps = 0;
+  const points = [], sections = [];
+  const point = (iri, at) => { const o = byIri.get(iri); points.push({ iri, id: o.id, label: o.label, km: +at.toFixed(3), lon: o.geometry.coordinates[0], lat: o.geometry.coordinates[1] }); };
+  steps.forEach((st, i) => {
+    const s = st.sol, len = solLen(s);
+    const gap = i > 0 && st.gap;
+    if (gap) gaps++;
+    if (i === 0 || gap) point(stepStart(st), km);
+    const tracks = tracksOf.get(s.iri) || [];
+    const cells = Object.fromEntries(params.map((p) => [p.key, summarize(p.kind, [...(s.facets[p.key] || []), ...tracks.flatMap((t) => t.facets[p.key] || [])])]));
+    sections.push({
+      id: s.id, iri: s.iri, label: s.label, graph_iri: s.graph, from: stepStart(st), to: stepEnd(st), reversed: st.rev,
+      start_km: +km.toFixed(3), end_km: +(km + len).toFixed(3), length_km: len, length_estimated: !s.facets.lengthOfSectionOfLine,
+      gap_before: gap, gap_km: gap ? +(dist(byIri.get(stepEnd(steps[i - 1])), byIri.get(stepStart(st))) / 1000).toFixed(3) : null,
+      geometry: s.geometry, cells,
+      tracks: tracks.map((t) => ({ iri: t.iri, label: t.label, direction: t.facets.trackDirection?.[0].label ?? null,
+        values: Object.fromEntries(params.filter((p) => t.facets[p.key]).map((p) => [p.key, t.facets[p.key]])) })),
+    });
+    km += len;
+    point(stepEnd(st), km);
+  });
+  return [200, { env: req.env, mode, line, params, length_km: +km.toFixed(3), gaps, sections, points, missing, truncated: false }];
+}
+function nationalLines(q) {
+  const m = new Map();
+  for (const s of features) for (const v of s.facets['nationalLine.lineId'] || []) {
+    if (!norm(v.value).includes(norm(q))) continue;
+    const k = `${v.value}|${s.graph}`;
+    const c = m.get(k) || { line: v.value, graph_iri: s.graph, provider: s.graph.endsWith('BEL') ? 'Infrabel' : 'ProRail', sections: 0, length_km: 0 };
+    c.sections++; c.length_km = +(c.length_km + solLen(s)).toFixed(3); m.set(k, c);
+  }
+  return [...m.values()].sort((a, b) => a.line.length - b.line.length || a.line.localeCompare(b.line));
 }
 
 // ---------- describe ----------
@@ -398,7 +663,19 @@ const server = http.createServer(async (req, res) => {
       const f = id != null ? features.find((x) => String(x.id) === id) : byIri.get(url.searchParams.get('iri') || '');
       if (!f) return send(res, 404, { detail: 'feature not found' });
       const facetsOut = Object.fromEntries(Object.entries(f.facets).map(([k, vs]) => [k, vs.map(({ value, label }) => ({ value, label }))]));
-      return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, geometry: f.geometry });
+      const facet_kinds = Object.fromEntries(Object.keys(f.facets).map((k) => [k, LINK_KEYS.has(k) ? 'link' : FACET_BY_KEY[k]?.kind ?? 'terms']));
+      return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, facet_kinds, geometry: f.geometry });
+    }
+    if (p === '/api/lines') {
+      if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
+      return send(res, 200, nationalLines(url.searchParams.get('q') || '').slice(0, Number(url.searchParams.get('limit') || 20)));
+    }
+    if (req.method === 'POST' && p === '/api/profile') {
+      const body = await readJson(req);
+      if (!checkEnv(body.env)) return send(res, 400, { detail: 'unknown env' });
+      await sleep(120);
+      const [status, out] = profile(body);
+      return send(res, status, out);
     }
     if (p === '/api/describe') {
       const iri = url.searchParams.get('iri') || '';

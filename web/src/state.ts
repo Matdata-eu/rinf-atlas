@@ -1,5 +1,5 @@
 // Tiny observable store + URL-hash (de)serialisation for shareable links.
-import type { FilterValue, Meta, QueryState } from './api';
+import type { FilterValue, Meta, ProfileSpec, QueryState } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
 
@@ -19,6 +19,9 @@ export interface AppState {
   detailTab: DetailTab;
   orm: boolean;
   sideTab: 'filters' | 'results';
+  /** Line profile panel open, and what it shows (null = nothing chosen yet). */
+  profileOpen: boolean;
+  profile: ProfileSpec | null;
   meta: Meta | null; // per-env metadata (not in the URL)
 }
 
@@ -43,7 +46,7 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters', meta: null,
+  view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters', profileOpen: false, profile: null, meta: null,
 });
 
 /** Did any of the given keys change between prev and next? */
@@ -66,6 +69,7 @@ export function isFilterEmpty(v: FilterValue | undefined): boolean {
 
 // ---------- URL hash ----------
 // #env=prod&c=tunnel,switch&f={"country":[...]}&q=brussel&v=1&map=6.2/50.8/4.4&sel=<iri>&tab=describe&orm=1
+// &lp={"mode":"line","line":"50A"} (line profile)
 
 export function readHash(): Partial<AppState> {
   const p = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -82,6 +86,10 @@ export function readHash(): Partial<AppState> {
   if (p.get('sel')) out.selected = p.get('sel');
   const tab = p.get('tab');
   if (tab === 'describe' || tab === 'graph' || tab === 'properties') out.detailTab = tab;
+  if (p.has('lp')) {
+    out.profileOpen = true;
+    try { const spec = JSON.parse(p.get('lp') || 'null'); if (spec && typeof spec === 'object' && spec.mode) out.profile = spec; } catch { /* ignore bad links */ }
+  }
   return out;
 }
 
@@ -97,6 +105,7 @@ export function writeHash(s: AppState) {
   if (s.orm) p.set('orm', '1');
   p.set('map', `${s.view.zoom.toFixed(2)}/${s.view.lat.toFixed(5)}/${s.view.lng.toFixed(5)}`);
   if (s.selected) { p.set('sel', s.selected); if (s.detailTab !== 'properties') p.set('tab', s.detailTab); }
+  if (s.profileOpen) p.set('lp', s.profile ? JSON.stringify(s.profile) : '');
   const hash = '#' + p.toString();
   if (hash !== location.hash) history.replaceState(null, '', hash);
 }

@@ -70,3 +70,19 @@ def test_skolemize_keeps_lists_intact(tmp_path):
          "<http://www.w3.org/2002/07/owl#unionOf>/<http://www.w3.org/1999/02/22-rdf-syntax-ns#first> ?d }")
     assert [r["d"].value for r in st.query(q)] == ["http://ex/A"]
     assert '"a _:b ."' in out.read_text()
+
+
+def test_link_facets_for_the_line_profile():
+    s = load_shapes(SHAPES)
+    by = {c.key: {f.key: f for f in c.facets} for c in s.classes}
+    assert by["section-of-line"]["opStart"].kind == "link"
+    assert by["section-of-line"]["opEnd"].path == "<http://data.europa.eu/949/opEnd>"
+    for cls in ("track", "running-track"):
+        assert by[cls]["partOf"].kind == "link"
+        assert by[cls]["partOf"].path == "(<http://data.europa.eu/949/isPartOf>|^<http://data.europa.eu/949/hasPart>)"
+
+
+def test_link_values_are_iris_only():
+    from atlas.extract import _val
+    assert _val(ox.NamedNode("http://ex/op"), "link") == "http://ex/op"
+    assert _val(ox.Literal("x"), "link") is None

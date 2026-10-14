@@ -31,8 +31,13 @@
 #   atlas:facet         facet key; reuse the same key in several shapes to share
 #                       one facet across classes
 #   rdfs:label / sh:name  facet label
-#   atlas:kind          "terms" (default) | "range" | "boolean" | "text"
+#   atlas:kind          "terms" (default) | "range" | "boolean" | "text" | "link"
 #                       text = only added to full-text search, no facet
+#                       link = IRIs of other indexed features (start/end
+#                       operational point of a section, the section a track
+#                       belongs to); stored and shown in the detail panel and
+#                       exports, not offered as a filter. The line profile
+#                       chains sections and finds their tracks with these.
 #   sh:datatype         optional; used for range formatting
 #   sh:order            facet order in the panel
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>

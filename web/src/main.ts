@@ -3,6 +3,7 @@ import { api, type Env } from './api';
 import { openAbout } from './about';
 import { initDatasets, openDatasets } from './datasets';
 import { initDetail } from './detail';
+import { initProfile } from './profile';
 import { initFacets } from './facets';
 import { fitBbox, initMap, TILE_MODE } from './map';
 import { initResults } from './results';
@@ -26,7 +27,7 @@ function showMsg(text: string, ms = 3500) {
 function initTopBar(envs: Env[]) {
   envSelect.replaceChildren(...envs.map((e) => h('option', { value: e.key, title: e.sparql }, e.label)));
   envSelect.value = store.get().env;
-  envSelect.addEventListener('change', () => store.set({ env: envSelect.value, selected: null, meta: null, graphs: [] }));
+  envSelect.addEventListener('change', () => store.set({ env: envSelect.value, selected: null, meta: null, graphs: [], profile: null }));
 
   const setQ = debounce((v: string) => store.set({ q: v }), 250);
   qInput.value = store.get().q;
@@ -125,6 +126,7 @@ async function main() {
   initFacets();
   initResults();
   initDetail();
+  initProfile();
   initDatasets();
   initSide();
   initMapTools();
@@ -148,7 +150,7 @@ async function main() {
 
   window.addEventListener('hashchange', () => {
     const next = readHash();
-    store.set({ classes: [], filters: {}, graphs: [], q: '', selected: null, ...next });
+    store.set({ classes: [], filters: {}, graphs: [], q: '', selected: null, profileOpen: false, profile: null, ...next });
   });
   if (TILE_MODE === 'geojson') document.body.classList.add('geojson-mode');
 }
