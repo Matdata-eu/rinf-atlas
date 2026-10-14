@@ -87,10 +87,28 @@ fid=$(curl -fsS "$ogc/collections/prod.tunnel/items?limit=1" | json "d['features
 curl -fsS "$ogc/collections/prod.tunnel/items/$fid" | json "d['properties']['iri']" | grep -q '^http' || fail "OGC single item"
 station=$(python3 -c "import base64,json;print(base64.urlsafe_b64encode(json.dumps({'env':'prod','classes':['operational-point'],'filters':{'operational-point/opType':['http://data.europa.eu/949/concepts/op-types/10']}}).encode()).decode().rstrip('='))")
 fcols=$(curl -fsS "$ogc/filtered/$station/collections" | json "' '.join(c['id'] for c in d['collections'])")
-[ "$fcols" = prod.operational-point ] || fail "filtered OGC view lists $fcols"
+[ -n "$fcols" ] && [ -z "$(echo "$fcols" | tr ' ' '\n' | grep -v '^prod\.operational-point\(\.\(point\|line\|polygon\|other\)\)\?$')" ] \
+  || fail "filtered OGC view lists $fcols"
 fn=$(curl -fsS "$ogc/filtered/$station/collections/prod.operational-point/items" | json "d['numberMatched']")
 sn=$(post facets '{"env":"prod","classes":["operational-point"],"filters":{"operational-point/opType":["http://data.europa.eu/949/concepts/op-types/10"]}}' | json "d['total']")
 echo "filtered OGC stations: $fn (facets: $sn)"; [ "$fn" -eq "$sn" ] && [ "$fn" -lt "$ops" ] || fail "filtered OGC view does not match the facets"
+# Every listed collection has one geometry type (GIS clients need that); the sample's
+# running tracks mix points and lines, so they are split per geometry family.
+python3 - "$ogc" <<'PY' || fail "OGC collections with mixed geometry types"
+import json, sys, urllib.request
+ogc = sys.argv[1]
+get = lambda u: json.load(urllib.request.urlopen(u))
+ids = [c["id"] for c in get(f"{ogc}/collections")["collections"]]
+assert "prod.running-track.point" in ids and "prod.running-track.line" in ids and "prod.running-track" not in ids, ids
+for cid in ids:
+    c = get(f"{ogc}/collections/{cid}")
+    types = {f["geometry"]["type"] for f in get(f"{ogc}/collections/{cid}/items?limit=10000")["features"] if f["geometry"]}
+    assert types == {c["geometryType"]}, (cid, types, c.get("geometryType"))
+whole = get(f"{ogc}/collections/prod.running-track/items?limit=1")["numberMatched"]  # still served, unlisted
+parts = sum(get(f"{ogc}/collections/prod.running-track.{f}/items?limit=1")["numberMatched"] for f in ("point", "line"))
+assert whole == parts, (whole, parts)
+print(f"OGC geometry types: {len(ids)} collections, running tracks {whole} = points + lines")
+PY
 curl -fsS "$BASE/api/tiles.json?state=$state" | json "d['tiles'][0]" | grep -q '/api/tiles/{z}/{x}/{y}.pbf?state=' || fail "TileJSON"
 curl -fsS "$BASE/api/style.json?env=prod" | json "len(d['layers'])" | grep -qv '^0$' || fail "style.json has no layers"
 

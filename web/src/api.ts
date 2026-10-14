@@ -132,8 +132,10 @@ export const api = {
     const filtered = rest.classes.length > 0 || Object.keys(rest.filters).length > 0 || !!rest.q || !!rest.graphs?.length;
     const enc = base64url(JSON.stringify(rest));
     const ogc = filtered ? `${abs}/ogc/filtered/${enc}` : `${abs}/ogc`;
-    const items = rest.classes.length === 1 ? `${ogc}/collections/${rest.env}.${rest.classes[0]}/items` : null;
-    return { ogc, items, tilejson: `${abs}/tiles.json?state=${enc}`, style: `${abs}/style.json?state=${enc}` };
+    /** Collection id of the one selected class; a class mixing geometry types is served as
+     *  `{id}.point`, `{id}.line`, `{id}.polygon` collections instead (see /collections). */
+    const collection = rest.classes.length === 1 ? `${rest.env}.${rest.classes[0]}` : null;
+    return { ogc, collection, tilejson: `${abs}/tiles.json?state=${enc}`, style: `${abs}/style.json?state=${enc}` };
   },
   /** Tile URL template; `state` is base64url(JSON query state without bbox). */
   tilesUrl: (st: QueryState) => {
