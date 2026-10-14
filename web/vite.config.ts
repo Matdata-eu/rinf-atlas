@@ -5,7 +5,7 @@ export default defineConfig(({ mode }) => {
   const target = env.VITE_API_PROXY || 'http://localhost:8000';
   const proxy = { '/api': { target, changeOrigin: true } };
   return {
-    define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'dev') },
+    define: { __APP_VERSION__: JSON.stringify(process.env.APP_VERSION || process.env.npm_package_version || 'dev') },
     server: { proxy },
     preview: { proxy },
     build: { chunkSizeWarningLimit: 1500 },
