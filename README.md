@@ -9,7 +9,7 @@ every subclass of `era:InfrastructureElement` (operational points, sections of
 line, tracks, sidings, tunnels, platforms, kilometric posts, ...), with PROD
 and UAT side by side.
 
-**Demo:** https://rinf-atlas.matdata.eu (coming soon). It runs on a home
+**Demo:** https://rinf-atlas.matdata.eu. It runs on a home
 server and is hosted on a best-effort basis, so expect occasional downtime.
 
 Documentation: [how datasets are updated](docs/datasets.md),
