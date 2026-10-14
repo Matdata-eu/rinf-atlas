@@ -5,7 +5,7 @@ description = "RINF Atlas ingest worker: mirrors ERA RINF named graphs and index
 requires-python = ">=3.11"
 dependencies = [
     "pyoxigraph==0.5.11",
-    "psycopg[binary]==3.2.10",
+    "psycopg[binary]==3.3.6",
     "httpx==0.28.1",
     "PyYAML==6.0.2",
 ]
