@@ -31,7 +31,7 @@ class Facet:
     label: str
     path: str               # SPARQL property path
     simple: str | None      # predicate IRI when the path is a single predicate
-    kind: str = "terms"     # terms|range|boolean|text
+    kind: str = "terms"     # terms|range|boolean|text|link
     datatype: str | None = None
     unit: str | None = None
     order: int = 100
@@ -235,7 +235,7 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             kind = r.lit(prop, ATLAS + "kind")
             if not kind:
                 kind = "boolean" if dt == XSD + "boolean" else "range" if dt and _numeric(dt) else "terms"
-            if kind not in ("terms", "range", "boolean", "text"):
+            if kind not in ("terms", "range", "boolean", "text", "link"):
                 raise ShapeError(f"{key}.{fkey}: unknown atlas:kind {kind!r}")
             fc = Facet(
                 key=fkey,

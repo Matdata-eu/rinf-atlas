@@ -43,7 +43,9 @@ values are numbers.
 | POST | `/api/theme` | query state + `key` (facet key, plain or `class/key`) | Legend for colouring the map by `key`. Common: `{key, kind, label, unit, classes, rollup, total, nodata}`. Terms/boolean: `values:[{value,label,count,slot}], more, other, mixed`. Range: `breaks:[number], bins:[{min,max,count}], min, max, discrete`. 400 for a text or unknown facet |
 | POST | `/api/extent` | query state | `{bbox:[w,s,e,n] \| null}` |
 | GET  | `/api/tiles/{z}/{x}/{y}.pbf?state=&color=` | `state` = base64url(JSON query state; bbox ignored); optional `color` = facet key | Mapbox Vector Tile, layer `features`; with `color` each feature that has a value carries property `v` at every zoom |
-| GET  | `/api/feature?env=&iri=` or `?env=&id=` | | `{iri, label, classes:[...], class_iri, graph_iri, provider, dataset, geometry_source, facets:{key:[{value,label}]}, facet_labels:{key:label}, geometry: GeoJSON}` |
+| GET  | `/api/feature?env=&iri=` or `?env=&id=` | | `{iri, label, classes:[...], class_iri, graph_iri, provider, dataset, geometry_source, facets:{key:[{value,label}]}, facet_labels:{key:label}, facet_kinds:{key:kind}, geometry: GeoJSON}` (`link` facets hold IRIs of other indexed features, e.g. a section's `opStart` / `opEnd`) |
+| GET  | `/api/lines?env=&q=&limit=` | `limit` ≤ 100 (default 20) | National lines whose id (`nationalLine.lineId` of sections of line) contains `q`, exact and prefix matches first: `[{line, graph_iri, provider, sections, length_km}]`. Line ids are national, so the same id can come back once per dataset |
+| POST | `/api/profile` | see [Line profile](#line-profile) | Sections in order along a line, a list of sections or a route, with track parameters per section |
 | GET  | `/api/describe?env=&iri=&direction=out\|in` | `limit` (default 1000) | Live from ERA. `{iri, direction, triples:[{s,p,o:{type:"uri"\|"literal"\|"bnode",value,datatype?,lang?}}], labels:{iri:label}, truncated}` |
 | | | | Query states also accept `graphs: [graph IRI]` to keep only features from those datasets. A filter or `facets` key written `class/key` (e.g. `operational-point/opType`) applies to that class only; a plain key applies to every class that has the facet. The UI uses plain keys for the shared facets (country, IM) and `class/key` for the facets behind each class's filter icon. |
 | GET  | `/api/datasets?env=` | | `[{graph_iri,title,provider,country,modified,status,triples,ingested_at,error,dataset_id,file_name,features}]`: every provider graph the worker knows; `status` is pending, loading, loaded, failed or removed. Shown in the UI's Datasets dialog |
@@ -52,6 +54,65 @@ values are numbers.
 | POST | `/api/compatibility` | `{env, profile:{key: [values] \| number}}` | Status of every section of line for a vehicle profile: `{env, checked:[key], ignored:[key], counts:{green,yellow,red}, green:[id], yellow:[id], red:[id]}`. Ids are feature ids (the MVT feature id of the tiles). 400 when no filled-in characteristic has a rule or a value has the wrong type |
 | POST | `/api/compatibility/explain` | `{env, profile, iri}` (or `id`) of a section of line | Why it has its status: `{iri, id, status, checked, ignored, section:[check], tracks:[{id,iri,label,class,status,results:[check]}]}` with `check = {key, result: "ok"\|"unknown"\|"fail", values:[{value,label}]}` (the infrastructure values compared) |
 | GET  | `/api/health` | | `{ok:true}` |
+
+## Line profile
+
+`POST /api/profile` takes one of three inputs:
+
+```json
+{"env": "prod", "line": "50A", "graph": "http://data.europa.eu/949/graph/0088"}   // a national line (graph optional)
+{"env": "prod", "sections": ["http://data.europa.eu/949/sectionOfLine/..."]}       // sections in any order
+{"env": "prod", "from": "<operational point IRI>", "to": "<IRI>", "via": []}        // shortest chain of sections
+```
+
+plus optional `params` (facet keys for the rows; default: maximum speed,
+contact line system type, energy supply system, nominal track gauge, ETCS
+level, gauging, line category; unknown keys and `text`/`link` facets are
+dropped) and `reverse: true`.
+
+Sections are edges between their start and end operational point (`opStart` /
+`opEnd` link facets). For a line or a list, each connected group contributes
+its longest path; what is left (branches, parallel sections) and separate
+groups are chained to the nearest end, and the section after each break gets
+`gap_before: true` with `gap_km`, the straight-line distance between the two
+operational points. The sequence runs the way most of its sections are
+recorded (start to end, normally the line's kilometres); `reverse` flips it.
+A route is the shortest path by length over every section of the
+environment. Lengths are `lengthOfSectionOfLine`, else the geometry's length
+(`length_estimated: true`).
+
+Parameters are read from the section itself and from every track (running
+track or track) that is part of it (`era:isPartOf` / `era:hasPart`, kept by
+the worker as the track's `atlas:geometryFrom` link). With several tracks, a `range` row gives the
+lowest and highest value, a `terms`/`boolean` row lists every value with the
+number of tracks having it (`n`); `tracks` has the values per track with its
+running direction for the detail.
+
+```json
+{
+  "env": "prod", "mode": "line",              // line | sections | route
+  "line": {"id": "50A", "graph_iri": "...", "provider": "Infrabel",
+           "alternatives": [{"graph_iri": "...", "provider": "Infrabel", "sections": 31}]},
+  "params": [{"key": "maximumPermittedSpeed", "label": "Maximum permitted speed", "kind": "range", "unit": "KiloM-PER-HR"}],
+  "length_km": 117.9, "gaps": 0,
+  "sections": [{
+    "id": 123, "iri": "...", "label": "Brussel-Zuid – Aalst", "graph_iri": "...",
+    "from": "<op IRI>", "to": "<op IRI>", "reversed": false,
+    "start_km": 0, "end_km": 12.1, "length_km": 12.1, "length_estimated": false,
+    "gap_before": false, "gap_km": null, "geometry": {"type": "LineString", "coordinates": [[4.33, 50.83], [4.04, 50.94]]},
+    "cells": {"maximumPermittedSpeed": {"min": 120, "max": 160},
+              "etcs.etcsLevelType": {"values": [{"value": "<IRI>", "label": "ETCS level 1", "n": 2}]}},
+    "tracks": [{"iri": "...", "label": "...", "direction": "Normal", "values": {"maximumPermittedSpeed": [{"value": 160, "label": "160"}]}}]
+  }],
+  "points": [{"iri": "...", "id": 7, "label": "Brussel-Zuid", "km": 0, "lon": 4.33, "lat": 50.83}],
+  "missing": [],          // requested section IRIs that are not indexed
+  "truncated": false      // more than ATLAS_PROFILE_MAX_SECTIONS (3000) sections
+}
+```
+
+`points` has the operational point at the start of the sequence, at both
+sides of each gap, and at the end of every section. A route between
+operational points that no chain of sections connects answers 404.
 
 ## Notes
 

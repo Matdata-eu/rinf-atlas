@@ -63,6 +63,15 @@ the full query state, which Martin's table sources can't express), `web`
   PrimaryLocation partly direct, else from the OP. KPs mostly lack geometry
   (would need LRS interpolation; not done). No provider used a WKT CRS prefix;
   axis order is still checked against Europe's extent.
+- "Part of" links: the `atlas:geometryFrom` paths (`era:isPartOf |
+  ^era:hasPart` for tracks and most located elements) are written to
+  `feature_link` (rule `from`) for **every** feature, not only for those
+  without a geometry of their own, and indexed by target. This is the one
+  record of what a feature belongs to: map colouring rolls track values up to
+  their section of line, the vehicle compatibility check and the line profile
+  find a section's tracks through it. `INDEX_VERSION` in `shapes.py` is part
+  of the shapes digest; it is 2 since this change, so an upgrade re-extracts
+  every graph from the mirror once (no download).
 - Labels: some providers append "(from YYYY-MM-DD until YYYY-MM-DD)" to
   rdfs:label; it is stripped for display.
 - A filter on a plain facet key constrains every class having that facet; a
@@ -74,12 +83,22 @@ the full query state, which Martin's table sources can't express), `web`
   used (per environment and data version; the worker empties it after every
   update), so tiles at every zoom and the legend counts only join on the
   feature id. Sections of line are coloured from their running tracks through
-  the `atlas:geometryFrom` links, which extraction now keeps for every feature
-  (`EXTRACT_VERSION` 2, so an upgrade reindexes from the mirror once).
+  the "part of" links.
   Palette slots and range breaks are per environment, not per query, so a
   filter never repaints a value; colours are chosen in the browser from
   colour-blind-checked palettes with light and dark steps. Suggested facets
   come from `atlas:colorBy` in the shapes.
+- Line profile (`/api/profile`): `link` facets (`atlas:kind "link"`) keep the
+  IRIs of a section's `opStart`/`opEnd`; a section's tracks come from the
+  "part of" links. Link facets are stored in `feature.facets` like other
+  values but never offered as filters nor counted in `facet_cache`. The API
+  chains sections through them (longest path per connected group, remaining
+  runs attached to the nearest end, gaps flagged) or routes with Dijkstra over
+  all sections of the environment (cached until the data changes), and
+  summarises track parameters per section (min/max for numbers, every value
+  with its track count otherwise). Real gradient profiles are not in RINF
+  (only "gradient for stabling tracks"), so there is no gradient row by
+  default; any facet can be chosen as a row.
 - The poll loop holds a Postgres advisory lock and owns the mirror; CLI
   `sync`/`reindex`/`generate-shapes` from another process are queued in the
   `job` table and run by the loop.
@@ -111,8 +130,7 @@ fills in by hand (the "Vehicle" tab). Only PostGIS is read.
   the track has no value for the facet. A track is red if any characteristic
   fails, else yellow if any is unknown, else green. A section of line takes
   the best of its running tracks (`running-track` and `track`, found through
-  the `era:isPartOf` / `era:hasPart` links that also give them geometry; the
-  worker now keeps those links even for tracks with their own geometry):
+  the "part of" links):
   green if one track is fully compatible, yellow if no track fails but some
   characteristics are unknown (or no track is indexed), red if every track
   fails. Rules with `atlas:appliesTo "section"` check the section itself and

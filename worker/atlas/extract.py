@@ -71,6 +71,8 @@ def _flip(wkt: str) -> str:
 
 
 def _val(term, kind: str):
+    if kind == "link":  # IRI of another indexed feature
+        return term.value if isinstance(term, ox.NamedNode) else None
     if kind == "terms":
         if isinstance(term, ox.NamedNode):
             return term.value
@@ -360,7 +362,10 @@ def refresh_facet_cache(conn: psycopg.Connection, env: str) -> None:
             INSERT INTO facet_cache (env, class, key, value, n)
             SELECT f.env, f.class, kv.key, v.value, count(*)
             FROM feature f, jsonb_each(f.facets) kv, jsonb_array_elements(kv.value) v
-            WHERE f.env = %s GROUP BY 1, 2, 3, 4
+            WHERE f.env = %s
+              -- link facets (feature IRIs) are never counted as filter values
+              AND NOT EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.kind = 'link')
+            GROUP BY 1, 2, 3, 4
         """, (env,))
         cur.execute("""INSERT INTO index_state (env) VALUES (%s) ON CONFLICT (env)
                        DO UPDATE SET updated_at = now()""", (env,))

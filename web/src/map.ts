@@ -20,6 +20,7 @@ const SRC = 'rinf';
 const SOURCE_LAYER = 'features';
 const DATA_LAYERS = ['rinf-fill', 'rinf-line', 'rinf-circle'];
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+const PROFILE_COLOR = '#d6336c';
 
 let map: maplibregl.Map;
 let loaded = false;
@@ -150,6 +151,8 @@ export function initMap(container: HTMLElement) {
         },
         [SRC]: sourceSpec(),
         selection: { type: 'geojson', data: EMPTY },
+        profile: { type: 'geojson', data: EMPTY },
+        'profile-ops': { type: 'geojson', data: EMPTY },
       },
       layers: [
         { id: 'osm', type: 'raster', source: 'osm', paint: basemapPaint() },
@@ -170,6 +173,17 @@ export function initMap(container: HTMLElement) {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 10, 4.5, 15, 7],
             'circle-stroke-color': '#fff', 'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 10, 1.2],
           } },
+        // Line profile: the sections in the strip, the hovered one, and their operational points.
+        { id: 'profile-casing', type: 'line', source: 'profile', layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#111', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 4, 12, 9], 'line-opacity': 0.45 } },
+        { id: 'profile-line', type: 'line', source: 'profile', layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': PROFILE_COLOR, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 12, 5.5] } },
+        { id: 'profile-hover', type: 'line', source: 'profile', filter: ['==', ['get', 'i'], -1],
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#ffd400', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 5, 12, 10] } },
+        { id: 'profile-ops', type: 'circle', source: 'profile-ops',
+          paint: { 'circle-color': '#fff', 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 12, 5],
+            'circle-stroke-color': PROFILE_COLOR, 'circle-stroke-width': 2 } },
         { id: 'sel-fill', type: 'fill', source: 'selection', filter: geomIs('Polygon', 'MultiPolygon'),
           paint: { 'fill-color': '#ffd400', 'fill-opacity': 0.45 } },
         { id: 'sel-line-casing', type: 'line', source: 'selection', filter: geomIs('LineString', 'MultiLineString', 'Polygon', 'MultiPolygon'),
@@ -231,12 +245,14 @@ let geojsonCtl: AbortController | null = null;
 /** Point the data source at the current query state. */
 function refreshData() {
   const s = store.get();
-  if (!s.env || !loaded) return;
+  if (!s.env) return;
   const src = map.getSource(SRC);
   if (TILE_MODE === 'vector') {
-    (src as maplibregl.VectorTileSource).setTiles([api.tilesUrl(queryState(s, false), s.colorBy)]);
+    // As soon as the source exists (before 'load'), so no tiles are fetched without an environment.
+    (src as maplibregl.VectorTileSource | undefined)?.setTiles([api.tilesUrl(queryState(s, false), s.colorBy)]);
     return;
   }
+  if (!loaded) return;
   geojsonCtl?.abort();
   geojsonCtl = new AbortController();
   api.search(queryState(s, false), 5000, 0, geojsonCtl.signal, s.colorBy).then((r) => {
@@ -262,8 +278,10 @@ function wireInteraction(container: HTMLElement) {
     const layers = [...DATA_LAYERS, ...overlayLayers.filter((id) => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none')];
     const fs = map.queryRenderedFeatures([[x - pad, y - pad], [x + pad, y + pad]], { layers });
     // Prefer points over lines over polygons (points are drawn on top), then the class
-    // drawn on top (earlier in the class list). Overlay lines rank like data lines.
-    const rank = (f: MapGeoJSONFeature) => DATA_LAYERS.length - DATA_LAYERS.indexOf(overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id);
+    // drawn on top (earlier in the class list). Overlay lines rank like data lines. The line
+    // profile can ask for one class first (sections of line while picking sections).
+    const rank = (f: MapGeoJSONFeature) => (preferClass && f.properties.class === preferClass ? -100 : 0)
+      + DATA_LAYERS.length - DATA_LAYERS.indexOf(overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id);
     return fs.sort((a, b) => rank(a) - rank(b) || classRank(a.properties.class) - classRank(b.properties.class))[0];
   };
 
@@ -305,9 +323,17 @@ function wireInteraction(container: HTMLElement) {
   });
   map.getCanvas().addEventListener('mouseleave', () => { tip.hidden = true; });
 
+  map.on('mousemove', 'profile-line', (e) => {
+    const i = e.features?.[0]?.properties?.i;
+    profileHoverCb?.(typeof i === 'number' ? i : null);
+  });
+  map.on('mouseleave', 'profile-line', () => profileHoverCb?.(null));
+
   map.on('click', (e) => {
     const f = pickFeature(e.point);
     if (!f) return;
+    if (clickHook?.({ iri: f.properties.iri as string | undefined, id: (f.properties.id ?? f.id) as string | number | undefined,
+      class: String(f.properties.class ?? '') })) return;
     const detailTab = e.originalEvent.ctrlKey || e.originalEvent.metaKey ? 'describe' : 'properties';
     if (f.properties.iri) { store.set({ selected: String(f.properties.iri), detailTab }); return; }
     // Low-zoom tiles only carry id + class.
@@ -317,6 +343,36 @@ function wireInteraction(container: HTMLElement) {
       .catch((err) => console.warn('feature lookup failed', err));
   });
 }
+
+// ---------- line profile ----------
+export interface ClickedFeature { iri?: string; id?: string | number; class: string }
+let clickHook: ((f: ClickedFeature) => boolean) | null = null;
+let preferClass: string | null = null;
+let profileHoverCb: ((i: number | null) => void) | null = null;
+
+/** While set, map clicks on data features go here first; returning true skips opening the detail panel.
+ *  `prefer`: a class picked before any other under the pointer (hover and click). */
+export function setClickHook(fn: ((f: ClickedFeature) => boolean) | null, prefer: string | null = null) {
+  clickHook = fn;
+  preferClass = fn ? prefer : null;
+}
+export function onProfileHover(fn: (i: number | null) => void) { profileHoverCb = fn; }
+
+/** Sections (with property `i` = index in the strip) and operational points of the line profile. */
+export function setProfileData(sections: GeoJSON.FeatureCollection, points: GeoJSON.FeatureCollection) {
+  const set = () => {
+    (map.getSource('profile') as GeoJSONSource).setData(sections);
+    (map.getSource('profile-ops') as GeoJSONSource).setData(points);
+  };
+  if (loaded) set(); else map.once('load', set);
+}
+
+export function setProfileHover(i: number | null) {
+  if (map?.getLayer('profile-hover')) map.setFilter('profile-hover', ['==', ['get', 'i'], i ?? -1]);
+}
+
+/** Pick up a container size change (panel opened or resized). */
+export function resizeMap() { map?.resize(); }
 
 export function setSelectionGeometry(g: GeoJSON.Geometry | null) {
   if (!map) return;

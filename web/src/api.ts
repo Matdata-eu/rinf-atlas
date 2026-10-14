@@ -110,7 +110,42 @@ export interface Feature {
   classes: string[];
   graph_iri: string;
   facets: Record<string, { value: TermValue; label?: string }[]>;
+  /** Facet label per key, including keys that are not filters (link facets). */
+  facet_labels?: Record<string, string>;
+  /** terms | range | boolean | link (IRI of another indexed feature). */
+  facet_kinds?: Record<string, string>;
   geometry: GeoJSON.Geometry | null;
+}
+
+// ---------- line profile ----------
+/** What the profile shows: a national line, sections picked on the map, or a route between operational points. */
+export type ProfileSpec =
+  | { mode: 'line'; line: string; graph?: string; reverse?: boolean }
+  | { mode: 'sections'; sections: string[]; reverse?: boolean }
+  | { mode: 'route'; from: string; to: string; reverse?: boolean };
+
+export interface LineHit { line: string; graph_iri: string; provider: string | null; sections: number; length_km: number | null }
+
+export interface ProfileParam { key: string; label: string; kind: 'terms' | 'range' | 'boolean'; unit: string | null }
+export interface ProfileValue { value: TermValue; label: string }
+/** A strip cell: min/max over the section and its tracks (range) or every value with the number of tracks having it. */
+export type ProfileCell = { min?: number; max?: number; values?: (ProfileValue & { n: number })[] };
+export interface ProfileTrack { iri: string; label: string; direction: string | null; values: Record<string, ProfileValue[]> }
+export interface ProfileSection {
+  id: string | number; iri: string; label: string; graph_iri: string;
+  from: string | null; to: string | null; reversed: boolean;
+  start_km: number; end_km: number; length_km: number; length_estimated: boolean;
+  gap_before: boolean; gap_km: number | null;
+  geometry: GeoJSON.Geometry | null;
+  cells: Record<string, ProfileCell>;
+  tracks: ProfileTrack[];
+}
+export interface ProfilePoint { iri: string | null; id: string | number | null; label: string | null; km: number; lon: number | null; lat: number | null }
+export interface ProfileResponse {
+  env: string; mode: 'line' | 'sections' | 'route';
+  line: { id: string; graph_iri: string | null; provider: string | null; alternatives: { graph_iri: string; provider: string | null; sections: number }[] } | null;
+  params: ProfileParam[]; length_km: number; gaps: number;
+  sections: ProfileSection[]; points: ProfilePoint[]; missing: string[]; truncated: boolean;
 }
 
 export interface RdfTerm { type: 'uri' | 'literal' | 'bnode'; value: string; datatype?: string; lang?: string }
@@ -202,6 +237,11 @@ export const api = {
     post<CompatResponse>('/compatibility', { env, profile }, signal),
   compatExplain: (env: string, profile: VehicleValues, iri: string, signal?: AbortSignal) =>
     post<CompatExplain>('/compatibility/explain', { env, profile, iri }, signal),
+  lines: (env: string, q: string, signal?: AbortSignal) => request<LineHit[]>(`/lines?${qs({ env, q })}`, { signal }),
+  profile: (env: string, spec: ProfileSpec, params: string[] | null, signal?: AbortSignal) => {
+    const { mode: _mode, ...rest } = spec;
+    return post<ProfileResponse>('/profile', { env, ...rest, ...(params ? { params } : {}) }, signal);
+  },
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
   exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl') => {
     const { facets: _facets, ...rest } = st;

@@ -1,5 +1,5 @@
 // Tiny observable store + URL-hash (de)serialisation for shareable links.
-import type { FilterValue, Meta, QueryState, Theme } from './api';
+import type { FilterValue, Meta, ProfileSpec, QueryState, Theme } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
 export type SideTab = 'filters' | 'results' | 'vehicle';
@@ -24,6 +24,9 @@ export interface AppState {
   /** Legend entries switched off: values, "bin:<i>" for range classes, or NODATA / MIXED / OTHER / FADED. */
   colorHidden: string[];
   sideTab: SideTab;
+  /** Line profile panel open, and what it shows (null = nothing chosen yet). */
+  profileOpen: boolean;
+  profile: ProfileSpec | null;
   meta: Meta | null; // per-env metadata (not in the URL)
   theme: Theme | null; // legend of the current colouring (not in the URL)
 }
@@ -50,7 +53,7 @@ class Store {
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
   view: EUROPE, selected: null, detailTab: 'properties', orm: false, sideTab: 'filters',
-  colorBy: null, colorHidden: [], meta: null, theme: null,
+  colorBy: null, colorHidden: [], profileOpen: false, profile: null, meta: null, theme: null,
 });
 
 /** Did any of the given keys change between prev and next? */
@@ -91,6 +94,10 @@ export function readHash(): Partial<AppState> {
   if (p.get('sel')) out.selected = p.get('sel');
   const tab = p.get('tab');
   if (tab === 'describe' || tab === 'graph' || tab === 'properties') out.detailTab = tab;
+  if (p.has('lp')) {
+    out.profileOpen = true;
+    try { const spec = JSON.parse(p.get('lp') || 'null'); if (spec && typeof spec === 'object' && spec.mode) out.profile = spec; } catch { /* ignore bad links */ }
+  }
   return out;
 }
 
@@ -110,6 +117,7 @@ export function writeHash(s: AppState) {
   }
   p.set('map', `${s.view.zoom.toFixed(2)}/${s.view.lat.toFixed(5)}/${s.view.lng.toFixed(5)}`);
   if (s.selected) { p.set('sel', s.selected); if (s.detailTab !== 'properties') p.set('tab', s.detailTab); }
+  if (s.profileOpen) p.set('lp', s.profile ? JSON.stringify(s.profile) : '');
   const hash = '#' + p.toString();
   if (hash !== location.hash) history.replaceState(null, '', hash);
 }

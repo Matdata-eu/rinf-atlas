@@ -126,6 +126,24 @@ why=$(curl -fsS "$BASE/api/feature?env=prod&id=$first" | json "d['iri']")
 tracks=$(post compatibility/explain "{\"env\":\"prod\",\"iri\":\"$why\",\"profile\":{\"wheelSetGauge\":[\"$gauge/30\"],\"trainLength\":5000}}" \
   | json "str(d['status']) + ' ' + str(len(d['tracks']))")
 echo "explain $why: $tracks"; [ "${tracks%% *}" != "green" ] || fail "a 5 km train should not fit ($tracks)"
+# Line profile: a national line, its sections in order with track parameters, and a route.
+line=$(curl -fsS "$BASE/api/lines?env=prod&q=Luxembourg" | json "d[0]['line']")
+echo "line: $line"
+prof=$(post profile "$(python3 -c "import json,sys; print(json.dumps({'env':'prod','line':sys.argv[1]}))" "$line")")
+echo "$prof" | python3 -c "
+import json, sys
+d = json.load(sys.stdin); s = d['sections']
+assert s, 'no sections'
+assert all(abs(a['end_km'] - b['start_km']) < 1e-6 for a, b in zip(s, s[1:])), 'km not cumulative'
+assert any(x['tracks'] for x in s), 'no tracks found for the sections'
+assert any(x['cells'].get('maximumPermittedSpeed', {}).get('min') for x in s), 'no speed from the tracks'
+assert len(d['points']) >= len(s) + 1, 'missing operational points'
+print(f\"profile: {len(s)} sections, {d['length_km']} km, {d['gaps']} gaps\")" || fail "line profile"
+route=$(echo "$prof" | python3 -c "import json,sys; d=json.load(sys.stdin); s=[x for x in d['sections']]; print(json.dumps({'env':'prod','from':s[0]['from'],'to':s[0]['to']}))")
+n=$(post profile "$route" | json "len(d['sections'])")
+[ "$n" -ge 1 ] || fail "route profile returned no sections"
+curl -fsS "$BASE/api/meta?env=prod" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(any(f['kind']=='link' for f in d['facets']))" \
+  || fail "link facets must not be offered as filters"
 
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"

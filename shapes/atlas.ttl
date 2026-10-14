@@ -31,8 +31,14 @@
 #   atlas:facet         facet key; reuse the same key in several shapes to share
 #                       one facet across classes
 #   rdfs:label / sh:name  facet label
-#   atlas:kind          "terms" (default) | "range" | "boolean" | "text"
+#   atlas:kind          "terms" (default) | "range" | "boolean" | "text" | "link"
 #                       text = only added to full-text search, no facet
+#                       link = IRIs of other indexed features (start/end
+#                       operational point of a section); stored and shown in
+#                       the detail panel and exports, not offered as a
+#                       filter. The line profile chains sections with these.
+#                       (What a feature is part of needs no link facet: the
+#                       atlas:geometryFrom links are kept for every feature.)
 #   sh:datatype         optional; used for range formatting
 #   sh:order            facet order in the panel
 #   atlas:colorBy       integer; suggest the facet in the map's "Colour by"
