@@ -1,6 +1,11 @@
 // MapLibre map: basemap, data layer (vector tiles or GeoJSON in mock mode), hover, selection.
-import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import type { ExpressionSpecification, GeoJSONSource, MapGeoJSONFeature } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// MapLibre 6 loads its worker relative to its own module URL, which bundling breaks.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+
+maplibregl.setWorkerUrl(workerUrl);
 import { api, isAbort } from './api';
 import { changed, debounce, queryState, store, type AppState } from './state';
 import { isDark, onThemeChange } from './theme';
@@ -43,7 +48,9 @@ function sourceSpec(): maplibregl.SourceSpecification {
   return { type: 'vector', tiles: [api.tilesUrl(queryState(store.get(), false))], minzoom: 0, maxzoom: 14 };
 }
 
-function basemapPaint() {
+type RasterPaintKey = 'raster-brightness-max' | 'raster-saturation' | 'raster-contrast';
+
+function basemapPaint(): Partial<Record<RasterPaintKey, number>> {
   return isDark()
     ? { 'raster-brightness-max': 0.72, 'raster-saturation': -0.5, 'raster-contrast': 0.1 }
     : { 'raster-saturation': -0.35 };
@@ -110,8 +117,8 @@ export function initMap(container: HTMLElement) {
     console.warn('map:', e.error?.message ?? e);
   });
   onThemeChange((dark) => {
-    for (const [k, v] of Object.entries(basemapPaint())) map.setPaintProperty('osm', k, v);
-    if (!dark) for (const k of ['raster-brightness-max', 'raster-contrast']) map.setPaintProperty('osm', k, undefined);
+    for (const [k, v] of Object.entries(basemapPaint()) as [RasterPaintKey, number][]) map.setPaintProperty('osm', k, v);
+    if (!dark) for (const k of ['raster-brightness-max', 'raster-contrast'] as const) map.setPaintProperty('osm', k, undefined);
   });
 
   wireInteraction(container);
@@ -129,7 +136,7 @@ export function initMap(container: HTMLElement) {
 
   store.subscribe((s, prev) => {
     if (changed(s, prev, 'meta')) for (const id of DATA_LAYERS) {
-      const prop = id === 'rinf-fill' ? ['fill-color', 'fill-outline-color'] : id === 'rinf-line' ? ['line-color'] : ['circle-color'];
+      const prop = id === 'rinf-fill' ? (['fill-color', 'fill-outline-color'] as const) : id === 'rinf-line' ? (['line-color'] as const) : (['circle-color'] as const);
       for (const p of prop) map.setPaintProperty(id, p, colorExpr(s));
       map.setLayoutProperty(id, id === 'rinf-fill' ? 'fill-sort-key' : id === 'rinf-line' ? 'line-sort-key' : 'circle-sort-key', sortKeyExpr(s));
     }
