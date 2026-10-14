@@ -16,7 +16,8 @@ for _ in $(seq 1 60); do curl -fsS "$BASE/api/health" >/dev/null 2>&1 && break; 
 curl -fsS "$BASE/api/health" >/dev/null || fail "API not healthy"
 
 echo "loading sample graph"
-gunzip -c "$here/fixtures/lu-sample.nt.gz" > "$here/fixtures/lu-sample.nt"
+# gc-op.nt adds an operational point with a point and a polygon (a GeometryCollection).
+gunzip -c "$here/fixtures/lu-sample.nt.gz" | cat - "$here/fixtures/gc-op.nt" > "$here/fixtures/lu-sample.nt"
 "${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures:ro" worker \
   atlas load-file --env prod --graph "$GRAPH" /fixtures/lu-sample.nt
 rm -f "$here/fixtures/lu-sample.nt"
@@ -119,7 +120,8 @@ fn=$(curl -fsS "$ogc/filtered/$station/collections/prod.operational-point/items"
 sn=$(post facets '{"env":"prod","classes":["operational-point"],"filters":{"operational-point/opType":["http://data.europa.eu/949/concepts/op-types/10"]}}' | json "d['total']")
 echo "filtered OGC stations: $fn (facets: $sn)"; [ "$fn" -eq "$sn" ] && [ "$fn" -lt "$ops" ] || fail "filtered OGC view does not match the facets"
 # Every listed collection has one geometry type (GIS clients need that); the sample's
-# running tracks mix points and lines, so they are split per geometry family.
+# running tracks mix points and lines, so they are split per geometry family, and the
+# GeometryCollection operational point is in the point and the polygon layer, each with its part.
 python3 - "$ogc" <<'PY' || fail "OGC collections with mixed geometry types"
 import json, sys, urllib.request
 ogc = sys.argv[1]
@@ -133,7 +135,18 @@ for cid in ids:
 whole = get(f"{ogc}/collections/prod.running-track/items?limit=1")["numberMatched"]  # still served, unlisted
 parts = sum(get(f"{ogc}/collections/prod.running-track.{f}/items?limit=1")["numberMatched"] for f in ("point", "line"))
 assert whole == parts, (whole, parts)
-print(f"OGC geometry types: {len(ids)} collections, running tracks {whole} = points + lines")
+gc = "http://data.europa.eu/949/operationalPoint/atlas-test-gc"
+assert "prod.operational-point.point" in ids and "prod.operational-point.polygon" in ids, ids
+found = {}
+for fam in ("point", "polygon"):
+    fs = get(f"{ogc}/collections/prod.operational-point.{fam}/items?q={gc}")["features"]
+    assert len(fs) == 1, (fam, fs)
+    found[fam] = fs[0]
+assert found["point"]["id"] == found["polygon"]["id"] and found["point"]["properties"] == found["polygon"]["properties"]
+assert found["point"]["geometry"]["type"] == "MultiPoint" and found["polygon"]["geometry"]["type"] == "MultiPolygon"
+assert get(f"{ogc}/collections/prod.operational-point/items/{found['point']['id']}")["geometry"]["type"] == "GeometryCollection"
+print(f"OGC geometry types: {len(ids)} collections, running tracks {whole} = points + lines, "
+      f"GeometryCollection OP in both layers")
 PY
 curl -fsS "$BASE/api/tiles.json?state=$state" | json "d['tiles'][0]" | grep -q '/api/tiles/{z}/{x}/{y}.pbf?state=' || fail "TileJSON"
 curl -fsS "$BASE/api/style.json?env=prod" | json "len(d['layers'])" | grep -qv '^0$' || fail "style.json has no layers"

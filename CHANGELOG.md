@@ -8,7 +8,8 @@ All notable changes to this project are documented here: https://github.com/Matd
 
 - GIS access: an OGC API – Features service at `/api/ogc` (one collection per
   environment and class, split per geometry type when a class mixes points,
-  lines and polygons, bbox, paging, facet filters as query parameters,
+  lines and polygons, with GeometryCollections split into their parts, bbox,
+  paging, facet filters as query parameters,
   CRS84 / EPSG:4326 / EPSG:3857 output) and `/api/ogc/filtered/{state}` for the
   current filters, plus TileJSON (`/api/tiles.json`) and a MapLibre style
   (`/api/style.json`) for the vector tiles, so QGIS, ArcGIS Pro and GDAL can

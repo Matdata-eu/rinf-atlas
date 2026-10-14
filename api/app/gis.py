@@ -120,13 +120,20 @@ def _check_f(f: str | None) -> None:
 
 _coll_cache: dict[str, tuple[str, dict]] = {}
 
-# GeometryType() -> (family, GeoJSON type). QGIS and GDAL give a layer one geometry
-# type, so a class whose features mix families is served as one collection per family.
-_GEOM = {"POINT": ("point", "Point"), "MULTIPOINT": ("point", "MultiPoint"),
-         "LINESTRING": ("line", "LineString"), "MULTILINESTRING": ("line", "MultiLineString"),
-         "POLYGON": ("polygon", "Polygon"), "MULTIPOLYGON": ("polygon", "MultiPolygon")}
-_FAMILY_ORDER = ["point", "line", "polygon", "other"]
-_FAMILY_TITLE = {"point": "points", "line": "lines", "polygon": "polygons", "other": "other geometries"}
+# Geometry families: (ST_CollectionExtract type, GeometryType values, GeoJSON single and
+# multi type). QGIS and GDAL give a layer one geometry type, so a class whose features
+# mix families is served as one collection per family. A GEOMETRYCOLLECTION (the worker
+# collects a feature's several WKT literals into one; ST_MakeValid can also make them;
+# nested ones included) is split into its point, line and polygon parts: the feature
+# appears in each family it has a part of, with only that part. Other types (curves,
+# TINs) have no family and are only in the unlisted combined collection.
+_FAMILIES = {"point": (1, ["POINT", "MULTIPOINT"], "Point", "MultiPoint"),
+             "line": (2, ["LINESTRING", "MULTILINESTRING"], "LineString", "MultiLineString"),
+             "polygon": (3, ["POLYGON", "MULTIPOLYGON"], "Polygon", "MultiPolygon")}
+_FAMILY_ORDER = list(_FAMILIES)
+_FAMILY_BY_T = {v[0]: k for k, v in _FAMILIES.items()}
+_FAMILY_TITLE = {"point": "points", "line": "lines", "polygon": "polygons"}
+GC = "GEOMETRYCOLLECTION"
 
 
 def _union(a: list | None, b: list | None) -> list | None:
@@ -135,60 +142,60 @@ def _union(a: list | None, b: list | None) -> list | None:
     return [min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3])]
 
 
-def _geom_type(types: set[str]) -> tuple[str | None, bool]:
-    """A family's one GeoJSON type, and whether singles are promoted to Multi* for it."""
-    if len(types) == 1:
-        return next(iter(types)), False
-    multi = [t for t in types if t.startswith("Multi")]
-    if len(types) == 2 and len(multi) == 1:
-        return multi[0], True
-    return None, False
-
-
 def _stats(env: str) -> dict:
     """Per class (shape order) its count and bbox, and the collections serving it: one
-    per class, or, when the class mixes geometry families, one per family plus the
-    combined collection (unlisted). Cached until the data changes."""
+    per class, or, when the class has parts of several geometry families, one per family
+    plus the combined collection (unlisted). Counts and extents are of the family's
+    parts. Cached until the data changes."""
     version = core._data_version(env)
     hit = _coll_cache.get(env)
     if hit and hit[0] == version:
         return hit[1]
-    rows = _q("""SELECT class, gt, n, ST_XMin(b) AS w, ST_YMin(b) AS s, ST_XMax(b) AS e, ST_YMax(b) AS n2
-                 FROM (SELECT class, GeometryType(geom) AS gt, count(*) AS n, ST_Extent(geom) AS b
-                       FROM feature WHERE env = %s GROUP BY class, gt) x""", [env])
-    per: dict[str, dict] = {}
+    totals = {r["class"]: r for r in _q("""SELECT class, n, ST_XMin(b) AS w, ST_YMin(b) AS s,
+                                                  ST_XMax(b) AS e, ST_YMax(b) AS n2
+                                           FROM (SELECT class, count(*) AS n, ST_Extent(geom) AS b
+                                                 FROM feature WHERE env = %s GROUP BY class) x""", [env])}
+    rows = _q(f"""WITH g AS (SELECT class, geom, GeometryType(geom) AS gt FROM feature
+                             WHERE env = %s AND geom IS NOT NULL),
+                  p AS (SELECT g.class, g.gt, k.t,
+                               CASE WHEN g.gt = '{GC}' THEN ST_CollectionExtract(g.geom, k.t) ELSE g.geom END AS part
+                        FROM g JOIN (VALUES {", ".join(f"({t}, ARRAY{types!r})" for t, types, *_ in _FAMILIES.values())})
+                                    AS k(t, simple) ON g.gt = ANY(k.simple) OR g.gt = '{GC}')
+                  SELECT class, t, n, types, ST_XMin(b) AS w, ST_YMin(b) AS s, ST_XMax(b) AS e, ST_YMax(b) AS n2
+                  FROM (SELECT class, t, count(*) AS n, array_agg(DISTINCT gt) AS types, ST_Extent(part) AS b
+                        FROM p WHERE NOT ST_IsEmpty(part) GROUP BY class, t) x""", [env])
+    fams_of: dict[str, list[dict]] = {}
     for r in rows:
-        c = per.setdefault(r["class"], {"count": 0, "bbox": None, "families": {}})
-        c["count"] += r["n"]
-        if r["gt"] is None:
-            continue  # no geometry: only in the class's own (or combined) collection
-        box = [r["w"], r["s"], r["e"], r["n2"]] if r["w"] is not None else None
-        c["bbox"] = _union(c["bbox"], box)
-        fam, gtype = _GEOM.get(r["gt"], ("other", "GeometryCollection"))
-        fd = c["families"].setdefault(fam, {"count": 0, "bbox": None, "types": [], "geojson": set()})
-        fd["count"] += r["n"]
-        fd["bbox"] = _union(fd["bbox"], box)
-        fd["types"].append(r["gt"])
-        fd["geojson"].add(gtype)
+        fam = _FAMILY_BY_T[r["t"]]
+        _, _, single, multi = _FAMILIES[fam]
+        types = sorted(r["types"])
+        plain = types == [single.upper()] or types == [multi.upper()]
+        fams_of.setdefault(r["class"], []).append({
+            "family": fam, "t": r["t"], "types": types, "count": r["n"],
+            "bbox": [r["w"], r["s"], r["e"], r["n2"]] if r["w"] is not None else None,
+            # one GeoJSON type per collection: singles, multis and collection parts all as Multi*
+            "extract": not plain, "geometryType": (single if types == [single.upper()] else multi) if plain else multi})
     classes, entries = [], []
     for cdef in core._defs()["classes"]:
-        c = per.get(cdef["class"])
-        if not c:
+        tot = totals.get(cdef["class"])
+        if not tot:
             continue
-        classes.append({**cdef, "count": c["count"], "bbox": c["bbox"]})
-        fams = sorted(c["families"].items(), key=lambda kv: _FAMILY_ORDER.index(kv[0]))
-        whole = {**cdef, "suffix": cdef["class"], "family": None, "types": None, "count": c["count"],
-                 "bbox": c["bbox"]}
-        if len(fams) <= 1:
-            gtype, promote = _geom_type(fams[0][1]["geojson"]) if fams else (None, False)
-            entries.append({**whole, "promote": promote, "geometryType": gtype, "listed": True})
-            continue
-        entries.append({**whole, "promote": False, "geometryType": None, "listed": False, "mixed": True})
-        for fam, fd in fams:
-            gtype, promote = _geom_type(fd["geojson"])
-            entries.append({**cdef, "suffix": f"{cdef['class']}.{fam}", "family": fam, "types": fd["types"],
-                            "count": fd["count"], "bbox": fd["bbox"], "promote": promote,
-                            "geometryType": gtype, "listed": True})
+        bbox = [tot["w"], tot["s"], tot["e"], tot["n2"]] if tot["w"] is not None else None
+        classes.append({**cdef, "count": tot["n"], "bbox": bbox})
+        fams = sorted(fams_of.get(cdef["class"], []), key=lambda f: _FAMILY_ORDER.index(f["family"]))
+        whole = {**cdef, "suffix": cdef["class"], "family": None, "t": None, "types": None, "extract": False,
+                 "count": tot["n"], "bbox": bbox}
+        if len(fams) == 0:
+            entries.append({**whole, "geometryType": None, "listed": True})
+        elif len(fams) == 1:
+            # one family: the class keeps its id, plus its features without a geometry
+            f = fams[0]
+            entries.append({**whole, "t": f["t"], "types": f["types"], "extract": f["extract"], "keep_null": True,
+                            "geometryType": f["geometryType"], "bbox": f["bbox"], "listed": True})
+        else:
+            entries.append({**whole, "geometryType": None, "listed": False, "mixed": True})
+            for f in fams:
+                entries.append({**cdef, "suffix": f"{cdef['class']}.{f['family']}", **f, "listed": True})
     out = {"classes": classes, "entries": entries}
     _coll_cache[env] = (version, out)
     return out
@@ -230,9 +237,10 @@ def _collection(request: Request, state: str | None, env: str, c: dict, multi_en
     base = f"{_root(request, state)}/collections/{cid}"
     env_label = core._envs[env].get("label", env.upper())
     params = ", ".join(f["key"] for f in _facets_of(c["class"]))
-    qualifiers = ([env_label] if multi_env else []) + ([_FAMILY_TITLE[c["family"]]] if c["family"] else []) \
+    split = c["listed"] and c["family"]  # one family of a class that has several
+    qualifiers = ([env_label] if multi_env else []) + ([_FAMILY_TITLE[c["family"]]] if split else []) \
         + (["mixed geometry"] if c.get("mixed") else [])
-    what = f"{c['label']} ({_FAMILY_TITLE[c['family']]})" if c["family"] else c["label"]
+    what = f"{c['label']} ({_FAMILY_TITLE[c['family']]})" if split else c["label"]
     desc = (f"{what} from RINF ({env_label}), {c['count']} features. "
             + ("Mixes geometry types: GIS clients should use the per-geometry collections. " if c.get("mixed") else "")
             + "Filter the items with query parameters: q, dataset" + (f", {params}" if params else "")
@@ -420,8 +428,14 @@ def _item_state(request: Request, st: QueryState | None, env: str, cls: str,
     return base
 
 
-def _geom_sql(crs: str, multi: bool) -> str:
-    g = "ST_Multi(f.geom)" if multi else "f.geom"
+def _part(c: dict) -> str:
+    """The SQL for a feature's geometry in collection c: as stored, or its part of the
+    collection's family as the multi type."""
+    return f"ST_Multi(ST_CollectionExtract(f.geom, {int(c['t'])}))" if c.get("extract") else "f.geom"
+
+
+def _geom_sql(crs: str, c: dict) -> str:
+    g = _part(c)
     if crs == EPSG4326:
         return f"ST_AsGeoJSON(ST_FlipCoordinates({g}), 7, 0)::json"
     if crs == EPSG3857:
@@ -430,19 +444,27 @@ def _geom_sql(crs: str, multi: bool) -> str:
 
 
 def _where(qs: QueryState, c: dict) -> tuple[str, list]:
-    """The query state's WHERE plus, for a per-geometry collection, its geometry types."""
+    """The query state's WHERE plus, for a collection of one geometry family, only features
+    with a non-empty part of it, and the bbox tested against that part."""
     where_sql, params = Where(qs, core._defs()["owners"]).build()
-    if c["types"]:
-        where_sql += " AND GeometryType(f.geom) = ANY(%s)"
-        params = params + [c["types"]]
-    return where_sql, params
+    if not c["types"]:
+        return where_sql, params
+    cond, cp = "GeometryType(f.geom) = ANY(%s)", [c["types"]]
+    if c["extract"]:
+        cond += f" AND NOT ST_IsEmpty({_part(c)})"
+        if qs.bbox:
+            cond += f" AND {_part(c)} && ST_MakeEnvelope(%s, %s, %s, %s, 4326)"
+            cp += [float(x) for x in qs.bbox]
+    if c.get("keep_null"):
+        cond = f"(f.geom IS NULL OR ({cond}))"
+    return f"{where_sql} AND {cond}", params + cp
 
 
 def _features(env: str, c: dict, where_sql: str, params: list, crs: str, values: str,
               limit: int, offset: int) -> list[dict]:
     cls = c["class"]
     rows = _q(f"""SELECT f.id, f.iri, f.label, f.class, f.facets, d.title AS dataset, d.provider,
-                         {_geom_sql(crs, c["promote"])} AS geometry
+                         {_geom_sql(crs, c)} AS geometry
                   FROM feature f LEFT JOIN dataset d ON d.env = f.env AND d.graph_iri = f.graph_iri
                   WHERE {where_sql} ORDER BY f.id LIMIT %s OFFSET %s""", params + [limit, offset])
     return _to_geojson(env, cls, rows, values)

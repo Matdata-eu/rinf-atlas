@@ -132,7 +132,8 @@ track; and so on, resolved in chains).
 Atlas layers load straight into a desktop GIS as OGC API – Features (one
 layer per class, with every facet as an attribute; a class that mixes
 geometry types, such as operational points with points and polygons, is one
-layer per type: `prod.operational-point.point`, `prod.operational-point.polygon`)
+layer per type: `prod.operational-point.point`, `prod.operational-point.polygon`,
+and a feature with both a point and a polygon is in each layer with that part)
 and as vector tiles. On the
 demo:
 
