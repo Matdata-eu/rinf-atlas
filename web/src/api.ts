@@ -117,6 +117,11 @@ export const api = {
   describe: (env: string, iri: string, direction: 'out' | 'in', signal?: AbortSignal) =>
     request<DescribeResponse>(`/describe?${qs({ env, iri, direction })}`, { signal }),
   datasets: (env: string) => request<Dataset[]>(`/datasets?${qs({ env })}`),
+  /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
+  exportUrl: (st: QueryState, format: 'csv' | 'xlsx') => {
+    const { facets: _facets, ...rest } = st;
+    return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format })}`;
+  },
   /** Tile URL template; `state` is base64url(JSON query state without bbox). */
   tilesUrl: (st: QueryState) => {
     const { bbox: _bbox, ...rest } = st;

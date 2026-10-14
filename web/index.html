@@ -46,6 +46,11 @@
             <div id="facets"></div>
           </section>
           <section id="pane-results" class="pane" hidden>
+            <div class="export-bar">
+              <span class="muted">Export results</span>
+              <button id="export-csv" class="btn btn-small" type="button" title="Download every matching feature as one CSV table (UTF-8)">CSV</button>
+              <button id="export-xlsx" class="btn btn-small" type="button" title="Download every matching feature as an Excel workbook, one sheet per class">Excel</button>
+            </div>
             <ol id="results" class="results"></ol>
             <button id="results-more" class="btn btn-block" hidden>Load more</button>
           </section>

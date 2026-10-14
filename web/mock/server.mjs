@@ -384,6 +384,14 @@ const server = http.createServer(async (req, res) => {
       const xs = all.map((c) => c[0]), ys = all.map((c) => c[1]);
       return send(res, 200, { bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
     }
+    if (p === '/api/export') {
+      // CSV only (the mock has no XLSX writer); good enough to exercise the download.
+      const st = JSON.parse(Buffer.from(url.searchParams.get('state') || '', 'base64url').toString() || '{}');
+      const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const rows = features.filter((f) => matches(f, st)).map((f) => [f.iri, f.label, f.class, ...repPoint(f.geometry)].map(q).join(','));
+      res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock.csv"' });
+      return res.end(['IRI,Label,Class,Longitude,Latitude', ...rows].join('\r\n'));
+    }
     if (/^\/api\/tiles\/\d+\/\d+\/\d+\.pbf$/.test(p)) { res.writeHead(204); return res.end(); }
     if (p === '/api/feature') {
       const id = url.searchParams.get('id');
