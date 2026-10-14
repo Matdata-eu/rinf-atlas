@@ -118,26 +118,84 @@ def _check_f(f: str | None) -> None:
 
 # --- collections ----------------------------------------------------------------
 
-_coll_cache: dict[str, tuple[str, list[dict]]] = {}
+_coll_cache: dict[str, tuple[str, dict]] = {}
+
+# GeometryType() -> (family, GeoJSON type). QGIS and GDAL give a layer one geometry
+# type, so a class whose features mix families is served as one collection per family.
+_GEOM = {"POINT": ("point", "Point"), "MULTIPOINT": ("point", "MultiPoint"),
+         "LINESTRING": ("line", "LineString"), "MULTILINESTRING": ("line", "MultiLineString"),
+         "POLYGON": ("polygon", "Polygon"), "MULTIPOLYGON": ("polygon", "MultiPolygon")}
+_FAMILY_ORDER = ["point", "line", "polygon", "other"]
+_FAMILY_TITLE = {"point": "points", "line": "lines", "polygon": "polygons", "other": "other geometries"}
 
 
-def _class_stats(env: str) -> list[dict]:
-    """Per class: count and bbox, in shape order; cached until the data changes."""
+def _union(a: list | None, b: list | None) -> list | None:
+    if not a or not b:
+        return a or b
+    return [min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3])]
+
+
+def _geom_type(types: set[str]) -> tuple[str | None, bool]:
+    """A family's one GeoJSON type, and whether singles are promoted to Multi* for it."""
+    if len(types) == 1:
+        return next(iter(types)), False
+    multi = [t for t in types if t.startswith("Multi")]
+    if len(types) == 2 and len(multi) == 1:
+        return multi[0], True
+    return None, False
+
+
+def _stats(env: str) -> dict:
+    """Per class (shape order) its count and bbox, and the collections serving it: one
+    per class, or, when the class mixes geometry families, one per family plus the
+    combined collection (unlisted). Cached until the data changes."""
     version = core._data_version(env)
     hit = _coll_cache.get(env)
     if hit and hit[0] == version:
         return hit[1]
-    rows = {r["class"]: r for r in _q("""SELECT class, n, ST_XMin(b) AS w, ST_YMin(b) AS s, ST_XMax(b) AS e, ST_YMax(b) AS n2
-                                         FROM (SELECT class, count(*) AS n, ST_Extent(geom) AS b
-                                               FROM feature WHERE env = %s GROUP BY class) x""", [env])}
-    out = []
-    for c in core._defs()["classes"]:
-        r = rows.get(c["class"])
-        if r:
-            bbox = [r["w"], r["s"], r["e"], r["n2"]] if r["w"] is not None else None
-            out.append({**c, "count": r["n"], "bbox": bbox})
+    rows = _q("""SELECT class, gt, n, ST_XMin(b) AS w, ST_YMin(b) AS s, ST_XMax(b) AS e, ST_YMax(b) AS n2
+                 FROM (SELECT class, GeometryType(geom) AS gt, count(*) AS n, ST_Extent(geom) AS b
+                       FROM feature WHERE env = %s GROUP BY class, gt) x""", [env])
+    per: dict[str, dict] = {}
+    for r in rows:
+        c = per.setdefault(r["class"], {"count": 0, "bbox": None, "families": {}})
+        c["count"] += r["n"]
+        if r["gt"] is None:
+            continue  # no geometry: only in the class's own (or combined) collection
+        box = [r["w"], r["s"], r["e"], r["n2"]] if r["w"] is not None else None
+        c["bbox"] = _union(c["bbox"], box)
+        fam, gtype = _GEOM.get(r["gt"], ("other", "GeometryCollection"))
+        fd = c["families"].setdefault(fam, {"count": 0, "bbox": None, "types": [], "geojson": set()})
+        fd["count"] += r["n"]
+        fd["bbox"] = _union(fd["bbox"], box)
+        fd["types"].append(r["gt"])
+        fd["geojson"].add(gtype)
+    classes, entries = [], []
+    for cdef in core._defs()["classes"]:
+        c = per.get(cdef["class"])
+        if not c:
+            continue
+        classes.append({**cdef, "count": c["count"], "bbox": c["bbox"]})
+        fams = sorted(c["families"].items(), key=lambda kv: _FAMILY_ORDER.index(kv[0]))
+        whole = {**cdef, "suffix": cdef["class"], "family": None, "types": None, "count": c["count"],
+                 "bbox": c["bbox"]}
+        if len(fams) <= 1:
+            gtype, promote = _geom_type(fams[0][1]["geojson"]) if fams else (None, False)
+            entries.append({**whole, "promote": promote, "geometryType": gtype, "listed": True})
+            continue
+        entries.append({**whole, "promote": False, "geometryType": None, "listed": False, "mixed": True})
+        for fam, fd in fams:
+            gtype, promote = _geom_type(fd["geojson"])
+            entries.append({**cdef, "suffix": f"{cdef['class']}.{fam}", "family": fam, "types": fd["types"],
+                            "count": fd["count"], "bbox": fd["bbox"], "promote": promote,
+                            "geometryType": gtype, "listed": True})
+    out = {"classes": classes, "entries": entries}
     _coll_cache[env] = (version, out)
     return out
+
+
+def _class_stats(env: str) -> list[dict]:
+    return _stats(env)["classes"]
 
 
 def _decode(state: str | None) -> QueryState | None:
@@ -168,16 +226,20 @@ def _facets_of(cls: str) -> list[dict]:
 
 
 def _collection(request: Request, state: str | None, env: str, c: dict, multi_env: bool) -> dict:
-    cid = f"{env}.{c['class']}"
+    cid = f"{env}.{c['suffix']}"
     base = f"{_root(request, state)}/collections/{cid}"
     env_label = core._envs[env].get("label", env.upper())
     params = ", ".join(f["key"] for f in _facets_of(c["class"]))
-    desc = (f"{c['label']} from RINF ({env_label}), {c['count']} features. "
-            f"Filter the items with query parameters: q, dataset" + (f", {params}" if params else "") +
-            " (values comma separated; ranges as min..max).")
+    qualifiers = ([env_label] if multi_env else []) + ([_FAMILY_TITLE[c["family"]]] if c["family"] else []) \
+        + (["mixed geometry"] if c.get("mixed") else [])
+    what = f"{c['label']} ({_FAMILY_TITLE[c['family']]})" if c["family"] else c["label"]
+    desc = (f"{what} from RINF ({env_label}), {c['count']} features. "
+            + ("Mixes geometry types: GIS clients should use the per-geometry collections. " if c.get("mixed") else "")
+            + "Filter the items with query parameters: q, dataset" + (f", {params}" if params else "")
+            + " (values comma separated; ranges as min..max).")
     out = {
         "id": cid,
-        "title": f"{c['label']} ({env_label})" if multi_env else c["label"],
+        "title": c["label"] + (f" ({', '.join(qualifiers)})" if qualifiers else ""),
         "description": desc,
         "itemType": "feature",
         "crs": CRS_LIST,
@@ -187,6 +249,8 @@ def _collection(request: Request, state: str | None, env: str, c: dict, multi_en
             _link(f"{base}/items", "items", GEOJSON, "Features (GeoJSON)"),
         ],
     }
+    if c["geometryType"]:
+        out["geometryType"] = c["geometryType"]  # not in the standard; a hint for clients
     if c["bbox"]:
         out["extent"] = {"spatial": {"bbox": [c["bbox"]], "crs": CRS84}}
     return out
@@ -194,13 +258,13 @@ def _collection(request: Request, state: str | None, env: str, c: dict, multi_en
 
 def _resolve(state: str | None, cid: str) -> tuple[QueryState | None, str, dict]:
     st = _decode(state)
-    env, _, cls = cid.partition(".")
+    env, _, suffix = cid.partition(".")
     if env not in core._envs or (st and env != st.env):
         raise not_found(f"no collection {cid!r}")
-    if st and st.classes and cls not in st.classes:
-        raise not_found(f"no collection {cid!r} in this filtered view")
-    for c in _class_stats(env):
-        if c["class"] == cls:
+    for c in _stats(env)["entries"]:
+        if c["suffix"] == suffix:
+            if st and st.classes and c["class"] not in st.classes:
+                raise not_found(f"no collection {cid!r} in this filtered view")
             return st, env, c
     raise not_found(f"no collection {cid!r}")
 
@@ -239,8 +303,8 @@ def collections(request: Request, state: str | None = None, f: str | None = None
     envs = _envs_for(st)
     out = []
     for env in envs:
-        for c in _class_stats(env):
-            if st and st.classes and c["class"] not in st.classes:
+        for c in _stats(env)["entries"]:
+            if not c["listed"] or (st and st.classes and c["class"] not in st.classes):
                 continue
             out.append(_collection(request, state, env, c, len(core._envs) > 1))
     root = _root(request, state)
@@ -356,18 +420,29 @@ def _item_state(request: Request, st: QueryState | None, env: str, cls: str,
     return base
 
 
-def _geom_sql(crs: str) -> str:
+def _geom_sql(crs: str, multi: bool) -> str:
+    g = "ST_Multi(f.geom)" if multi else "f.geom"
     if crs == EPSG4326:
-        return "ST_AsGeoJSON(ST_FlipCoordinates(f.geom), 7, 0)::json"
+        return f"ST_AsGeoJSON(ST_FlipCoordinates({g}), 7, 0)::json"
     if crs == EPSG3857:
-        return "ST_AsGeoJSON(ST_Transform(f.geom, 3857), 2, 0)::json"
-    return "ST_AsGeoJSON(f.geom, 7, 0)::json"
+        return f"ST_AsGeoJSON(ST_Transform({g}, 3857), 2, 0)::json"
+    return f"ST_AsGeoJSON({g}, 7, 0)::json"
 
 
-def _features(env: str, cls: str, where_sql: str, params: list, crs: str, values: str,
+def _where(qs: QueryState, c: dict) -> tuple[str, list]:
+    """The query state's WHERE plus, for a per-geometry collection, its geometry types."""
+    where_sql, params = Where(qs, core._defs()["owners"]).build()
+    if c["types"]:
+        where_sql += " AND GeometryType(f.geom) = ANY(%s)"
+        params = params + [c["types"]]
+    return where_sql, params
+
+
+def _features(env: str, c: dict, where_sql: str, params: list, crs: str, values: str,
               limit: int, offset: int) -> list[dict]:
+    cls = c["class"]
     rows = _q(f"""SELECT f.id, f.iri, f.label, f.class, f.facets, d.title AS dataset, d.provider,
-                         {_geom_sql(crs)} AS geometry
+                         {_geom_sql(crs, c["promote"])} AS geometry
                   FROM feature f LEFT JOIN dataset d ON d.env = f.env AND d.graph_iri = f.graph_iri
                   WHERE {where_sql} ORDER BY f.id LIMIT %s OFFSET %s""", params + [limit, offset])
     return _to_geojson(env, cls, rows, values)
@@ -425,8 +500,8 @@ def items(request: Request, cid: str, state: str | None = None,
     box = _bbox(bbox, _crs(bbox_crs, "bbox-crs"))
     lim = min(limit or DEFAULT_LIMIT, MAX_LIMIT)
     qs = _item_state(request, st, env, c["class"], box, q, dataset)
-    where_sql, params = Where(qs, core._defs()["owners"]).build()
-    feats = _features(env, c["class"], where_sql, params, out_crs, values, lim, offset)
+    where_sql, params = _where(qs, c)
+    feats = _features(env, c, where_sql, params, out_crs, values, lim, offset)
     matched = _q(f"SELECT count(*) AS n FROM feature f WHERE {where_sql}", params)[0]["n"]
     origin = public_base(request)
     links = [_link(origin + _self_url(request), "self", GEOJSON, "This page"),
@@ -450,8 +525,8 @@ def item(request: Request, cid: str, fid: str, state: str | None = None, crs: st
         raise not_found(f"no feature {fid!r}")
     qs = st.model_copy(deep=True) if st else QueryState(env=env)
     qs.classes, qs.bbox = [c["class"]], None
-    where_sql, params = Where(qs, core._defs()["owners"]).build()
-    feats = _features(env, c["class"], f"{where_sql} AND f.id = %s", params + [int(fid)], out_crs, values, 1, 0)
+    where_sql, params = _where(qs, c)
+    feats = _features(env, c, f"{where_sql} AND f.id = %s", params + [int(fid)], out_crs, values, 1, 0)
     if not feats:
         raise not_found(f"no feature {fid!r} in {cid}")
     coll = f"{_root(request, state)}/collections/{cid}"

@@ -892,13 +892,22 @@ function gis(req, res, url) {
   const root = `${origin}/api/ogc${m[1] ? `/filtered/${m[1]}` : ''}`;
   const link = (href, rel, type = 'application/json') => ({ href, rel, type });
   const envs = view ? [view.env] : ENVS.map((e) => e.key);
+  // One collection per class, or per geometry family (point/line/polygon) when a class mixes
+  // them; the combined one then stays reachable but unlisted (like the real API).
+  const family = (f) => (/Point/.test(f.geometry.type) ? 'point' : /LineString/.test(f.geometry.type) ? 'line' : 'polygon');
   const colls = envs.flatMap((env) => CLASSES.filter((c) => (!view?.classes?.length || view.classes.includes(c.class)) && features.some((f) => f.class === c.class))
-    .map((c) => ({ env, c })));
-  const coll = ({ env, c }) => ({
-    id: `${env}.${c.class}`, title: `${c.label} (${env.toUpperCase()})`, itemType: 'feature', crs: OGC_CRS, storageCrs: OGC_CRS[0],
-    description: `${c.label}. Facet query parameters: ${facetsOf(c.class).map((f) => f.key).join(', ')}`,
-    extent: { spatial: { bbox: [bboxOf(features.filter((f) => f.class === c.class))], crs: OGC_CRS[0] } },
-    links: [link(`${root}/collections/${env}.${c.class}`, 'self'), link(`${root}/collections/${env}.${c.class}/items`, 'items', 'application/geo+json')],
+    .flatMap((c) => {
+      const fams = [...new Set(features.filter((f) => f.class === c.class).map(family))];
+      const whole = { env, c, id: `${env}.${c.class}`, fam: null, listed: fams.length === 1 };
+      return fams.length === 1 ? [whole] : [whole, ...fams.map((fam) => ({ env, c, id: `${env}.${c.class}.${fam}`, fam, listed: true }))];
+    }));
+  const inColl = (k, f) => f.class === k.c.class && (!k.fam || family(f) === k.fam);
+  const coll = (k) => ({
+    id: k.id, title: `${k.c.label} (${[k.env.toUpperCase(), k.fam && `${k.fam}s`].filter(Boolean).join(', ')})`, itemType: 'feature',
+    crs: OGC_CRS, storageCrs: OGC_CRS[0],
+    description: `${k.c.label}. Facet query parameters: ${facetsOf(k.c.class).map((f) => f.key).join(', ')}`,
+    extent: { spatial: { bbox: [bboxOf(features.filter((f) => inColl(k, f)))], crs: OGC_CRS[0] } },
+    links: [link(`${root}/collections/${k.id}`, 'self'), link(`${root}/collections/${k.id}/items`, 'items', 'application/geo+json')],
   });
   if (rest === '' || rest === '/') {
     send(res, 200, { title: 'RINF Atlas (mock)', links: [link(root, 'self'), link(`${origin}/api/openapi.json`, 'service-desc', 'application/vnd.oai.openapi+json;version=3.1'),
@@ -909,16 +918,16 @@ function gis(req, res, url) {
     send(res, 200, { conformsTo: ['http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/core', 'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/geojson', 'http://www.opengis.net/spec/ogcapi-features-2/1.0/conf/crs'] });
     return true;
   }
-  if (rest === '/collections') { send(res, 200, { links: [link(`${root}/collections`, 'self')], collections: colls.map(coll) }); return true; }
+  if (rest === '/collections') { send(res, 200, { links: [link(`${root}/collections`, 'self')], collections: colls.filter((k) => k.listed).map(coll) }); return true; }
   const cm = /^\/collections\/([^/]+)(\/items(?:\/([^/]+))?)?$/.exec(rest);
-  const hit = cm && colls.find(({ env, c }) => `${env}.${c.class}` === cm[1]);
+  const hit = cm && colls.find((k) => k.id === cm[1]);
   if (!hit) { ogcError(res, 404, 'NotFound', 'no such collection'); return true; }
   if (!cm[2]) { send(res, 200, coll(hit)); return true; }
   const st = { ...(view || { env: hit.env, filters: {} }), classes: [hit.c.class], filters: { ...(view?.filters || {}) } };
   const toFeature = (f) => ({ type: 'Feature', id: f.id, geometry: f.geometry, properties: { iri: f.iri, label: f.label, class: hit.c.label,
     ...Object.fromEntries(facetsOf(hit.c.class).map((d) => { const vs = f.facets[d.key] || []; return [d.key, vs.length ? vs.map((v) => v.label ?? v.value).join('; ') : null]; })) } });
   if (cm[3]) {
-    const f = features.find((x) => x.id === cm[3] && matches(x, st));
+    const f = features.find((x) => x.id === cm[3] && inColl(hit, x) && matches(x, st));
     if (!f) ogcError(res, 404, 'NotFound', 'no such feature'); else send(res, 200, toFeature(f));
     return true;
   }
@@ -936,7 +945,7 @@ function gis(req, res, url) {
   if (q.get('q')) st.q = q.get('q');
   if (q.get('bbox')) st.bbox = q.get('bbox').split(',').map(Number);
   const limit = Math.min(Number(q.get('limit') || 100), 10000), offset = Number(q.get('offset') || 0);
-  const hits = features.filter((f) => matches(f, st));
+  const hits = features.filter((f) => inColl(hit, f) && matches(f, st));
   const page = hits.slice(offset, offset + limit);
   const pageUrl = (o) => { const u = new URL(url.href); u.searchParams.set('offset', String(o)); u.searchParams.set('limit', String(limit)); return `${origin}${u.pathname}${u.search}`; };
   const links = [link(`${origin}${url.pathname}${url.search}`, 'self', 'application/geo+json'), link(`${root}/collections/${cm[1]}`, 'collection')];

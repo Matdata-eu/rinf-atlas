@@ -130,13 +130,16 @@ track; and so on, resolved in chains).
 ## Use in QGIS
 
 Atlas layers load straight into a desktop GIS as OGC API – Features (one
-layer per class, with every facet as an attribute) and as vector tiles. On the
+layer per class, with every facet as an attribute; a class that mixes
+geometry types, such as operational points with points and polygons, is one
+layer per type: `prod.operational-point.point`, `prod.operational-point.polygon`)
+and as vector tiles. On the
 demo:
 
 | | URL |
 |---|---|
 | OGC API – Features | `https://rinf-atlas.matdata.eu/api/ogc` |
-| One class as GeoJSON | `https://rinf-atlas.matdata.eu/api/ogc/collections/prod.operational-point/items?limit=1000` |
+| One class as GeoJSON | `https://rinf-atlas.matdata.eu/api/ogc/collections/prod.tunnel/items?limit=1000` |
 | Vector tiles | `https://rinf-atlas.matdata.eu/api/tiles/{z}/{x}/{y}.pbf?state=eyJlbnYiOiJwcm9kIn0` |
 | Vector tile style | `https://rinf-atlas.matdata.eu/api/style.json?env=prod` (TileJSON: `/api/tiles.json?env=prod`) |
 
