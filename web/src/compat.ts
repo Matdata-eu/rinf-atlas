@@ -115,8 +115,14 @@ async function loadRules(env: string) {
 // ---------- map layer ----------
 let mapRef: maplibregl.Map | null = null;
 
+// Data version of the last result. The tile URL carries it, so the coloured tiles
+// always come from the same index as the ids in the result: after a sync the map
+// reloads them instead of keeping (or the browser serving) tiles from before.
+let tilesVersion = '';
+
 function sourceTiles(): string {
-  return api.tilesUrl({ env: store.get().env, classes: [sectionClass()], filters: {} });
+  const url = api.tilesUrl({ env: store.get().env, classes: [sectionClass()], filters: {} });
+  return tilesVersion ? `${url}&v=${encodeURIComponent(tilesVersion)}` : url;
 }
 
 function ensureLayers(m: maplibregl.Map) {
@@ -160,6 +166,7 @@ function applyResult(r: CompatResponse | null) {
   statusById.clear();
   if (r) for (const c of ['green', 'yellow', 'red'] as const) for (const id of r[c]) statusById.set(String(id), c);
   setVisible(saved.show);
+  if (r?.version && r.version !== tilesVersion) { tilesVersion = r.version; updateSource(); }
   if (!mapRef) return;
   if (TILE_MODE === 'vector') {
     mapRef.removeFeatureState({ source: SRC, sourceLayer: 'features' });

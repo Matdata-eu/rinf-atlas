@@ -6,6 +6,7 @@ place that goes live to ERA's SPARQL endpoint (describe + graph traversal).
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import time
@@ -527,7 +528,10 @@ def compatibility(req: cx.CompatRequest):
     ids: dict[str, list[int]] = {"green": [], "yellow": [], "red": []}
     for r in _q(f"SELECT id, status FROM ({sql}) x ORDER BY id", params):
         ids[cx.STATUS[r["status"]]].append(r["id"])
-    out = {"env": req.env, "checked": [c.key for c in checks], "ignored": ignored,
+    # version: the indexed data the ids refer to; clients put it in the tile URL of the
+    # layer they colour, so tiles and ids always come from the same index.
+    out = {"env": req.env, "version": hashlib.sha1(version.encode()).hexdigest()[:12],
+           "checked": [c.key for c in checks], "ignored": ignored,
            "counts": {k: len(v) for k, v in ids.items()}, **ids}
     if len(_compat_cache) > 200:
         _compat_cache.clear()

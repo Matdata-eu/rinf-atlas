@@ -70,6 +70,17 @@ tracks=$(post compatibility/explain "{\"env\":\"prod\",\"iri\":\"$why\",\"profil
   | json "str(d['status']) + ' ' + str(len(d['tracks']))")
 echo "explain $why: $tracks"; [ "${tracks%% *}" != "green" ] || fail "a 5 km train should not fit ($tracks)"
 
+# The coloured layer's tiles carry the result's ids at every zoom (z3..z14), and the ids
+# stay the same when the graph is indexed again (the map and browsers cache tiles).
+profile="{\"wheelSetGauge\":[\"$gauge/30\"]}"
+before=$(python3 "$here/compat_tiles.py" "$BASE" "$profile") || fail "compatibility tiles do not match the result"
+gunzip -c "$here/fixtures/lu-sample.nt.gz" > "$here/fixtures/lu-sample.nt"
+"${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures:ro" worker \
+  atlas load-file --env prod --graph "$GRAPH" /fixtures/lu-sample.nt >/dev/null
+rm -f "$here/fixtures/lu-sample.nt"
+after=$(python3 "$here/compat_tiles.py" "$BASE" "$profile") || fail "compatibility tiles do not match the result after reloading"
+[ "$before" = "$after" ] || fail "feature ids changed when the graph was loaded again"
+
 ds=$(curl -fsS "$BASE/api/datasets?env=prod" | json "sum(1 for x in d if x['status']=='loaded')")
 [ "$ds" -ge 1 ] || fail "dataset not listed as loaded"
 

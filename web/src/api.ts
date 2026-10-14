@@ -108,7 +108,10 @@ export interface CompatRules { track_classes: string[]; section_class: string; r
 export type VehicleValues = Record<string, (string | boolean)[] | number>;
 export type CompatColour = 'green' | 'yellow' | 'red';
 export interface CompatResponse {
-  env: string; checked: string[]; ignored: string[];
+  env: string;
+  /** The indexed data the ids refer to: put in the tile URL of the coloured layer. */
+  version?: string;
+  checked: string[]; ignored: string[];
   counts: Record<CompatColour, number>;
   green: (number | string)[]; yellow: (number | string)[]; red: (number | string)[];
 }

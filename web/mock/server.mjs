@@ -515,7 +515,7 @@ const server = http.createServer(async (req, res) => {
       const ignored = Object.keys(profile).filter((k) => !COMPAT_RULES.some((r) => r.key === k));
       await sleep(80);
       if (p === '/api/compatibility') {
-        const out = { env: body.env, checked: checks.map((c) => c.key), ignored, counts: {}, green: [], yellow: [], red: [] };
+        const out = { env: body.env, version: 'mock', checked: checks.map((c) => c.key), ignored, counts: {}, green: [], yellow: [], red: [] };
         for (const sol of sols) out[COLOURS[compatOf(sol, checks, profile).status]].push(sol.id);
         for (const c of COLOURS) out.counts[c] = out[c].length;
         return send(res, 200, out);

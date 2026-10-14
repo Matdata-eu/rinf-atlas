@@ -23,3 +23,11 @@ All notable changes to this project are documented here: https://github.com/Matd
   (not only those without geometry of their own), so tracks can be related to
   their section of line. The first start after upgrading re-extracts the index
   from the mirror once (no download).
+
+### Fixed
+- Features keep their id when their graph is indexed again (they were deleted
+  and inserted with new ids on every sync). Map tiles cached before a sync no
+  longer refer to other ids than the API, which left the vehicle compatibility
+  colours out at the zoom levels whose tiles were already loaded. The
+  compatibility result also carries a data `version` that the map puts in the
+  tile URL of the coloured layer.

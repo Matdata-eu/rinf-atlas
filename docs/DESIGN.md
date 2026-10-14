@@ -113,7 +113,11 @@ fills in by hand (the "Vehicle" tab). Only PostGIS is read.
 - The map draws a separate vector source (sections of line only, independent
   of the current filters) and colours it with MapLibre feature-state from the
   `{green|yellow|red: [feature id]}` response, so recolouring never refetches
-  tiles; clicking a section shows the per-track explanation. Kept apart from
+  tiles; clicking a section shows the per-track explanation. This relies on
+  feature ids being stable: re-extraction upserts features (and deletes only
+  those gone from the graph) so a feature keeps its id across syncs, and the
+  tile URL carries the result's data `version` so tiles from an older index
+  are never mixed with a newer result. Kept apart from
   generic thematic colouring on purpose, so the two can be merged later.
 - Profiles live in `localStorage` (with four illustrative examples) and are
   exported / imported as JSON or as Turtle with `era:VehicleType` instances.
