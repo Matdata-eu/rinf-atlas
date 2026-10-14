@@ -1,0 +1,162 @@
+# Vehicle compatibility rules
+#
+# One sh:NodeShape with atlas:compatibility true. It targets era:VehicleType:
+# each sh:property is one technical characteristic a user can fill in a
+# vehicle profile, with
+#   sh:path            the property of era:VehicleType (or a sequence path from
+#                      it) that holds the characteristic in the ERA ontology;
+#                      used for the Turtle import / export of profiles
+#   atlas:characteristic  key of the characteristic in profiles and the API
+#   atlas:compareTo    infrastructure facet key(s) it is compared with (keys
+#                      from the facet shapes, so the facet must be indexed);
+#                      several keys pool their values
+#   atlas:constraint   the SHACL constraint component the vehicle's value(s)
+#                      are plugged into, applied to the infrastructure values:
+#       sh:hasValue      the infrastructure has (one of) the vehicle's values
+#       sh:in            every infrastructure value is one of the vehicle's
+#       sh:minInclusive  every infrastructure value >= the vehicle's value
+#       sh:maxInclusive  every infrastructure value <= the vehicle's value
+#       sh:minExclusive / sh:maxExclusive  likewise, strict
+#   atlas:appliesTo    "track" (default: compared with the running tracks of a
+#                      section of line) or "section" (the section itself)
+#   atlas:unit         unit of the value the user enters (that of the facet)
+#
+# Shape-level: atlas:trackClass (repeatable) and atlas:sectionClass name the
+# indexed classes (shape keys) that are evaluated.
+#
+# A characteristic left empty in a profile is not checked. A track without a
+# value for the facet makes that characteristic "unknown". See docs/DESIGN.md
+# for how tracks are aggregated into a status per section of line.
+#
+# These rules are deliberately simple (one characteristic against one facet).
+# Edit them freely; the worker publishes changes within a minute, no reindex.
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX shape: <https://rinf-atlas.matdata.eu/shapes/>
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX era:   <http://data.europa.eu/949/>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+
+shape:vehicle-compatibility
+    a sh:NodeShape ;
+    atlas:compatibility true ;
+    rdfs:label "Vehicle compatibility" ;
+    sh:targetClass era:VehicleType ;
+    atlas:trackClass "running-track", "track" ;
+    atlas:sectionClass "section-of-line" ;
+    sh:property [
+        sh:path era:wheelSetGauge ;
+        atlas:characteristic "wheelSetGauge" ;
+        rdfs:label "Nominal track gauge" ;
+        rdfs:comment "Track gauge(s) the wheelsets run on." ;
+        atlas:compareTo "wheelSetGauge" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 10 ;
+    ] ;
+    sh:property [
+        sh:path era:gaugingProfile ;
+        atlas:characteristic "gaugingProfile" ;
+        rdfs:label "Gauging profile" ;
+        rdfs:comment "Gauging profiles of the lines the vehicle fits on (a G1 vehicle: G1, GA, GB, GC …); the track must list one of them." ;
+        atlas:compareTo "gaugingProfile" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 20 ;
+    ] ;
+    sh:property [
+        sh:path era:energySupplySystem ;
+        atlas:characteristic "energySupplySystem" ;
+        rdfs:label "Energy supply system" ;
+        rdfs:comment "Voltage and frequency the vehicle can draw power from. Leave empty for diesel or battery vehicles." ;
+        atlas:compareTo "contactLineSystem.energySupplySystem" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 30 ;
+    ] ;
+    sh:property [
+        sh:path ( era:configDependentParameter era:vehiclePantographHead ) ;
+        atlas:characteristic "pantographHead" ;
+        rdfs:label "Pantograph head" ;
+        rdfs:comment "Pantograph head(s) fitted; compared with the TSI and other pantograph heads the track accepts." ;
+        atlas:compareTo "tsiPantographHead", "otherPantographHead" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 40 ;
+    ] ;
+    sh:property [
+        sh:path era:maximumContactWireHeight ;
+        atlas:characteristic "maximumContactWireHeight" ;
+        rdfs:label "Maximum contact wire height reached" ;
+        rdfs:comment "Highest contact wire the pantograph reaches; the track's maximum contact wire height must not be above it." ;
+        atlas:compareTo "contactLineSystem.maximumContactWireHeight" ;
+        atlas:constraint sh:maxInclusive ;
+        sh:datatype xsd:double ;
+        atlas:unit "M" ;
+        sh:order 50 ;
+    ] ;
+    sh:property [
+        sh:path ( era:configDependentParameter era:minimumContactWireHeight ) ;
+        atlas:characteristic "minimumContactWireHeight" ;
+        rdfs:label "Minimum contact wire height reached" ;
+        rdfs:comment "Lowest contact wire the pantograph works with; the track's minimum contact wire height must not be below it." ;
+        atlas:compareTo "contactLineSystem.minimumContactWireHeight" ;
+        atlas:constraint sh:minInclusive ;
+        sh:datatype xsd:double ;
+        atlas:unit "M" ;
+        sh:order 60 ;
+    ] ;
+    sh:property [
+        sh:path era:etcsEquipmentOnBoardLevel ;
+        atlas:characteristic "etcsLevel" ;
+        rdfs:label "ETCS level on board" ;
+        rdfs:comment "Every ETCS level the on-board equipment supports; the track must have one of them." ;
+        atlas:compareTo "etcs.etcsLevelType" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 70 ;
+    ] ;
+    sh:property [
+        sh:path era:protectionLegacySystem ;
+        atlas:characteristic "protectionLegacySystem" ;
+        rdfs:label "Class B train protection" ;
+        rdfs:comment "Legacy (class B) train protection systems fitted; the track must have one of them." ;
+        atlas:compareTo "protectionLegacySystem" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 80 ;
+    ] ;
+    sh:property [
+        sh:path era:trainDetectionSystemType ;
+        atlas:characteristic "trainDetectionSystemType" ;
+        rdfs:label "Train detection systems" ;
+        rdfs:comment "Train detection systems the vehicle is compatible with; every system on the track must be one of them." ;
+        atlas:compareTo "trainDetectionSystem.trainDetectionSystemType" ;
+        atlas:constraint sh:in ;
+        sh:order 90 ;
+    ] ;
+    sh:property [
+        sh:path era:compatibleWithLineCategory ;
+        atlas:characteristic "lineCategory" ;
+        rdfs:label "Load capability line categories" ;
+        rdfs:comment "EN 15528 line categories the vehicle may run on (a C2 vehicle: C2, C3, C4, D2 …); the track must have one of them." ;
+        atlas:compareTo "trackLoadCapability.loadCapabilityLineCategory" ;
+        atlas:constraint sh:hasValue ;
+        sh:order 100 ;
+    ] ;
+    sh:property [
+        sh:path era:lengthOfVehicle ;
+        atlas:characteristic "trainLength" ;
+        rdfs:label "Train length" ;
+        rdfs:comment "Length of the vehicle or fixed formation; the track's maximum permitted train length must not be below it." ;
+        atlas:compareTo "maxPermittedTrainLength" ;
+        atlas:constraint sh:minInclusive ;
+        sh:datatype xsd:double ;
+        atlas:unit "M" ;
+        sh:order 110 ;
+    ] ;
+    sh:property [
+        sh:path era:minWheelDiameter ;
+        atlas:characteristic "minWheelDiameter" ;
+        rdfs:label "Minimum wheel diameter" ;
+        rdfs:comment "Smallest wheel diameter in service; the track's minimum permitted wheel diameter (fixed obtuse crossings) must not be above it." ;
+        atlas:compareTo "minimumWheelDiameter" ;
+        atlas:constraint sh:maxInclusive ;
+        sh:datatype xsd:integer ;
+        atlas:unit "MilliM" ;
+        sh:order 120 ;
+    ] .

@@ -55,20 +55,49 @@ class ClassShape:
     facets: list[Facet] = field(default_factory=list)
 
 
-# Bumped when extraction changes in a way that needs every graph re-extracted
-# (it is part of the digest, so an upgrade reindexes from the mirror by itself).
-# 2: geometryFrom links are kept for every feature (map colouring rolls part
-#    values up to their section of line), not only for features without geometry.
-EXTRACT_VERSION = 2
+# Bumped when extraction changes what it writes for the same shapes. It is part
+# of the digest, so an upgrade re-extracts every graph from the mirror once by
+# itself (no download).
+#   2: geometryFrom ("part of") links are kept for every feature, not only for
+#      features without a geometry of their own (feature_link rule 'from'; used
+#      by map colouring, vehicle compatibility and the line profile).
+INDEX_VERSION = 2
+
+# SHACL constraint components a compatibility rule can use (see shapes/compatibility.ttl).
+COMPAT_TERMS = {"hasValue", "in"}
+COMPAT_NUMERIC = {"minInclusive", "maxInclusive", "minExclusive", "maxExclusive"}
+
+
+@dataclass
+class CompatRule:
+    key: str                 # characteristic key in vehicle profiles
+    label: str
+    path: list[str]          # predicate IRIs from era:VehicleType (a sequence path)
+    constraint: str          # local name of the SHACL constraint component
+    facets: list[str]        # infrastructure facet keys compared with (values pooled)
+    applies_to: str = "track"  # track | section
+    kind: str = "terms"      # terms | number | boolean (what the vehicle value is)
+    datatype: str | None = None
+    unit: str | None = None
+    comment: str | None = None
+    order: int = 100
+
+
+@dataclass
+class CompatSet:
+    track_classes: list[str]
+    section_class: str
+    rules: list[CompatRule]
 
 
 @dataclass
 class ShapeSet:
     classes: list[ClassShape]
     shared: list[Facet]
+    compat: CompatSet | None = None  # not part of the digest: rules need no reindex
 
     def digest(self) -> str:
-        blob = json.dumps([EXTRACT_VERSION] + [asdict(c) for c in self.classes] + [asdict(f) for f in self.shared],
+        blob = json.dumps([INDEX_VERSION] + [asdict(c) for c in self.classes] + [asdict(f) for f in self.shared],
                           sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
@@ -227,7 +256,83 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             classes.append(cs)
     classes.sort(key=lambda c: (c.order, c.key))
     shared.sort(key=lambda f: (f.order, f.key))
-    return ShapeSet(classes=classes, shared=shared)
+    out = ShapeSet(classes=classes, shared=shared)
+    out.compat = _load_compat(st, r, out)
+    return out
+
+
+def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None:
+    """The vehicle compatibility rules: the node shape with atlas:compatibility true."""
+    found = None
+    for q in st.quads_for_pattern(None, ox.NamedNode(ATLAS + "compatibility"), None):
+        if not (isinstance(q.object, ox.Literal) and q.object.value == "true"):
+            continue
+        if found is not None:
+            raise ShapeError("more than one shape has atlas:compatibility true")
+        found = q.subject
+    if found is None:
+        return None
+    node = found
+    by_key = {c.key: c for c in shapes.classes}
+    track_classes = sorted(o.value for o in r.objs(node, ATLAS + "trackClass") if isinstance(o, ox.Literal))
+    section_class = r.lit(node, ATLAS + "sectionClass", "section-of-line")
+    for c in track_classes + [section_class]:
+        if c not in by_key:
+            raise ShapeError(f"compatibility: class {c!r} has no facet shape")
+    if not track_classes:
+        raise ShapeError("compatibility: atlas:trackClass is required")
+
+    def facet_keys(classes: list[str]) -> dict[str, Facet]:
+        out: dict[str, Facet] = {}
+        for c in classes:
+            for f in shapes.all_facets(by_key[c]):
+                out.setdefault(f.key, f)
+        return out
+
+    rules: list[CompatRule] = []
+    for prop in r.objs(node, SH + "property"):
+        key = r.lit(prop, ATLAS + "characteristic")
+        if not key:
+            continue
+        if r.lit(prop, ATLAS + "enabled", "true") == "false":
+            continue
+        if any(x.key == key for x in rules):
+            raise ShapeError(f"compatibility: duplicate characteristic {key!r}")
+        pnode = r.one(prop, SH + "path")
+        if isinstance(pnode, ox.NamedNode):
+            path = [pnode.value]
+        elif pnode is not None and r.one(pnode, RDF + "first") is not None:
+            path = [_iri(n) for n in r.rdf_list(pnode)]
+            if not all(path):
+                raise ShapeError(f"compatibility.{key}: sh:path must be an IRI or a list of IRIs")
+        else:
+            raise ShapeError(f"compatibility.{key}: sh:path must be an IRI or a list of IRIs")
+        cnode = _iri(r.one(prop, ATLAS + "constraint"))
+        constraint = cnode[len(SH):] if cnode and cnode.startswith(SH) else None
+        if constraint not in COMPAT_TERMS | COMPAT_NUMERIC:
+            raise ShapeError(f"compatibility.{key}: atlas:constraint must be one of "
+                             f"{', '.join('sh:' + c for c in sorted(COMPAT_TERMS | COMPAT_NUMERIC))}")
+        applies = r.lit(prop, ATLAS + "appliesTo", "track")
+        if applies not in ("track", "section"):
+            raise ShapeError(f"compatibility.{key}: atlas:appliesTo must be \"track\" or \"section\"")
+        facets = sorted(o.value for o in r.objs(prop, ATLAS + "compareTo") if isinstance(o, ox.Literal))
+        if not facets:
+            raise ShapeError(f"compatibility.{key}: atlas:compareTo is required")
+        known = facet_keys(track_classes if applies == "track" else [section_class])
+        for fk in facets:
+            if fk not in known:
+                raise ShapeError(f"compatibility.{key}: facet {fk!r} is not defined for {applies} classes")
+            if (known[fk].kind == "range") != (constraint in COMPAT_NUMERIC):
+                raise ShapeError(f"compatibility.{key}: sh:{constraint} does not fit the {known[fk].kind} facet {fk!r}")
+        dt = _iri(r.one(prop, SH + "datatype"))
+        kind = ("number" if constraint in COMPAT_NUMERIC
+                else "boolean" if dt == XSD + "boolean" or known[facets[0]].kind == "boolean" else "terms")
+        rules.append(CompatRule(
+            key=key, label=r.label(prop, RDFS + "label", SH + "name") or key, path=path, constraint=constraint,
+            facets=facets, applies_to=applies, kind=kind, datatype=dt, unit=r.lit(prop, ATLAS + "unit"),
+            comment=r.label(prop, RDFS + "comment", SH + "description"), order=int(r.lit(prop, SH + "order", "100"))))
+    rules.sort(key=lambda x: (x.order, x.key))
+    return CompatSet(track_classes=track_classes, section_class=section_class, rules=rules)
 
 
 def _int(v: str | None, what: str) -> int | None:

@@ -359,6 +359,96 @@ function themeLegend(st, key) {
   return { ...out, values, more: false, other: others.reduce((a, x) => a + x[1], 0), mixed: counts.get(MIXED) || 0, nodata, total: hits.length };
 }
 
+// ---------- vehicle compatibility ----------
+// The real rules live in shapes/compatibility.ttl; the mock gives each section of line one
+// or two synthetic running tracks (derived from its id, so the main RNG is untouched).
+const CC = `${ERA}concepts/`;
+const ct = (scheme, code, label) => term(`${CC}${scheme}/${code}`, label);
+const CV = {
+  g1435: ct('nominal-track-gauges', '30', '1435'),
+  ac25: ct('energy-supply-systems', 'AC10', 'AC 25kV-50Hz'), dc3: ct('energy-supply-systems', 'DC30', 'DC 3kV'),
+  dc15: ct('energy-supply-systems', 'DC40', 'DC 1.5kV'),
+  ep: ct('compliant-pantograph-heads', '20', '1600 mm (EP)'), be: ct('other-pantograph-heads', '40', '1760 mm (BE)'),
+  l1: ct('etcs-levels', '20', '1'), l2: ct('etcs-levels', '30', '2'),
+  ga: ct('gaugings', '10', 'GA'), gb: ct('gaugings', '20', 'GB'), gc: ct('gaugings', '30', 'GC'), g1: ct('gaugings', '40', 'G1'), g2: ct('gaugings', '60', 'G2'),
+  tc: ct('train-detection', '10', 'track circuit'), wd: ct('train-detection', '20', 'wheel detector'),
+  d4: ct('load-capability-line-categories', '90', 'D4'), c4: ct('load-capability-line-categories', '60', 'C4'),
+};
+const COMPAT_RULES = [
+  ['wheelSetGauge', 'Nominal track gauge', [`${ERA}wheelSetGauge`], 'hasValue', 'terms', null, ['wheelSetGauge']],
+  ['gaugingProfile', 'Gauging profile', [`${ERA}gaugingProfile`], 'hasValue', 'terms', null, ['gaugingProfile']],
+  ['energySupplySystem', 'Energy supply system', [`${ERA}energySupplySystem`], 'hasValue', 'terms', null, ['contactLineSystem.energySupplySystem']],
+  ['pantographHead', 'Pantograph head', [`${ERA}configDependentParameter`, `${ERA}vehiclePantographHead`], 'hasValue', 'terms', null, ['otherPantographHead', 'tsiPantographHead']],
+  ['etcsLevel', 'ETCS level on board', [`${ERA}etcsEquipmentOnBoardLevel`], 'hasValue', 'terms', null, ['etcs.etcsLevelType']],
+  ['trainDetectionSystemType', 'Train detection systems', [`${ERA}trainDetectionSystemType`], 'in', 'terms', null, ['trainDetectionSystem.trainDetectionSystemType']],
+  ['lineCategory', 'Load capability line categories', [`${ERA}compatibleWithLineCategory`], 'hasValue', 'terms', null, ['trackLoadCapability.loadCapabilityLineCategory']],
+  ['trainLength', 'Train length', [`${ERA}lengthOfVehicle`], 'minInclusive', 'number', 'M', ['maxPermittedTrainLength']],
+].map(([key, label, path, constraint, kind, unit, facets]) => ({
+  key, label, comment: null, path, constraint, kind, datatype: kind === 'number' ? 'http://www.w3.org/2001/XMLSchema#double' : null,
+  unit, facets, applies_to: 'track',
+}));
+const hash = (str) => { let x = 2166136261; for (const ch of str) x = Math.imul(x ^ ch.charCodeAt(0), 16777619) >>> 0; return x; };
+const tracksBySol = new Map();
+for (const sol of sols) {
+  let st = hash(sol.id);
+  const r = () => ((st = (Math.imul(st, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const tracks = [];
+  for (let i = 0, n = r() < 0.6 ? 2 : 1; i < n; i++) {
+    const el = sol.facets.electrified[0].value;
+    const bel = sol.country === 'BEL';
+    const f = { wheelSetGauge: [CV.g1435] };
+    if (r() < 0.85) f.gaugingProfile = r() < 0.5 ? [CV.ga, CV.gb, CV.g1, CV.g2] : [CV.ga, CV.g1];
+    if (el) {
+      f['contactLineSystem.energySupplySystem'] = [r() < 0.8 ? (bel ? CV.dc3 : CV.dc15) : CV.ac25];
+      f.tsiPantographHead = [CV.ep];
+      if (bel) f.otherPantographHead = [CV.be];
+    }
+    const e = r();
+    if (e < 0.35) f['etcs.etcsLevelType'] = [CV.l1]; else if (e < 0.6) f['etcs.etcsLevelType'] = [CV.l2];
+    if (r() < 0.7) f['trainDetectionSystem.trainDetectionSystemType'] = r() < 0.5 ? [CV.tc] : [CV.tc, CV.wd];
+    if (r() < 0.6) f['trackLoadCapability.loadCapabilityLineCategory'] = [r() < 0.7 ? CV.d4 : CV.c4];
+    if (r() < 0.6) { const v = [400, 600, 740, 750][Math.floor(r() * 4)]; f.maxPermittedTrainLength = [{ value: v, label: String(v) }]; }
+    tracks.push({ id: `${sol.id}_T${i + 1}`, iri: `${sol.iri.replace('/sectionsOfLine/', '/tracks/')}/${i + 1}`, label: `Track ${i + 1}`, class: 'running-track', facets: f });
+  }
+  tracksBySol.set(sol.id, tracks);
+}
+const compatRules = () => COMPAT_RULES.map((rule) => {
+  const counts = new Map();
+  for (const ts of tracksBySol.values()) for (const t of ts) for (const fk of rule.facets) for (const v of t.facets[fk] || []) {
+    const c = counts.get(String(v.value)) || { value: v.value, label: v.label, count: 0 };
+    c.count++; counts.set(String(v.value), c);
+  }
+  const vals = [...counts.values()].sort((a, b) => b.count - a.count);
+  if (rule.kind !== 'number') return { ...rule, values: vals };
+  const nums = vals.map((v) => v.value);
+  return { ...rule, range: { min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null, count: vals.reduce((n, v) => n + v.count, 0) } };
+});
+const compatChecks = (profile) => {
+  const empty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
+  return COMPAT_RULES.filter((r) => !empty(profile[r.key]));
+};
+// 0 = compatible, 1 = unknown, 2 = not compatible (as the real API)
+const checkTrack = (rule, track, v) => {
+  const vals = rule.facets.flatMap((fk) => (track.facets[fk] || []).map((x) => x.value));
+  if (!vals.length) return 1;
+  if (rule.kind === 'number') {
+    const n = Number(Array.isArray(v) ? v[0] : v);
+    const bad = { minInclusive: (x) => x < n, maxInclusive: (x) => x > n, minExclusive: (x) => x <= n, maxExclusive: (x) => x >= n }[rule.constraint];
+    return vals.some(bad) ? 2 : 0;
+  }
+  const want = (Array.isArray(v) ? v : [v]).map(String);
+  if (rule.constraint === 'in') return vals.every((x) => want.includes(String(x))) ? 0 : 2;
+  return vals.some((x) => want.includes(String(x))) ? 0 : 2;
+};
+const COLOURS = ['green', 'yellow', 'red'];
+function compatOf(sol, checks, profile) {
+  const tracks = (tracksBySol.get(sol.id) || []).map((t) => {
+    const codes = checks.map((rule) => checkTrack(rule, t, profile[rule.key]));
+    return { t, codes, worst: Math.max(0, ...codes) };
+  });
+  return { tracks, status: tracks.length ? Math.min(...tracks.map((x) => x.worst)) : 1 };
+}
+
 // ---------- describe ----------
 const uri = (value) => ({ type: 'uri', value });
 const lit = (value, datatype, lang) => ({ type: 'literal', value: String(value), ...(datatype ? { datatype } : {}), ...(lang ? { lang } : {}) });
@@ -619,6 +709,36 @@ const server = http.createServer(async (req, res) => {
       await sleep(250); // it's "live" after all
       const triples = dir === 'in' ? describeIn(iri) : describeOut(iri);
       return send(res, 200, { iri, triples, labels: labelsFor(triples) });
+    }
+    if (p === '/api/compatibility/rules') {
+      if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
+      return send(res, 200, { track_classes: ['running-track'], section_class: 'section-of-line', rules: compatRules() });
+    }
+    if (req.method === 'POST' && (p === '/api/compatibility' || p === '/api/compatibility/explain')) {
+      const body = await readJson(req);
+      if (!checkEnv(body.env)) return send(res, 400, { detail: 'unknown env' });
+      const profile = body.profile || {};
+      const checks = compatChecks(profile);
+      if (!checks.length) return send(res, 400, { detail: 'the profile has no characteristic filled in that a rule checks' });
+      const ignored = Object.keys(profile).filter((k) => !COMPAT_RULES.some((r) => r.key === k));
+      await sleep(80);
+      if (p === '/api/compatibility') {
+        const out = { env: body.env, checked: checks.map((c) => c.key), ignored, counts: {}, green: [], yellow: [], red: [] };
+        for (const sol of sols) out[COLOURS[compatOf(sol, checks, profile).status]].push(sol.id);
+        for (const c of COLOURS) out.counts[c] = out[c].length;
+        return send(res, 200, out);
+      }
+      const sol = sols.find((x) => x.iri === body.iri || x.id === body.id);
+      if (!sol) return send(res, 404, { detail: 'not an indexed section-of-line' });
+      const r = compatOf(sol, checks, profile);
+      return send(res, 200, {
+        iri: sol.iri, id: sol.id, status: COLOURS[r.status], checked: checks.map((c) => c.key), ignored, section: [],
+        tracks: r.tracks.map(({ t, codes, worst }) => ({
+          id: t.id, iri: t.iri, label: t.label, class: t.class, status: COLOURS[worst],
+          results: checks.map((rule, i) => ({ key: rule.key, result: ['ok', 'unknown', 'fail'][codes[i]],
+            values: rule.facets.flatMap((fk) => (t.facets[fk] || []).map(({ value, label }) => ({ value, label }))) })),
+        })),
+      });
     }
     if (p === '/api/datasets') {
       const providers = ['Infrabel', 'ProRail', 'CFL', 'DB InfraGO'];

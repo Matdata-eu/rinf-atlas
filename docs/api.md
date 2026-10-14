@@ -48,6 +48,9 @@ values are numbers.
 | | | | Query states also accept `graphs: [graph IRI]` to keep only features from those datasets. A filter or `facets` key written `class/key` (e.g. `operational-point/opType`) applies to that class only; a plain key applies to every class that has the facet. The UI uses plain keys for the shared facets (country, IM) and `class/key` for the facets behind each class's filter icon. |
 | GET  | `/api/datasets?env=` | | `[{graph_iri,title,provider,country,modified,status,triples,ingested_at,error,dataset_id,file_name,features}]`: every provider graph the worker knows; `status` is pending, loading, loaded, failed or removed. Shown in the UI's Datasets dialog |
 | GET  | `/api/export?state=&format=csv\|xlsx\|ttl&values=label\|iri` | `state` = base64url(JSON query state, as for tiles; bbox is honoured) | Every matching feature as a download. Columns: IRI, label, class, dataset, provider, longitude/latitude (a point on the feature), WKT geometry, then one column per facet of the exported classes (shared facets first). Multiple values are joined with `; `. `values=label` (default) writes labels for IRI values, `iri` keeps the IRIs. **CSV**: one UTF-8 table (with BOM, for Excel), streamed. **XLSX**: one sheet per class plus an `Export` sheet describing the query; cells over Excel's 32 767 character limit (long WKT lines) are left empty. **TTL**: the outgoing triples (`?s ?p ?o`, like `/api/describe?direction=out`) of every distinct matching IRI as Turtle, fetched **live from ERA's SPARQL endpoint** in batches of 100 and streamed; capped at `ATLAS_TTL_EXPORT_MAX` entities (default 20000, `413` above it, also reported as `limits.ttl_export` in `/api/meta`). A batch that fails ends the file with a `# ERROR:` comment |
+| GET  | `/api/compatibility/rules?env=` | | Vehicle compatibility rules (from `shapes/compatibility.ttl`): `{track_classes, section_class, rules:[{key,label,comment,path:[IRI],constraint,kind,datatype,unit,facets:[key],applies_to, values:[{value,label,count}] \| range:{min,max,count}}]}`. `kind` is `terms`, `boolean` or `number`; `values` / `range` describe the indexed infrastructure data for the compared facets (for value pickers). 404 when no rules are configured |
+| POST | `/api/compatibility` | `{env, profile:{key: [values] \| number}}` | Status of every section of line for a vehicle profile: `{env, checked:[key], ignored:[key], counts:{green,yellow,red}, green:[id], yellow:[id], red:[id]}`. Ids are feature ids (the MVT feature id of the tiles). 400 when no filled-in characteristic has a rule or a value has the wrong type |
+| POST | `/api/compatibility/explain` | `{env, profile, iri}` (or `id`) of a section of line | Why it has its status: `{iri, id, status, checked, ignored, section:[check], tracks:[{id,iri,label,class,status,results:[check]}]}` with `check = {key, result: "ok"\|"unknown"\|"fail", values:[{value,label}]}` (the infrastructure values compared) |
 | GET  | `/api/health` | | `{ok:true}` |
 
 ## Notes
@@ -65,6 +68,20 @@ values are numbers.
   `min_zoom` (from the shapes, see `/api/meta`). Lines are simplified below
   zoom 10. Tiles are sent with `Cache-Control: public, max-age=300`.
 - Describe responses are cached in the API for 10 minutes.
+- Vehicle compatibility: a profile maps characteristic keys (`/api/compatibility/rules`)
+  to IRIs or booleans (terms, boolean) or one number; missing, `null` or empty
+  values are not checked, unknown keys are reported in `ignored`. Each rule
+  plugs the vehicle value(s) into a SHACL constraint applied to the indexed
+  values of its facets: `hasValue` (the infrastructure has one of the
+  vehicle's values), `in` (every infrastructure value is one of the
+  vehicle's), `minInclusive` / `maxInclusive` / `minExclusive` /
+  `maxExclusive` (every infrastructure value compared with the vehicle's
+  number). Per track: `fail` if a check fails, else `unknown` if a facet has
+  no value, else `ok`. A section of line is `green` when at least one of its
+  tracks (found through `era:isPartOf` / `era:hasPart`) is ok, `yellow` when
+  none fails but at least one is unknown (also when no track is indexed),
+  `red` otherwise; checks on the section itself (`applies_to: "section"`)
+  can only make it worse. Results are cached until the data changes.
 
 ## GIS access (OGC API – Features, vector tiles)
 
@@ -153,4 +170,3 @@ query state, so filtering never repaints a value:
 
 The counts follow the query state (classes, filters, datasets, search text,
 bbox) like `/api/facets`.
-

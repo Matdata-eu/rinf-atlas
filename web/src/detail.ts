@@ -1,5 +1,6 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
 import { api, ApiError, isAbort, type DescribeResponse, type Feature, type RdfTerm, type Triple } from './api';
+import { compatBlock } from './compat';
 import type { GraphHandle } from './graph';
 import { fitGeometry, flyTo, setSelectionGeometry } from './map';
 import { literalText, prefixed, shortIri } from './rdf';
@@ -144,6 +145,7 @@ function renderProperties(body: HTMLElement) {
           : h('div', {}, text);
       }))));
   body.append(
+    compatBlock(f) ?? '',
     h('table', { class: 'kv' }, h('tbody', {},
       ...rows,
       h('tr', {}, h('th', {}, 'Graph'), h('td', {}, h('code', { class: 'small' }, f.graph_iri))))),

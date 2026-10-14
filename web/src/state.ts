@@ -2,6 +2,7 @@
 import type { FilterValue, Meta, QueryState, Theme } from './api';
 
 export type DetailTab = 'properties' | 'describe' | 'graph';
+export type SideTab = 'filters' | 'results' | 'vehicle';
 
 export interface MapView { lng: number; lat: number; zoom: number }
 
@@ -18,11 +19,11 @@ export interface AppState {
   selected: string | null; // feature IRI
   detailTab: DetailTab;
   orm: boolean;
-  sideTab: 'filters' | 'results';
   /** Facet key (as in filters: "class/key" or a shared key) the map is coloured by; null = class colours. */
   colorBy: string | null;
   /** Legend entries switched off: values, "bin:<i>" for range classes, or NODATA / MIXED / OTHER / FADED. */
   colorHidden: string[];
+  sideTab: SideTab;
   meta: Meta | null; // per-env metadata (not in the URL)
   theme: Theme | null; // legend of the current colouring (not in the URL)
 }

@@ -211,9 +211,11 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                 for s, term in ex.pairs(cls, path):
                     if s not in geoms and isinstance(term, ox.NamedNode):
                         links.append((env, graph, s, cls.key, rule, term.value))
-        # Kept even when the feature has its own geometry: derive_geometry only uses
-        # them for features without one, and map colouring rolls part values (tracks)
-        # up to the section of line they belong to.
+        # Kept even when the feature has a geometry of its own: derive_geometry only
+        # uses them for features without one, but they are also the index's record of
+        # what a feature is part of (era:isPartOf / ^era:hasPart). Map colouring rolls
+        # track values up to their section of line, the vehicle compatibility check and
+        # the line profile find a section's tracks through them.
         for path in cls.geometry_from:
             for s, term in ex.pairs(cls, path):
                 if isinstance(term, ox.NamedNode):

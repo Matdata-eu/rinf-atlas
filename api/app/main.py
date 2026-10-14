@@ -24,6 +24,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from starlette.background import BackgroundTask
 
+from . import compat as cx
 from . import export as xp
 from . import turtle as ttl
 from .query import QueryState, SearchRequest, ThemeRequest, Where, split_key
@@ -83,7 +84,9 @@ def _defs() -> dict:
     owners: dict[str, set[str]] = defaultdict(set)
     for f in facets:
         owners[f["key"]].add(f["class"])
+    crow = _q("SELECT def FROM compat_def WHERE id = 1")
     _defs_cache.update(t=time.time(), classes=classes, facets=facets, owners=owners,
+                       compat=crow[0]["def"] if crow else None,
                        kinds={f["key"]: f["kind"] for f in facets},
                        min_zoom={c["class"]: c["min_zoom"] for c in classes})
     return _defs_cache
@@ -539,6 +542,138 @@ def feature(env: str, iri: str | None = None, id: int | None = None):
             "dataset": r["dataset"], "geometry_source": r["geom_source"],
             "facets": facets_out, "facet_labels": {k: facet_labels.get(k, k) for k in r["facets"]},
             "geometry": r["geometry"]}
+
+
+# --- vehicle compatibility (rules: shapes/compatibility.ttl) -------------------
+
+def _compat_def() -> dict:
+    cdef = _defs().get("compat")
+    if not cdef or not cdef.get("rules"):
+        raise HTTPException(404, "no vehicle compatibility rules are configured (shapes/compatibility.ttl)")
+    return cdef
+
+
+def _compile(cdef: dict, profile: dict) -> tuple[list[cx.Check], list[str]]:
+    try:
+        checks, ignored = cx.compile_profile(cdef["rules"], profile)
+    except cx.ProfileError as e:
+        raise HTTPException(400, f"bad profile: {e}")
+    if not checks:
+        raise HTTPException(400, "the profile has no characteristic filled in that a rule checks")
+    return checks, ignored
+
+
+@app.get("/api/compatibility/rules")
+def compatibility_rules(env: str):
+    """The characteristics a vehicle profile can fill, with the values the indexed
+    infrastructure has for the facets each one is compared with (for pickers)."""
+    _env(env)
+    cdef = _compat_def()
+    out = []
+    iris: set[str] = set()
+    for r in cdef["rules"]:
+        classes = cdef["track_classes"] if r["applies_to"] == "track" else [cdef["section_class"]]
+        rows = _q("""SELECT value, sum(n)::bigint AS n FROM facet_cache
+                     WHERE env=%s AND key = ANY(%s) AND class = ANY(%s) GROUP BY 1""", [env, r["facets"], classes])
+        item = {k: r[k] for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
+                                  "facets", "applies_to")}
+        if r["kind"] == "number":
+            nums = [float(x["value"]) for x in rows if isinstance(x["value"], (int, float)) and not isinstance(x["value"], bool)]
+            item["range"] = {"min": min(nums) if nums else None, "max": max(nums) if nums else None,
+                             "count": sum(x["n"] for x in rows)}
+        else:
+            vals = sorted(rows, key=lambda x: (-x["n"], str(x["value"])))[:TERMS_LIMIT]
+            item["values"] = vals
+            iris |= {x["value"] for x in vals if isinstance(x["value"], str)}
+        out.append(item)
+    labels = _labels(env, iris)
+    for item in out:
+        for v in item.get("values", []):
+            x = v["value"]
+            v["label"] = labels.get(x, _local(x)) if isinstance(x, str) else ("Yes" if x is True else "No")
+            v["count"] = v.pop("n")
+    return {"track_classes": cdef["track_classes"], "section_class": cdef["section_class"], "rules": out}
+
+
+_compat_cache: dict[str, tuple[str, dict]] = {}
+
+
+@app.post("/api/compatibility")
+def compatibility(req: cx.CompatRequest):
+    """Status of every section of line for a vehicle profile: ids per colour."""
+    _env(req.env)
+    cdef = _compat_def()
+    checks, ignored = _compile(cdef, req.profile)
+    version = _data_version(req.env)
+    ckey = json.dumps([req.env, req.profile, cdef], sort_keys=True)
+    hit = _compat_cache.get(ckey)
+    if hit and hit[0] == version:
+        return hit[1]
+    sql, params = cx.status_sql(cdef, checks, req.env)
+    ids: dict[str, list[int]] = {"green": [], "yellow": [], "red": []}
+    for r in _q(f"SELECT id, status FROM ({sql}) x ORDER BY id", params):
+        ids[cx.STATUS[r["status"]]].append(r["id"])
+    out = {"env": req.env, "checked": [c.key for c in checks], "ignored": ignored,
+           "counts": {k: len(v) for k, v in ids.items()}, **ids}
+    if len(_compat_cache) > 200:
+        _compat_cache.clear()
+    _compat_cache[ckey] = (version, out)
+    return out
+
+
+@app.post("/api/compatibility/explain")
+def compatibility_explain(req: cx.ExplainRequest):
+    """Why one section of line has its status: each characteristic per track (and section)."""
+    _env(req.env)
+    cdef = _compat_def()
+    checks, ignored = _compile(cdef, req.profile)
+    iri = req.iri
+    if not iri and req.id is not None:
+        hit = _q("SELECT iri FROM feature WHERE env=%s AND id=%s", [req.env, req.id])
+        iri = hit[0]["iri"] if hit else None
+    if not iri:
+        raise HTTPException(400, "iri or id required")
+    sql, params = cx.status_sql(cdef, checks, req.env, iri)
+    st = _q(sql, params)
+    if not st:
+        raise HTTPException(404, f"not an indexed {cdef['section_class']}")
+    track = [c for c in checks if c.applies_to == "track"]
+    section = [c for c in checks if c.applies_to == "section"]
+    rules = {r["key"]: r for r in cdef["rules"]}
+
+    def results(row: dict, cs: list[cx.Check]) -> list[dict]:
+        out = []
+        for i, c in enumerate(cs):
+            vals = [v for fk in rules[c.key]["facets"] for v in row["facets"].get(fk, [])]
+            out.append({"key": c.key, "result": cx.RESULT[row[f"c{i}"]], "values": vals})
+        return out
+
+    tracks = []
+    if track:
+        tsql, tp = cx.track_detail_sql(cdef, track, req.env, iri)
+        for r in _q(tsql, tp):
+            res = results(r, track)
+            worst = max(r[f"c{i}"] for i in range(len(track)))
+            tracks.append({"id": r["id"], "iri": r["iri"], "label": r["label"], "class": r["class"],
+                           "status": cx.STATUS[worst], "results": res})
+    sec = []
+    if section:
+        ssql, sp = cx.section_detail_sql(cdef, section, req.env, iri)
+        rows = _q(ssql, sp)
+        sec = results(rows[0], section) if rows else []
+    vals = {v for t in tracks for x in t["results"] for v in x["values"] if isinstance(v, str)}
+    vals |= {v for x in sec for v in x["values"] if isinstance(v, str)}
+    labels = _labels(req.env, vals)
+
+    def lab(res: list[dict]) -> None:
+        for x in res:
+            x["values"] = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str)
+                            else ("Yes" if v is True else "No" if v is False else str(v))} for v in x["values"]]
+    for t in tracks:
+        lab(t["results"])
+    lab(sec)
+    return {"iri": iri, "id": st[0]["id"], "status": cx.STATUS[st[0]["status"]], "checked": [c.key for c in checks],
+            "ignored": ignored, "section": sec, "tracks": tracks}
 
 
 @app.get("/api/datasets")
