@@ -24,6 +24,10 @@ _VALIDITY = re.compile(r"\s*\(from \d{4}-\d{2}-\d{2} until \d{4}-\d{2}-\d{2}\)\s
 _NUM = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 # Explicit plus signs on coordinates ("POINT (+23.1 54.7)") are valid WKT for
 # some providers but PostGIS rejects them, which silently drops the geometry.
+# Web Mercator copy used by the tile query; set together with geom so a graph never
+# drops off the map while a sync or reindex is still running.
+_GEOM3857 = """CASE WHEN {g} IS NOT NULL AND ST_YMax({g}) < 85 AND ST_YMin({g}) > -85
+    AND ST_XMax({g}) <= 180 AND ST_XMin({g}) >= -180 THEN ST_Transform({g}, 3857) END"""
 _PLUS = re.compile(r"(?<![\deE])\+(?=[\d.])")
 
 
@@ -230,15 +234,16 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
         with cur.copy("COPY stage_feature FROM STDIN") as cp:
             for r in rows:
                 cp.write_row(r)
-        cur.execute("""
-            INSERT INTO feature (env, iri, class, class_iri, graph_iri, label, geom, geom_source, facets, search)
-            SELECT env, iri, class, class_iri, graph_iri, label, g, CASE WHEN g IS NOT NULL THEN 'path' END,
+        cur.execute(f"""
+            INSERT INTO feature (env, iri, class, class_iri, graph_iri, label, geom, geom3857, geom_source, facets, search)
+            SELECT env, iri, class, class_iri, graph_iri, label, g, {_GEOM3857.format(g="g")},
+                   CASE WHEN g IS NOT NULL THEN 'path' END,
                    facets, to_tsvector('simple', unaccent(coalesce(search_text, '')))
             FROM (SELECT *, ST_CollectionHomogenize(atlas_geom(wkt)) AS g FROM stage_feature) s
             ON CONFLICT (env, iri, class) DO UPDATE SET
                 graph_iri = EXCLUDED.graph_iri, label = EXCLUDED.label, geom = EXCLUDED.geom,
                 geom_source = EXCLUDED.geom_source, facets = EXCLUDED.facets, search = EXCLUDED.search,
-                geom3857 = NULL
+                geom3857 = EXCLUDED.geom3857
         """)
         if links:
             with cur.copy("COPY feature_link (env, graph_iri, iri, class, rule, target) FROM STDIN") as cp:
@@ -292,7 +297,7 @@ def derive_geometry(conn: psycopg.Connection, env: str, max_rounds: int = 6) -> 
     total = 0
     with conn.cursor() as cur:
         for _ in range(max_rounds):
-            cur.execute("""
+            cur.execute(f"""
                 WITH a AS (
                     SELECT DISTINCT ON (f.id) f.id, ST_PointOnSurface(t.geom) AS p
                     FROM feature f
@@ -305,12 +310,13 @@ def derive_geometry(conn: psycopg.Connection, env: str, max_rounds: int = 6) -> 
                     JOIN feature_link l ON l.env=f.env AND l.iri=f.iri AND l.class=f.class AND l.rule='lineB'
                     JOIN feature t ON t.env=l.env AND t.iri=l.target AND t.geom IS NOT NULL
                     WHERE f.env=%(env)s AND f.geom IS NULL ORDER BY f.id)
-                UPDATE feature f SET geom = ST_MakeLine(a.p, b.p), geom_source = 'line', geom3857 = NULL
+                UPDATE feature f SET geom = ST_MakeLine(a.p, b.p), geom_source = 'line',
+                       geom3857 = {_GEOM3857.format(g="ST_MakeLine(a.p, b.p)")}
                 FROM a JOIN b USING (id)
                 WHERE f.id = a.id AND NOT ST_Equals(a.p, b.p)
             """, {"env": env})
             n1 = cur.rowcount
-            cur.execute("""
+            cur.execute(f"""
                 WITH src AS (
                     SELECT f.id,
                            CASE WHEN bool_or(ST_Dimension(t.geom) >= 1)
@@ -321,7 +327,8 @@ def derive_geometry(conn: psycopg.Connection, env: str, max_rounds: int = 6) -> 
                     JOIN feature t ON t.env=l.env AND t.iri=l.target AND t.geom IS NOT NULL
                     WHERE f.env=%(env)s AND f.geom IS NULL
                     GROUP BY f.id)
-                UPDATE feature f SET geom = ST_CollectionHomogenize(src.g), geom_source = 'from', geom3857 = NULL
+                UPDATE feature f SET geom = ST_CollectionHomogenize(src.g), geom_source = 'from',
+                       geom3857 = {_GEOM3857.format(g="ST_CollectionHomogenize(src.g)")}
                 FROM src WHERE f.id = src.id AND src.g IS NOT NULL AND NOT ST_IsEmpty(src.g)
             """, {"env": env})
             n2 = cur.rowcount
