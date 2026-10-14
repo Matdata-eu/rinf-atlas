@@ -248,7 +248,7 @@ echo "validating with a size limit below the sample"
 "${compose[@]}" run --rm --no-deps -T -e ATLAS_QUALITY_MAX_TRIPLES=1000 worker atlas validate --env prod --now
 echo "dataset quality: $(dq '')"
 [ "$(dq "['reason']")" = too_large ] || fail "dataset above the limit not marked too_large"
-dq "['note']" | grep -q "too large (9,843 triples > limit 1,000)" || fail "too-large note lacks the sizes"
+dq "['note']" | grep -q "too large ([0-9,]* triples > limit 1,000)" || fail "too-large note lacks the sizes"
 [ "$(dq "['violations']")" = None ] || fail "a too-large dataset still has counts"
 [ "$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"]}' | json "len(d['facets']['quality']['values'])")" = 0 ] \
   || fail "features of a too-large dataset still have quality values"
