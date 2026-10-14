@@ -266,7 +266,7 @@ echo "dataset quality: $(dq '')"
 [ "$(dq "['reason']")" = too_large ] || fail "dataset above the limit not marked too_large"
 dq "['note']" | grep -q "too large ([0-9,]* triples > limit 1,000)" || fail "too-large note lacks the sizes"
 [ "$(dq "['violations']")" = None ] || fail "a too-large dataset still has counts"
-[ "$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"]}' | json "len(d['facets']['quality']['values'])")" = 0 ] \
+[ "$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"],"graphs":["'"$GRAPH"'"]}' | json "len(d['facets']['quality']['values'])")" = 0 ] \
   || fail "features of a too-large dataset still have quality values"
 [ "$(curl -fsS "$BASE/api/meta?env=prod" | json "d['quality']['too_large']")" = 1 ] || fail "meta does not count the too-large dataset"
 "${compose[@]}" run --rm --no-deps -T worker atlas validate --env prod --now
