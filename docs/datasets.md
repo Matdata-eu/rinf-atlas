@@ -1,0 +1,93 @@
+# How datasets are updated
+
+RINF Atlas never answers a search, facet count or map tile from ERA directly.
+A background **worker** keeps a local copy of ERA's RINF data and an index
+built from it, and refreshes both when ERA publishes something new.
+
+## Where the data comes from
+
+Each infrastructure manager (IM) uploads its RINF data to ERA. ERA publishes
+it in a GraphDB repository per environment, with one named graph per IM:
+
+| | PROD | UAT |
+|---|---|---|
+| SPARQL repository | `https://graph.data.era.europa.eu/repositories/rinf-plus` | `https://graph.uat.data.test-era.europa.eu/repositories/rinf-plus` |
+| Dataset explorer API | `https://rinf.data.era.europa.eu/api/v1` | `https://rinf.uat.data.test-era.europa.eu/api/v1` |
+
+- Provider graphs: `http://data.europa.eu/949/graph/{IM code}`, for example
+  `…/graph/0088` for Infrabel. Which graphs count as provider data is set by
+  `provider_graph_pattern` in `config/environments.yaml`.
+- Vocabulary graphs: the ERA ontology, the SKOS concept schemes and the
+  country list (`…/graph/rinf/ontology`, `…/rinf/skos`, `…/rinf/countries`).
+  They provide labels and are used to generate the facet shapes.
+
+## The update cycle
+
+Every `poll_interval_minutes` (default 30, `ATLAS_POLL_MINUTES` in `.env`)
+the worker runs one cycle per enabled environment:
+
+1. **Ask the dataset explorer** what is published:
+   `GET {datasets_api}/dataset/published?latest=true&groupBy=im`, the call
+   the explorer web page makes. It returns the latest dataset per IM: its id,
+   file name, publication date and the IM's name and country. If the explorer
+   is down, the cycle continues with the repository alone.
+2. **List the repository's named graphs** (`GET {repo}/contexts`) and keep
+   the provider graphs (optionally narrowed with `ATLAS_ONLY_GRAPHS`).
+3. **Fingerprint each graph** as *dataset id | publication date | triple
+   count* (the count comes from `GET {repo}/size?context=…`). A graph whose
+   fingerprint matches the last successful load is skipped, so a cycle with
+   no new uploads costs a few small requests.
+4. **Download changed graphs** as one streaming N-Triples export
+   (`GET {repo}/statements?context=…`), to a temporary file.
+5. **Replace the graph in the local mirror**, an embedded Oxigraph store per
+   environment on the `mirror` volume. Blank nodes are rewritten to stable
+   IRIs first, and triples above 1 MB (seen: schematic overviews embedded as
+   huge WKT literals) are dropped if the parser cannot handle them.
+6. **Re-index that graph**: for every class in `shapes/`, SPARQL on the mirror
+   extracts each instance's label, geometry and facet values, which replace
+   that graph's rows in PostGIS.
+7. **Derive missing geometry**: tracks, sidings and platforms usually have no
+   coordinates of their own and take them from the operational point or
+   section of line they belong to; sections of line without a geometry get a
+   line between their start and end points.
+8. **Remove graphs that disappeared** from the repository, from both the
+   mirror and the index.
+9. **Refresh the cached facet counts** used for the unfiltered view.
+
+A graph that fails (network error, unparsable data) is marked *failed* with
+the error and retried on the next cycle; the others carry on.
+
+## Shape changes
+
+Editing a file in `shapes/` changes what is extracted, not what is
+downloaded. The worker notices the new shape set within a minute and
+re-indexes every graph from the local mirror, without contacting ERA. For all
+of PROD this takes about 20 minutes; the app stays usable meanwhile, with
+each graph switching to the new facets as it is re-indexed.
+
+## Manual runs
+
+Inside the worker container (`docker compose exec worker atlas …`):
+
+| Command | Effect |
+|---|---|
+| `atlas sync` | run a cycle now (`--env prod` for one environment) |
+| `atlas sync --force` | download and re-index everything, ignoring fingerprints |
+| `atlas reindex` | re-index from the mirror (what a shape change triggers) |
+
+While the poll loop runs it owns the mirror, so these commands are queued and
+picked up by the loop within a minute.
+
+## Seeing what was processed
+
+The **Datasets** button at the top right of the web app (and
+`GET /api/datasets?env=…`) lists every dataset per environment: IM, country,
+file name, publication date, status (processed, processing, waiting, failed
+with the error, removed), feature and triple counts, when it was processed,
+and when the worker last checked for new datasets.
+
+## Live queries
+
+The only part of the app that queries ERA live is **Describe live** (and the
+graph view built on it): the triples of one entity, in and out, fetched from
+the environment's SPARQL endpoint and cached for 10 minutes.

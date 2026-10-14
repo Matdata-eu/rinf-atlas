@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw instead. A link with the URL hash (filters, map position) helps.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment and dataset
+      description: PROD or UAT, and the infrastructure manager or country if relevant.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Image tag or commit.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output of `docker compose logs worker api`.
+      render: text

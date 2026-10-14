@@ -1,0 +1,264 @@
+"""atlas command line.
+
+  atlas run                      poll loop (the worker container's command)
+  atlas sync [--env E] [--force] one discovery + ingest pass
+  atlas reindex [--env E]        re-extract from the mirror after editing shapes
+  atlas generate-shapes [--force] [--no-data]
+  atlas load-file --env E --graph IRI file.nt   offline testing
+  atlas check-shapes             parse shapes/ and print the compiled facets
+
+While `atlas run` is active it owns the mirror, so sync / reindex from a
+second process are queued as jobs (pass --now to run in-process instead).
+"""
+from __future__ import annotations
+
+import argparse
+import logging
+import signal
+import sys
+import time
+from pathlib import Path
+
+from . import db, mirror
+from .config import settings
+from .generate import generate
+from .shapes import ShapeError, load_shapes
+from .sync import publish_defs, reindex_env, stale_envs, sync_env
+
+log = logging.getLogger("atlas")
+SQL = Path(__file__).resolve().parent.parent / "init.sql"
+_stop = False
+
+
+def _sql_path() -> Path:
+    for p in (Path("/app/db/init.sql"), SQL, Path(__file__).resolve().parents[2] / "db" / "init.sql"):
+        if p.exists():
+            return p
+    raise FileNotFoundError("init.sql not found")
+
+
+def _conn():
+    cfg = settings()
+    conn = db.connect(cfg.database_url)
+    db.migrate(conn, _sql_path())
+    return conn
+
+
+def _envs(arg: str | None):
+    cfg = settings()
+    return [cfg.env(arg)] if arg else list(cfg.envs.values())
+
+
+def _loop_running(conn) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT pg_try_advisory_lock(777001)")
+        got = cur.fetchone()[0]
+        if got:
+            cur.execute("SELECT pg_advisory_unlock(777001)")
+    conn.commit()
+    return not got
+
+
+def _enqueue(conn, kind: str, env: str | None) -> None:
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO job (env, kind) VALUES (%s,%s) RETURNING id", (env, kind))
+        jid = cur.fetchone()[0]
+    conn.commit()
+    print(f"queued {kind} job {jid} for {env or 'all environments'}; the running worker picks it up shortly")
+
+
+def cmd_sync(a) -> None:
+    cfg, conn = settings(), _conn()
+    if not a.now and _loop_running(conn):
+        return _enqueue(conn, "resync" if a.force else "sync", a.env)
+    shapes = load_shapes(cfg.shapes_dir)
+    publish_defs(conn, shapes)
+    for env in _envs(a.env):
+        sync_env(cfg, conn, shapes, env, force=a.force)
+
+
+def cmd_reindex(a) -> None:
+    cfg, conn = settings(), _conn()
+    if not a.now and _loop_running(conn):
+        return _enqueue(conn, "reindex", a.env)
+    shapes = load_shapes(cfg.shapes_dir)
+    publish_defs(conn, shapes)
+    for env in _envs(a.env):
+        reindex_env(cfg, conn, shapes, env)
+
+
+def cmd_generate(a) -> None:
+    conn = _conn()
+    if not a.now and _loop_running(conn):
+        return _enqueue(conn, "generate-force" if a.force else "generate", None)
+    run_generate(conn, force=a.force, no_data=a.no_data, out=a.out)
+
+
+def run_generate(conn, force=False, no_data=False, out=None) -> None:
+    cfg = settings()
+    inputs = []
+    with conn.cursor() as cur:
+        for env in cfg.envs.values():
+            store = mirror.store(cfg.mirror_dir, env.key)
+            onto = next((g for g in env.vocab_graphs if "ontology" in g), None)
+            if not onto or not mirror.has_graph(store, onto):
+                log.warning("%s: ontology not mirrored yet, skipped", env.key)
+                continue
+            graphs = []
+            if not no_data:
+                cur.execute("SELECT graph_iri FROM dataset WHERE env=%s AND kind='provider' AND status='loaded'", (env.key,))
+                graphs = [r[0] for r in cur.fetchall() if mirror.has_graph(store, r[0])]
+            inputs.append((store, onto, graphs))
+    for p in generate(inputs, Path(out) if out else cfg.shapes_dir, force=force):
+        log.info("wrote %s", p)
+
+
+def cmd_load_file(a) -> None:
+    cfg, conn = settings(), _conn()
+    from .extract import derive_geometry, extract_graph, refresh_facet_cache
+    shapes = load_shapes(cfg.shapes_dir)
+    publish_defs(conn, shapes)
+    store = mirror.store(cfg.mirror_dir, a.env)
+    mirror.replace_graph(store, a.graph, Path(a.file))
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, status, ingested_at)
+                       VALUES (%s,%s,%s,%s,'loaded',now()) ON CONFLICT (env, graph_iri)
+                       DO UPDATE SET status='loaded', ingested_at=now()""",
+                    (a.env, a.graph, "vocab" if a.vocab else "provider", Path(a.file).name))
+    conn.commit()
+    if not a.vocab:
+        extract_graph(conn, store, a.env, a.graph, shapes)
+        derive_geometry(conn, a.env)
+        refresh_facet_cache(conn, a.env)
+
+
+def cmd_check_shapes(a) -> None:
+    shapes = load_shapes(settings().shapes_dir)
+    print(f"shapes digest {shapes.digest()}")
+    for f in shapes.shared:
+        print(f"  * {f.key:32} {f.kind:8} {f.path}")
+    for c in shapes.classes:
+        print(f"{c.key} <{c.class_iri}> {len(c.facets)} facets, geometry={c.geometry_paths} "
+              f"line={c.line_between} from={c.geometry_from}")
+        if a.verbose:
+            for f in c.facets:
+                print(f"    {f.key:32} {f.kind:8} {f.path}")
+
+
+def cmd_run(a) -> None:
+    cfg, conn = settings(), _conn()
+    with conn.cursor() as cur:
+        cur.execute("SELECT pg_try_advisory_lock(777001)")
+        if not cur.fetchone()[0]:
+            sys.exit("another worker loop is already running")
+    conn.commit()
+    signal.signal(signal.SIGTERM, lambda *_: _set_stop())
+    signal.signal(signal.SIGINT, lambda *_: _set_stop())
+    next_poll = 0.0
+    while not _stop:
+        try:
+            shapes = load_shapes(cfg.shapes_dir)
+        except ShapeError as e:
+            log.error("shapes are invalid, keeping the current index: %s", e)
+            _sleep(60)
+            continue
+        try:
+            publish_defs(conn, shapes)
+            for env in stale_envs(conn, shapes):
+                if env in cfg.envs:
+                    log.info("%s: shapes changed, reindexing from the mirror", env)
+                    reindex_env(cfg, conn, shapes, cfg.envs[env])
+            jobs = _take_jobs(conn)
+            for jid, env, kind in jobs:
+                if kind.startswith("generate"):
+                    run_generate(conn, force=kind.endswith("force"))
+                    _finish_job(conn, jid, "done")
+                    continue
+                for e in ([cfg.env(env)] if env else cfg.envs.values()):
+                    if kind == "reindex":
+                        reindex_env(cfg, conn, shapes, e)
+                    else:
+                        sync_env(cfg, conn, shapes, e, force=(kind == "resync"))
+                _finish_job(conn, jid, "done")
+            if time.time() >= next_poll:
+                for env in cfg.envs.values():
+                    if _stop:
+                        break
+                    try:
+                        sync_env(cfg, conn, shapes, env)
+                    except Exception:
+                        conn.rollback()
+                        log.exception("%s sync failed; retrying next poll", env.key)
+                next_poll = time.time() + cfg.poll_interval_minutes * 60
+        except Exception:
+            conn.rollback()
+            log.exception("worker iteration failed")
+        _sleep(20)
+    log.info("stopping")
+
+
+def _take_jobs(conn):
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE job SET started_at=now() WHERE finished_at IS NULL AND started_at IS NULL
+                       RETURNING id, env, kind""")
+        rows = cur.fetchall()
+    conn.commit()
+    return sorted(rows)
+
+
+def _finish_job(conn, jid, msg):
+    with conn.cursor() as cur:
+        cur.execute("UPDATE job SET finished_at=now(), message=%s WHERE id=%s", (msg, jid))
+    conn.commit()
+
+
+def _set_stop():
+    global _stop
+    _stop = True
+
+
+def _sleep(sec: float):
+    end = time.time() + sec
+    while not _stop and time.time() < end:
+        time.sleep(1)
+
+
+def main(argv=None) -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    ap = argparse.ArgumentParser(prog="atlas", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("run").set_defaults(fn=cmd_run)
+    s = sub.add_parser("sync")
+    s.add_argument("--env")
+    s.add_argument("--force", action="store_true")
+    s.add_argument("--now", action="store_true")
+    s.set_defaults(fn=cmd_sync)
+    s = sub.add_parser("reindex")
+    s.add_argument("--env")
+    s.add_argument("--now", action="store_true")
+    s.set_defaults(fn=cmd_reindex)
+    s = sub.add_parser("generate-shapes")
+    s.add_argument("--force", action="store_true", help="overwrite existing shape files")
+    s.add_argument("--no-data", action="store_true", help="ontology only, ignore mirrored data")
+    s.add_argument("--out", help="output folder (default: the shapes folder)")
+    s.add_argument("--now", action="store_true")
+    s.set_defaults(fn=cmd_generate)
+    s = sub.add_parser("load-file")
+    s.add_argument("--env", required=True)
+    s.add_argument("--graph", required=True)
+    s.add_argument("--vocab", action="store_true")
+    s.add_argument("file")
+    s.set_defaults(fn=cmd_load_file)
+    s = sub.add_parser("check-shapes")
+    s.add_argument("-v", "--verbose", action="store_true")
+    s.set_defaults(fn=cmd_check_shapes)
+    a = ap.parse_args(argv)
+    try:
+        a.fn(a)
+    finally:
+        mirror.close_all()
+
+
+if __name__ == "__main__":
+    main()

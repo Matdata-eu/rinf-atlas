@@ -1,0 +1,4 @@
+# Keep LF endings for files that run inside Linux containers, also on Windows checkouts.
+* text=auto eol=lf
+*.gz binary
+*.png binary

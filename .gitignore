@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+node_modules/
+web/dist/
+.venv/
+.ruff_cache/
+.pytest_cache/
+tests/fixtures/*.nt

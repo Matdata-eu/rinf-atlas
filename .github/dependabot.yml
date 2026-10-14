@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+  - package-ecosystem: pip
+    directory: /worker
+    schedule: { interval: monthly }
+  - package-ecosystem: pip
+    directory: /api
+    schedule: { interval: monthly }
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: monthly }
+    groups:
+      web:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directories: [/worker, /api, /web]
+    schedule: { interval: monthly }

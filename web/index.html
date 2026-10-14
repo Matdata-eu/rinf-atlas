@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Faceted map search over the EU Register of Infrastructure (ERA RINF)" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f4fa8'/%3E%3Cpath d='M8 26 14 6M24 26 18 6M10 20h12M11.5 14h9' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <title>RINF Atlas</title>
+    <script>
+      // Apply a forced light/dark theme before first paint (see src/theme.ts).
+      try { var t = localStorage.getItem('atlas-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="logo" aria-hidden="true"></span><span>RINF Atlas</span></div>
+      <label class="env">
+        <span class="sr-only">Environment</span>
+        <select id="env-select" aria-label="Environment"></select>
+      </label>
+      <div class="search">
+        <input id="q" type="search" placeholder="Search labels, codes…" autocomplete="off" aria-label="Full-text search" />
+      </div>
+      <div id="status" class="status" title="Dataset status"></div>
+      <button id="theme-btn" class="icon-btn theme-btn" type="button"></button>
+      <button id="about-btn" class="icon-btn theme-btn" type="button" title="About, credits and feedback" aria-label="About, credits and feedback"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r="1" fill="currentColor"/></svg></button>
+    </header>
+
+    <main class="layout">
+      <aside id="side" class="side" aria-label="Filters and results">
+        <div class="side-head">
+          <button id="sheet-toggle" class="sheet-handle" aria-label="Expand panel"><span></span></button>
+          <div class="tabs" role="tablist">
+            <button role="tab" class="tab" data-tab="filters" aria-selected="true">Filters</button>
+            <button role="tab" class="tab" data-tab="results" aria-selected="false">Results <span id="result-count" class="badge"></span></button>
+          </div>
+        </div>
+        <div class="side-body">
+          <section id="pane-filters" class="pane">
+            <div id="chips" class="chips"></div>
+            <label class="toggle"><input id="limit-view" type="checkbox" /> Limit to map view</label>
+            <h2 class="section-title">Classes</h2>
+            <ul id="class-list" class="class-list"></ul>
+            <h2 class="section-title">Filters for every class</h2>
+            <div id="facets"></div>
+          </section>
+          <section id="pane-results" class="pane" hidden>
+            <ol id="results" class="results"></ol>
+            <button id="results-more" class="btn btn-block" hidden>Load more</button>
+          </section>
+        </div>
+      </aside>
+
+      <section class="map-wrap">
+        <div id="map" class="map"></div>
+        <div class="map-tools">
+          <button id="zoom-results" class="btn btn-raised" title="Zoom to the extent of all matching features">Zoom to results</button>
+          <label class="btn btn-raised toggle-inline"><input id="orm-toggle" type="checkbox" /> OpenRailwayMap</label>
+        </div>
+        <div id="map-msg" class="map-msg" hidden></div>
+      </section>
+
+      <aside id="detail" class="detail" aria-label="Feature details" hidden></aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

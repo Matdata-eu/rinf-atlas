@@ -1,0 +1,48 @@
+# Environments RINF Atlas can index. Each one is ingested into the same
+# database, tagged with its key, and the UI lets users switch between them.
+#
+# sparql:        ERA GraphDB repository (SPARQL endpoint + RDF4J REST API).
+#                Used by the worker to download named graphs and by the API
+#                for the live "describe" / graph traversal only.
+# datasets_api:  ERA portal API; GET {datasets_api}/dataset/published?latest=true&groupBy=im
+#                is what the dataset explorer page shows (latest upload per IM).
+# portal:        ERA portal base URL (links in the UI).
+# vocab_graphs:  named graphs loaded into the local mirror next to the
+#                provider data (ontology, SKOS concept schemes, countries),
+#                for labels and shape generation.
+# include_graphs / exclude_graphs: optional Python regexes on graph IRIs.
+#                The environment variable ATLAS_ONLY_GRAPHS (comma separated
+#                IRIs or IM codes) overrides include_graphs, handy for tests.
+#
+# Verified 2026-10-14: PROD ontology v3.3.4, UAT ontology v4.0.0.
+environments:
+  prod:
+    label: PROD
+    default: true
+    sparql: https://graph.data.era.europa.eu/repositories/rinf-plus
+    datasets_api: https://rinf.data.era.europa.eu/api/v1
+    portal: https://rinf.data.era.europa.eu
+    vocab_graphs:
+      - http://data.europa.eu/949/graph/rinf/ontology
+      - http://data.europa.eu/949/graph/rinf/skos
+      - http://data.europa.eu/949/graph/rinf/countries
+  uat:
+    label: UAT
+    sparql: https://graph.uat.data.test-era.europa.eu/repositories/rinf-plus
+    datasets_api: https://rinf.uat.data.test-era.europa.eu/api/v1
+    portal: https://rinf.uat.data.test-era.europa.eu
+    vocab_graphs:
+      - http://data.europa.eu/949/graph/rinf/ontology
+      - http://data.europa.eu/949/graph/rinf/skos
+      - http://data.europa.eu/949/graph/rinf/countries
+
+# Provider data lives in one named graph per infrastructure manager:
+# http://data.europa.eu/949/graph/{organisation code}, e.g. .../graph/0088
+# for Infrabel. Graphs matching this pattern are indexed.
+provider_graph_pattern: "^http://data\\.europa\\.eu/949/graph/[A-Z0-9]{4}$"
+
+# How often the worker checks for new or changed datasets.
+poll_interval_minutes: 30
+
+# Graphs never indexed as provider data, even if they match the pattern.
+exclude_graphs: []
