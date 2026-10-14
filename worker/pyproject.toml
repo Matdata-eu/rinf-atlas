@@ -3,6 +3,7 @@ name = "rinf-atlas-worker"
 version = "0.1.0"
 description = "RINF Atlas ingest worker: mirrors ERA RINF named graphs and indexes them into PostGIS"
 requires-python = ">=3.11"
+license = "MIT"
 dependencies = [
     "pyoxigraph==0.5.11",
     "psycopg[binary]==3.3.6",

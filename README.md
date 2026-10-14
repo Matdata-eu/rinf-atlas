@@ -164,7 +164,28 @@ version tags publish the images.
 
 ## Licence and data
 
-Code: [MIT](LICENSE). The infrastructure data comes from the European Union
-Agency for Railways' Register of Infrastructure (RINF) and remains subject to
-ERA's terms of use; this project is not affiliated with ERA.
+Code: [MIT](LICENSE). The MIT licence covers this repository's code only, not
+the data the app shows or the services it loads at runtime:
 
+- **RINF data** comes from the European Union Agency for Railways' Register of
+  Infrastructure (RINF). ERA publishes it because EU law requires it
+  (Directive (EU) 2016/797, Regulation (EU) 2019/777). The infrastructure
+  managers who submit it remain responsible for it, and ERA's
+  [RINF terms of use](https://www.era.europa.eu/system/files/2022-11/rinf_terms_of_use_en.pdf)
+  apply. No data is stored in this repository except the small test extract in
+  `tests/fixtures/`, which credits its source. This project is not affiliated
+  with ERA.
+- **ERA vocabulary**: the facet shapes in `shapes/` use class and property IRIs
+  and labels from the [ERA ontology](https://data-interop.era.europa.eu/era-vocabulary/)
+  (EUPL 1.2).
+- **Basemap**: raster tiles from the [OpenStreetMap](https://www.openstreetmap.org/copyright)
+  tile server (data © OpenStreetMap contributors, ODbL). The servers are
+  donated, so follow the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/):
+  a busy deployment should point at its own or a commercial tile server.
+- **Rail overlay** (optional): [OpenRailwayMap](https://www.openrailwaymap.org/) tiles
+  (CC-BY-SA 2.0, data ODbL), free only for small, public, non-commercial use
+  ([conditions](https://wiki.openstreetmap.org/wiki/OpenRailwayMap/API)).
+- **Dependencies** are under permissive licences (MIT, BSD, ISC, Apache-2.0)
+  or weak copyleft used unmodified: psycopg (LGPL-3.0) and, at build time only,
+  lightningcss (MPL-2.0). The PostGIS image (GPL-2.0) runs as an unmodified,
+  separate container.

@@ -46,6 +46,11 @@ CLASS_META = {
     "Station":            ("station",             "#b2182b", "point", 15, 0),
 }
 
+# Display labels that differ from the ontology's rdfs:label.
+CLASS_LABELS = {
+    "Siding": "Siding track",
+}
+
 SKIP_PROPS = {
     RDFS + "label", ERA + "notApplicable", ERA + "notYetAvailable", ERA + "validity",
     ERA + "netReference", ERA + "hasPart", ERA + "isPartOf", ERA + "opStart", ERA + "opEnd",
@@ -135,7 +140,8 @@ def read_ontology(store: ox.Store, graph: str) -> tuple[dict[str, ClassInfo], di
             OPTIONAL { ?c rdfs:subClassOf+ ?anc FILTER(isIRI(?anc)) } }""", [graph]):
         if not isinstance(r["c"], ox.NamedNode):
             continue
-        c = classes.setdefault(r["c"].value, ClassInfo(r["c"].value, r["l"].value if r["l"] else _local(r["c"].value)))
+        label = CLASS_LABELS.get(_local(r["c"].value)) or (r["l"].value if r["l"] else _local(r["c"].value))
+        c = classes.setdefault(r["c"].value, ClassInfo(r["c"].value, label))
         if r["anc"] is not None:
             c.ancestors.add(r["anc"].value)
 
