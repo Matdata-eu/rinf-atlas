@@ -11,6 +11,9 @@ All notable changes to this project are documented here: https://github.com/Matd
   links). Layers that need an API key, a bearer token or a login take it from
   `ATLAS_LAYER_*` variables in `.env`; the API proxies their tiles so the key
   never reaches the browser. See docs/layers.md.
+- In-app help: a Help button in the top bar opens a short guide with one
+  foldable section per feature (filters, map colours, results and export,
+  element details, line profile, vehicle check, datasets, sharing).
 - GIS access: an OGC API – Features service at `/api/ogc` (one collection per
   environment and class, split per geometry type when a class mixes points,
   lines and polygons, with GeometryCollections split into their parts, bbox,

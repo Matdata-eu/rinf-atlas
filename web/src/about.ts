@@ -1,5 +1,6 @@
 // "About" dialog: what the app is, where the data comes from, credits and the
 // project repository (bugs, feature requests, questions).
+import { openHelp } from './help';
 import { hasPrivacy, PRIVACY_URL } from './privacy';
 import { h } from './state';
 
@@ -25,6 +26,7 @@ export function openAbout() {
         h('p', {}, 'A map and faceted search over the EU Register of Infrastructure (RINF): every infrastructure element ',
           'published by the infrastructure managers, for PROD and UAT. Search, facets and the map use a local index ',
           'that is refreshed automatically when ERA publishes new datasets; only "Describe live" queries ERA directly.'),
+        h('p', {}, 'New here? Read the ', h('button', { class: 'link', type: 'button', onclick: () => { dlg?.close(); openHelp(); } }, 'short guide'), '.'),
         h('h3', {}, 'Feedback'),
         h('p', {}, 'Found a bug, missing a feature or have a question? Open an issue on ',
           link(`${REPO}/issues/new/choose`, 'GitHub'), '. Source code and documentation: ', link(REPO, REPO.replace(/^https:\/\//, '')), '.'),
