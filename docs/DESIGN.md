@@ -170,7 +170,7 @@ PostGIS is read.
   tile URL carries the result's data `version` so tiles from an older index
   are never mixed with a newer result. Kept apart from
   generic thematic colouring on purpose, so the two can be merged later.
-- Profiles live in `localStorage` (with four illustrative examples) and are
+- Profiles live in `localStorage` (with eight illustrative examples) and are
   exported / imported as JSON or as Turtle with `era:VehicleType` instances.
   When ERATV (the register of authorised vehicle types) is published as linked
   data, profiles could be imported from it instead of typed by hand.
