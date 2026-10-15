@@ -583,11 +583,15 @@ def compatibility_explain(req: cx.ExplainRequest):
         for i, c in enumerate(cs):
             rule = rules[c.key]
             vals = facet_values(row, rule, rule["facets"])
-            item = {"key": c.key, "result": cx.RESULT[row[f"c{i}"]], "values": vals}
+            raw = row[f"c{i}"]
+            item = {"key": c.key, "result": cx.RESULT[cx.effective(c, raw)], "values": vals}
             # why a track without a value got its result (e.g. "No contact line")
             nr = cx.none_rule(rule, rules)
             if not vals and nr and rule.get("missing_reason") and not facet_values(row, nr, nr["facets"]):
                 item["note"] = rule["missing_reason"]
+            elif c.bypass and raw != cx.OK:
+                # compatible only because the vehicle can do without the system here
+                item["bypass"] = nr["none_value"]
             out.append(item)
         return out
 
@@ -596,7 +600,7 @@ def compatibility_explain(req: cx.ExplainRequest):
         tsql, tp = cx.track_detail_sql(cdef, track, req.env, iri)
         for r in _q(tsql, tp):
             res = results(r, track)
-            worst = max(r[f"c{i}"] for i in range(len(track)))
+            worst = max(cx.effective(c, r[f"c{i}"]) for i, c in enumerate(track))
             tracks.append({"id": r["id"], "iri": r["iri"], "label": r["label"], "class": r["class"],
                            "status": cx.STATUS[worst], "results": res})
     sec = []
@@ -606,10 +610,13 @@ def compatibility_explain(req: cx.ExplainRequest):
         sec = results(rows[0], section) if rows else []
     vals = {v for t in tracks for x in t["results"] for v in x["values"] if isinstance(v, str)}
     vals |= {v for x in sec for v in x["values"] if isinstance(v, str)}
+    vals |= {x["bypass"] for t in tracks for x in t["results"] if x.get("bypass")}
     labels = _labels(req.env, vals)
 
     def lab(res: list[dict]) -> None:
         for x in res:
+            if x.get("bypass"):
+                x["note"] = f"Compatible in “{labels.get(x['bypass'], _local(x['bypass']))}” mode"
             x["values"] = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str)
                             else ("Yes" if v is True else "No" if v is False else str(v))} for v in x["values"]]
     for t in tracks:

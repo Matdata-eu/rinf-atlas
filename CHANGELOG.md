@@ -22,7 +22,10 @@ All notable changes to this project are documented here: https://github.com/Matd
   without a contact line (red, "No contact line" in the explanation) instead
   of "no data"; this covers the energy supply, pantograph head, contact wire
   heights and the new maximum train current characteristic. Add "Not
-  electrified" to a profile's energy supply systems for a bi-mode vehicle.
+  electrified" to a profile's energy supply systems for a bi-mode vehicle: it
+  is then compatible with every track for these characteristics, also
+  electrified ones whose supply or pantograph it does not match ("Compatible
+  in “Not electrified” mode" in the explanation).
   Rules declare it with `atlas:whenMissing`, `atlas:noneValue`,
   `atlas:noneFrom` and `atlas:missingReason`.
 

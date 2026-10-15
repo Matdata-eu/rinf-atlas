@@ -124,7 +124,7 @@ export interface CompatResponse {
   green: (number | string)[]; yellow: (number | string)[]; red: (number | string)[];
 }
 export type CompatResult = 'ok' | 'unknown' | 'fail';
-export interface CompatCheck { key: string; result: CompatResult; values: { value: TermValue; label: string }[]; note?: string }
+export interface CompatCheck { key: string; result: CompatResult; values: { value: TermValue; label: string }[]; note?: string; bypass?: string }
 export interface CompatExplain {
   iri: string; id: number | string; status: CompatColour; checked: string[]; ignored: string[];
   section: CompatCheck[];

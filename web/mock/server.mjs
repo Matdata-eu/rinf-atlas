@@ -344,7 +344,15 @@ const missingOf = (rule, track, profile) => {
   const ok = src.none_value && (Array.isArray(pv) ? pv : [pv]).includes(src.none_value);
   return { code: ok ? 0 : 2, note: rule.missing_reason };
 };
-const checkTrack = (rule, track, v, profile) => {
+// The vehicle can do without the system (it has the none value, e.g. not electrified):
+// every track is compatible for this rule; the comparison only explains why.
+const bypassOf = (rule, profile) => {
+  const src = rule.none_from ? COMPAT_RULES.find((r) => r.key === rule.none_from) : rule;
+  const pv = profile[src.key];
+  return src.none_value && (Array.isArray(pv) ? pv : [pv]).includes(src.none_value) ? src.none_value : null;
+};
+const checkTrack = (rule, track, v, profile) => (bypassOf(rule, profile) ? 0 : rawCheck(rule, track, v, profile));
+const rawCheck = (rule, track, v, profile) => {
   const vals = trackVals(rule, track);
   if (!vals.length) return missingOf(rule, track, profile).code;
   if (rule.kind === 'number') {
@@ -352,11 +360,19 @@ const checkTrack = (rule, track, v, profile) => {
     const bad = { minInclusive: (x) => x < n, maxInclusive: (x) => x > n, minExclusive: (x) => x <= n, maxExclusive: (x) => x >= n }[rule.constraint];
     return vals.some(bad) ? 2 : 0;
   }
-  const want = (Array.isArray(v) ? v : [v]).map(String);
+  const want = (Array.isArray(v) ? v : [v]).map(String).filter((x) => x !== rule.none_value);
   if (rule.constraint === 'in') return vals.every((x) => want.includes(String(x))) ? 0 : 2;
   return vals.some((x) => want.includes(String(x))) ? 0 : 2;
 };
 const COLOURS = ['green', 'yellow', 'red'];
+function noteOf(rule, t, v, profile) {
+  if (!trackVals(rule, t).length) {
+    const m = missingOf(rule, t, profile);
+    if (m.note) return { note: m.note };
+  }
+  const by = bypassOf(rule, profile);
+  return by && rawCheck(rule, t, v, profile) ? { note: 'Compatible in “Not electrified” mode', bypass: by } : {};
+}
 function compatOf(sol, checks, profile) {
   const tracks = (tracksBySol.get(sol.id) || []).map((t) => {
     const codes = checks.map((rule) => checkTrack(rule, t, profile[rule.key], profile));
@@ -549,7 +565,7 @@ const server = http.createServer(async (req, res) => {
           id: t.id, iri: t.iri, label: t.label, class: t.class, status: COLOURS[worst],
           results: checks.map((rule, i) => ({ key: rule.key, result: ['ok', 'unknown', 'fail'][codes[i]],
             values: rule.facets.flatMap((fk) => (t.facets[fk] || []).map(({ value, label }) => ({ value, label }))),
-            note: trackVals(rule, t).length ? undefined : missingOf(rule, t, profile).note })),
+            ...noteOf(rule, t, profile[rule.key], profile) })),
         })),
       });
     }

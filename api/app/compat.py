@@ -44,6 +44,19 @@ class Check:
     applies_to: str
     sql: str
     params: list = field(default_factory=list)
+    # The vehicle can do without the system this rule checks (it has the rule's "none"
+    # value, e.g. not electrified, here or in its none_from rule): every track is then
+    # compatible for this rule, whatever the comparison (sql, kept for the detail) gives.
+    bypass: bool = False
+
+    @property
+    def status(self) -> tuple[str, list]:
+        """The SQL and params of the result that counts (bypass: always compatible)."""
+        return (str(OK), []) if self.bypass else (self.sql, list(self.params))
+
+
+def effective(check: Check, raw: int) -> int:
+    return OK if check.bypass else raw
 
 
 def _values(fk: str, alias: str, fallback: bool) -> tuple[str, list]:
@@ -125,7 +138,11 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
     the system (none_value, e.g. not electrified, for this rule or its none_from rule)
     it is compatible. For a rule with none_from the system counts as absent only when
     the none_from rule's facets have no value either (an electrified track without a
-    contact wire height is unknown, a track without a contact line is not)."""
+    contact wire height is unknown, a track without a contact line is not).
+
+    A vehicle that accepts the absence of the system (e.g. a bi-mode vehicle with "not
+    electrified") can run on any track without using it, so for those rules every track
+    is compatible (Check.bypass); the comparison is kept to tell why in the detail."""
     by_key = {r["key"]: r for r in rules}
     ignored = sorted(k for k in profile if k not in by_key)
     checks: list[Check] = []
@@ -139,6 +156,7 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
         own, own_p = _pooled(r["facets"], alias, fb)
         # what a track without a value gives
         nr = none_rule(r, by_key)
+        bypass = nr is not None and bool(nr.get("none_value")) and none_accepted(r, by_key, profile)
         absent = OK if none_accepted(r, by_key, profile) else FAIL if r.get("when_missing") == "incompatible" else UNKNOWN
         if nr is None or absent == UNKNOWN:
             missing, missing_p = str(UNKNOWN), []
@@ -152,7 +170,7 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
             sql = (f"CASE WHEN NOT jsonb_path_exists({own}, '$[*] ? (@.type() == \"number\")') THEN {missing} "
                    f"WHEN jsonb_path_exists({own}, %s::jsonpath) THEN {FAIL} ELSE {OK} END")
             checks.append(Check(key, r["applies_to"], sql,
-                                own_p + missing_p + own_p + [f"$[*] ? (@ {_VIOLATION[c]} {num!r})"]))
+                                own_p + missing_p + own_p + [f"$[*] ? (@ {_VIOLATION[c]} {num!r})"], bypass))
             continue
         vals = _terms(v, key, r["kind"])
         if r.get("none_value"):
@@ -168,16 +186,17 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
             sql = head + (f"WHEN EXISTS (SELECT 1 FROM jsonb_array_elements({own}) e(v) WHERE e.v = ANY(%s::jsonb[])) "
                           f"THEN {OK} ELSE {FAIL} END")
             params = own_p + missing_p + own_p + [[json.dumps(x) for x in vals]]
-        checks.append(Check(key, r["applies_to"], sql, params))
+        checks.append(Check(key, r["applies_to"], sql, params, bypass))
     return checks, ignored
 
 
 def _worst(checks: list[Check]) -> tuple[str, list]:
     if not checks:
         return str(OK), []
-    if len(checks) == 1:
-        return checks[0].sql, list(checks[0].params)
-    return "GREATEST(" + ", ".join(c.sql for c in checks) + ")", [p for c in checks for p in c.params]
+    parts = [c.status for c in checks]
+    if len(parts) == 1:
+        return parts[0]
+    return "GREATEST(" + ", ".join(s for s, _ in parts) + ")", [p for _, ps in parts for p in ps]
 
 
 def status_sql(cdef: dict, checks: list[Check], env: str, sol_iri: str | None = None) -> tuple[str, list]:
@@ -211,7 +230,8 @@ def status_sql(cdef: dict, checks: list[Check], env: str, sol_iri: str | None = 
 
 
 def track_detail_sql(cdef: dict, checks: list[Check], env: str, sol_iri: str) -> tuple[str, list]:
-    """Per track of one section: each characteristic's result."""
+    """Per track of one section: each characteristic's result of the comparison (before
+    Check.bypass; see effective())."""
     track = [c for c in checks if c.applies_to == "track"]
     cols = ", ".join(f"{c.sql} AS c{i}" for i, c in enumerate(track)) or "NULL AS c0"
     params = [p for c in track for p in c.params]
