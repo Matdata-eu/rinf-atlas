@@ -1,6 +1,7 @@
 import './style.css';
 import { api, type Env } from './api';
 import { openAbout } from './about';
+import { openHelp } from './help';
 import { initCompat } from './compat';
 import { initDatasets, openDatasets } from './datasets';
 import { initDetail } from './detail';
@@ -118,6 +119,7 @@ function initTheme() {
   };
   btn.addEventListener('click', () => { setTheme(THEME_NEXT[themePref()]); show(); });
   $('about-btn').addEventListener('click', openAbout);
+  $('help-btn').addEventListener('click', openHelp);
   show();
 }
 

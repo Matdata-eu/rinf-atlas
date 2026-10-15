@@ -423,6 +423,16 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .about-body p { margin: 6px 0; }
 .credits { margin: 4px 0; padding-left: 18px; }
 .credits li { margin: 3px 0; }
+.help-dialog { width: min(600px, calc(100vw - 32px)); }
+.help-sec { border-top: 1px solid var(--border); }
+.help-sec:last-child { border-bottom: 1px solid var(--border); }
+.help-sec summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 9px 0; }
+.help-sec ul { margin: 0 0 10px; padding-left: 18px; }
+.help-sec li { margin: 4px 0; line-height: 1.45; }
+.help-body kbd {
+  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 5px;
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface-2);
+}
 .gis-dialog { width: min(640px, calc(100vw - 32px)); }
 .gis-row { margin: 14px 0 0; }
 .gis-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
