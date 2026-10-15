@@ -20,6 +20,15 @@ const setNav = (path: string[], dir = nav().dir) => {
   const sel = store.get().selected;
   if (sel) store.set({ describe: path.length || dir !== 'out' ? { for: sel, path, dir } : null });
 };
+/** Describe steps undone by Back (or an earlier breadcrumb), newest last, for Forward. Not in the link. */
+let ahead: string[] = [];
+/** Describe navigation, browser style: following a link drops the forward steps. */
+function describeGo(iri: string) { ahead = []; navStep([...nav().path, iri]); }
+function describeBack() { const p = nav().path; if (p.length) { ahead.push(p.at(-1)!); navStep(p.slice(0, -1)); } }
+function describeForward() { if (ahead.length) navStep([...nav().path, ahead.pop()!]); }
+function describeTo(i: number) { const p = nav().path; ahead.push(...p.slice(i).reverse()); navStep(p.slice(0, i)); }
+/** Moves along the path and keeps focus in the panel (the clicked button is replaced), so Alt+arrows keep working. */
+function navStep(path: string[]) { setNav(path); panel.querySelector<HTMLElement>('.crumbs')?.focus({ preventScroll: true }); }
 let graph: GraphHandle | null = null;
 let ctl: AbortController | null = null;
 /** Pending "zoom to" request: fit the map once this feature's geometry has loaded. */
@@ -69,7 +78,7 @@ function close() { store.set({ selected: null }); }
 async function open(iri: string) {
   ctl?.abort();
   ctl = new AbortController();
-  feature = null; featureErr = null;
+  feature = null; featureErr = null; ahead = [];
   // Describe navigation started from another feature no longer applies.
   queueMicrotask(() => { const d = store.get().describe; if (d && d.for !== store.get().selected) store.set({ describe: null }); });
   setSelectionGeometry(null);
@@ -215,7 +224,7 @@ function termCell(t: RdfTerm, labels: Record<string, string>): HTMLElement {
   if (t.type === 'uri') {
     const lbl = labels[t.value];
     return h('td', {},
-      h('button', { class: 'link iri-btn', title: t.value, onclick: () => setNav([...nav().path, t.value]) },
+      h('button', { class: 'link iri-btn', title: t.value, onclick: () => describeGo(t.value) },
         lbl ? h('span', {}, lbl) : null, h('code', {}, prefixed(t.value))));
   }
   if (t.type === 'bnode') return h('td', {}, h('code', { class: 'muted' }, `_:${t.value}`));
@@ -227,11 +236,13 @@ function renderDescribe(body: HTMLElement) {
   const stack = stackNow();
   const direction = nav().dir;
   const iri = stack[stack.length - 1];
-  const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Describe history' },
-    stack.length > 1 ? h('button', { class: 'btn btn-small', onclick: () => setNav(nav().path.slice(0, -1)) }, '← Back') : null,
+  const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Describe history', tabindex: -1 },
+    stack.length > 1 || ahead.length ? h('div', { class: 'hist-nav', role: 'group', 'aria-label': 'Back and forward' },
+      h('button', { class: 'btn btn-small', title: 'Back (Alt+←)', disabled: stack.length < 2, onclick: describeBack }, '← Back'),
+      h('button', { class: 'btn btn-small', title: 'Forward (Alt+→)', disabled: !ahead.length, onclick: describeForward }, 'Forward →')) : null,
     ...stack.map((x, i) => i === stack.length - 1
       ? h('span', { class: 'crumb current', title: x }, shortIri(x))
-      : h('button', { class: 'link crumb', title: x, onclick: () => setNav(nav().path.slice(0, i)) }, shortIri(x))));
+      : h('button', { class: 'link crumb', title: x, onclick: () => describeTo(i) }, shortIri(x))));
   const dirToggle = h('div', { class: 'seg', role: 'group', 'aria-label': 'Direction' },
     ...(['out', 'in'] as const).map((d) => h('button', { class: 'seg-btn', 'aria-pressed': String(direction === d),
       onclick: () => setNav(nav().path, d) }, d === 'out' ? 'Outgoing' : 'Incoming')));
@@ -277,10 +288,22 @@ function renderGraph(body: HTMLElement) {
   const iri = stackNow().at(-1)!;
   const holder = h('div', { class: 'graph' });
   body.classList.add('graph-body');
-  body.append(h('p', { class: 'muted small graph-help' }, 'Double-click a blue node to expand it. Drag to rearrange.'), holder);
+  const navBtn = (label: string, title: string, go: (g: GraphHandle) => void) =>
+    h('button', { class: 'btn btn-small', title, 'aria-label': title, disabled: true, onclick: () => graph && go(graph) }, label);
+  const backBtn = navBtn('← Back', 'Undo the last expansion (Alt+←)', (g) => g.back());
+  const fwdBtn = navBtn('Forward →', 'Redo the expansion (Alt+→)', (g) => g.forward());
+  body.append(
+    h('div', { class: 'graph-tools' },
+      h('div', { class: 'hist-nav', role: 'group', 'aria-label': 'Graph history' }, backBtn, fwdBtn),
+      h('p', { class: 'muted small graph-help' }, 'Double-click a blue node to expand it. Drag to rearrange.')),
+    holder);
+  const onHistory = (canBack: boolean, canForward: boolean) => {
+    backBtn.disabled = !canBack;
+    fwdBtn.disabled = !canForward;
+  };
   // vis-network is large: load it only when the Graph tab is opened.
   import('./graph').then(({ mountGraph }) => {
-    if (holder.isConnected) graph = mountGraph(holder, iri, describe, literalText);
+    if (holder.isConnected) graph = mountGraph(holder, iri, describe, literalText, onHistory);
   }).catch((e) => holder.replaceChildren(h('p', { class: 'error' }, `Graph failed to load: ${(e as Error).message}`)));
 }
 
@@ -302,4 +325,10 @@ export function initDetail() {
     }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && store.get().selected) close(); });
+  // Alt+Left / Alt+Right step through the Describe history while focus is in the panel.
+  panel.addEventListener('keydown', (e) => {
+    if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || store.get().detailTab !== 'describe') return;
+    e.preventDefault();
+    if (e.key === 'ArrowLeft') describeBack(); else describeForward();
+  });
 }
