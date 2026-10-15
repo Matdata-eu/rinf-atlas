@@ -14,6 +14,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  commits:
+    name: Commit messages (Conventional Commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Check commit subjects
+        run: bash scripts/check-commits.sh "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
   python:
     name: Python (lint + worker tests)
     runs-on: ubuntu-latest
