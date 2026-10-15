@@ -67,6 +67,7 @@ export function openHelp() {
         section('Sharing and display', false,
           [b('Share'), ' copies a link to exactly this view: map position, filters, selected element and open tools.'],
           ['The ', b('OpenRailwayMap'), ' layer adds a railway overlay to the base map.'],
+          ['Whoever runs this site may also have added their own map layers next to it.'],
           ['The theme button switches between system, light and dark.'],
           ['On a phone, drag the panel’s handle up or down to see more of the filters or the map.'])));
     document.body.append(dlg);
