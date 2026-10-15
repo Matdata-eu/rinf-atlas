@@ -436,7 +436,11 @@ function facets(st) {
   const base = features.filter((f) => matches(f, st));
   const by_class = {};
   for (const c of CLASSES) by_class[c.class] = 0;
-  for (const f of features) if (matches(f, st, { skipClasses: true })) by_class[f.class]++;
+  const unlocated_by_class = {};
+  for (const f of features) if (matches(f, st, { skipClasses: true })) {
+    by_class[f.class]++;
+    if (!f.geometry) unlocated_by_class[f.class] = (unlocated_by_class[f.class] || 0) + 1;
+  }
   const out = {};
   const wanted = st.facets ?? FACETS.filter((f) => f.class === '*' || st.classes?.includes(f.class)).map((f) => f.key);
   for (const want of wanted) {
@@ -463,7 +467,7 @@ function facets(st) {
     out[want] = fc.kind === 'boolean' ? { kind: 'boolean', values, more: false }
       : { kind: 'terms', values: values.slice(0, 50), more: values.length > 50 };
   }
-  return { total: base.length, by_class, facets: out };
+  return { total: base.length, by_class, unlocated_by_class, facets: out };
 }
 
 // ---------- map colouring (POST /api/theme, `color` on search) ----------
@@ -1124,7 +1128,7 @@ const server = http.createServer(async (req, res) => {
           const [lon, lat] = repPoint(f.geometry);
           return { id: f.id, iri: f.iri, class: f.class, label: f.label, lon, lat, qa: qaLevel(f), ...(th ? { v: th.v.get(f) ?? null } : {}) };
         });
-        return send(res, 200, { total: hits.length, items });
+        return send(res, 200, { total: hits.length, unlocated: hits.filter((f) => !f.geometry).length, items });
       }
       if (!hits.length) return send(res, 200, { bbox: null });
       const all = hits.flatMap((f) => coordsOf(f.geometry));
