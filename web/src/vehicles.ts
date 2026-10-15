@@ -11,7 +11,11 @@ export interface VehicleProfile {
   values: VehicleValues;
 }
 
-interface Saved { version: 1; profiles: VehicleProfile[]; active: string | null; show: boolean }
+interface Saved {
+  version: 1; profiles: VehicleProfile[]; active: string | null; show: boolean;
+  /** Ids of the examples already offered, so new examples appear once and deleted ones stay deleted. */
+  seen?: string[];
+}
 
 const KEY = 'atlas-vehicle-profiles';
 const ERA = 'http://data.europa.eu/949/';
@@ -36,6 +40,8 @@ export const KNOWN_LABELS: Record<string, string> = {
   [`${C}load-capability-line-categories/110`]: 'E4', [`${C}load-capability-line-categories/120`]: 'E5',
   [`${C}train-detection/10`]: 'track circuit', [`${C}train-detection/20`]: 'wheel detector', [`${C}train-detection/30`]: 'loop',
 };
+
+const FIRST_EXAMPLES = ['example-emu-25kv', 'example-loco-3kv', 'example-iberian', 'example-15kv'];
 
 /** Illustrative starting points, not authorised vehicle types. */
 export function exampleProfiles(): VehicleProfile[] {
@@ -81,6 +87,48 @@ export function exampleProfiles(): VehicleProfile[] {
         pantographHead: [`${C}compliant-pantograph-heads/10`, `${C}compliant-pantograph-heads/50`, `${C}other-pantograph-heads/130`],
       },
     },
+    {
+      id: 'example-multisystem', example: true, name: 'Example: multi-system locomotive (AC 25 kV, AC 15 kV, DC 3 kV, DC 1.5 kV)',
+      note: 'Illustrative values for a four-system standard-gauge locomotive for cross-border freight and passenger trains. Not an authorised vehicle type.',
+      values: {
+        wheelSetGauge: [`${C}nominal-track-gauges/30`],
+        energySupplySystem: ['AC10', 'AC20', 'DC30', 'DC40'].map((n) => `${C}energy-supply-systems/${n}`),
+        pantographHead: [`${C}compliant-pantograph-heads/10`, `${C}compliant-pantograph-heads/20`, `${C}compliant-pantograph-heads/50`,
+          `${C}other-pantograph-heads/20`, `${C}other-pantograph-heads/40`, `${C}other-pantograph-heads/130`],
+        etcsLevel: [`${C}etcs-levels/20`, `${C}etcs-levels/30`],
+        gaugingProfile: [g('40'), g('10'), g('20')],
+        lineCategory: ['90', '100', '110', '120'].map((n) => `${C}load-capability-line-categories/${n}`),
+      },
+    },
+    {
+      id: 'example-bimode', example: true, name: 'Example: bi-mode regional train (AC 25 kV and diesel)',
+      note: 'Illustrative values for a 110 m regional unit that runs under 25 kV AC and on its diesel engines where there is no contact line. Not an authorised vehicle type.',
+      values: {
+        wheelSetGauge: [`${C}nominal-track-gauges/30`],
+        energySupplySystem: [`${C}energy-supply-systems/AC10`, `${C}contact-line-systems/40`],
+        pantographHead: [`${C}compliant-pantograph-heads/20`],
+        trainLength: 110,
+      },
+    },
+    {
+      id: 'example-diesel-freight', example: true, name: 'Example: diesel freight locomotive',
+      note: 'Illustrative values for a standard-gauge diesel locomotive. The energy supply system is left empty, so electrification is not checked. Not an authorised vehicle type.',
+      values: {
+        wheelSetGauge: [`${C}nominal-track-gauges/30`],
+        gaugingProfile: [g('40'), g('10'), g('20')],
+        lineCategory: ['90', '100', '110', '120'].map((n) => `${C}load-capability-line-categories/${n}`),
+      },
+    },
+    {
+      id: 'example-emu-1500v', example: true, name: 'Example: 1.5 kV DC EMU for the Dutch network',
+      note: 'Illustrative values for a 160 m double-deck electric multiple unit. Not an authorised vehicle type.',
+      values: {
+        wheelSetGauge: [`${C}nominal-track-gauges/30`],
+        energySupplySystem: [`${C}energy-supply-systems/DC40`],
+        pantographHead: [`${C}compliant-pantograph-heads/10`, `${C}other-pantograph-heads/130`],
+        trainLength: 160,
+      },
+    },
   ];
 }
 
@@ -91,12 +139,19 @@ export function loadSaved(): Saved {
     if (raw) {
       const s = JSON.parse(raw) as Saved;
       if (s && Array.isArray(s.profiles)) {
-        return { version: 1, profiles: s.profiles.map(clean).filter((p): p is VehicleProfile => !!p), active: s.active ?? null, show: !!s.show };
+        const profiles = s.profiles.map(clean).filter((p): p is VehicleProfile => !!p);
+        // Storage from before `seen` was offered the first four examples.
+        const seen = new Set(Array.isArray(s.seen) ? s.seen : FIRST_EXAMPLES);
+        const ex = exampleProfiles();
+        profiles.push(...ex.filter((x) => !seen.has(x.id) && !profiles.some((p) => p.id === x.id)));
+        const out: Saved = { version: 1, profiles, active: s.active ?? null, show: !!s.show, seen: ex.map((x) => x.id) };
+        if (ex.some((x) => !seen.has(x.id))) save(out);  // so a new example deleted later stays deleted
+        return out;
       }
     }
   } catch { /* private mode, blocked storage or bad JSON: start from the examples */ }
   const profiles = exampleProfiles();
-  return { version: 1, profiles, active: profiles[0].id, show: false };
+  return { version: 1, profiles, active: profiles[0].id, show: false, seen: profiles.map((x) => x.id) };
 }
 
 export function save(s: Saved) {

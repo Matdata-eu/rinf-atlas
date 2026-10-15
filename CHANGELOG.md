@@ -36,7 +36,7 @@ All notable changes to this project are documented here: https://github.com/Matd
   every section of line green (compatible), yellow (compatible where data
   exists, some characteristics unknown) or red (not compatible), with counts
   and a per-track explanation in the detail panel. Profiles stay in the
-  browser, start from four illustrative examples, and can be exported and
+  browser, start from eight illustrative examples, and can be exported and
   imported as JSON or as Turtle (`era:VehicleType`). The rules are SHACL-style
   Turtle in `shapes/compatibility.ttl`; new endpoints `GET
   /api/compatibility/rules`, `POST /api/compatibility` and `POST
