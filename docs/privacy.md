@@ -53,6 +53,10 @@ backups, hosting provider).
   [privacy policy](https://osmfoundation.org/wiki/Privacy_Policy) applies.
 - Railway overlay tiles from `{a,b,c}.tiles.openrailwaymap.org`, only while
   the visitor has the OpenRailwayMap overlay switched on.
+- Tiles of the extra layers you configured in `config/layers.yaml`
+  ([layers.md](layers.md)) that are not proxied, from their providers, only
+  while the visitor has that layer switched on. Proxied layers are fetched by
+  your server instead, so the provider sees your server's address.
 
 **On your server**
 

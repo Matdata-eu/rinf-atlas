@@ -149,7 +149,7 @@ const SIDE_TABS: SideTab[] = ['filters', 'results'];
 
 /** URL-backed state with the value it has when its parameter is absent (applied on Back / Forward). */
 export const URL_DEFAULTS: Partial<AppState> = {
-  classes: [], filters: {}, graphs: [], q: '', limitToView: false, orm: false, qa: false,
+  classes: [], filters: {}, graphs: [], q: '', limitToView: false, orm: false, layers: [], qa: false,
   selected: null, detailTab: 'properties', describe: null, sideTab: 'filters',
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, vehicleOpen: false,
 };
@@ -168,6 +168,7 @@ export function parseHash(hash: string): Partial<AppState> {
   if (get('ds')) out.graphs = get('ds').split(/[\s,]+/).filter(Boolean).map(decStr);
   if (get('v') === '1') out.limitToView = true;
   if (get('orm') === '1') out.orm = true;
+  if (get('lyr')) out.layers = get('lyr').split(',').filter(Boolean);
   if (get('qa') === '1') out.qa = true;
   if (get('sel')) {
     out.selected = decStr(get('sel'));
@@ -232,6 +233,7 @@ export function hashParams(s: AppState): [string, string][] {
   }
   if (s.vehicleOpen) p.push(['vp', '1']);
   if (s.orm) p.push(['orm', '1']);
+  if (s.layers.length) p.push(['lyr', s.layers.join(',')]);
   return p;
 }
 

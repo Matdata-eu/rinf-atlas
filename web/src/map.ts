@@ -234,7 +234,7 @@ export function initMap(container: HTMLElement) {
   // Raster basemap failures (offline, blocked hosts) are not fatal; keep the console clean.
   map.on('error', (e) => {
     const src = (e as { sourceId?: string }).sourceId;
-    if (src === 'osm' || src === 'orm') return;
+    if (src === 'osm' || src === 'orm' || src?.startsWith('x-')) return; // x-: deployer layers (extra-layers.ts)
     console.warn('map:', e.error?.message ?? e);
   });
   onThemeChange((dark) => {

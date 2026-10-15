@@ -11,3 +11,4 @@ web/dist/
 tests/fixtures/*.nt
 !tests/fixtures/gc-op.nt
 site/privacy.html
+config/layers.yaml

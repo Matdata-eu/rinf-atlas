@@ -27,6 +27,8 @@ export interface AppState {
   /** IRIs followed in the Describe tab and its direction; ignored unless `for` is the selected feature. */
   describe: DescribeNav | null;
   orm: boolean;
+  /** Ids of the deployer's extra map layers that are switched on (config/layers.yaml). */
+  layers: string[];
   /** Facet key (as in filters: "class/key" or a shared key) the map is coloured by; null = class colours. */
   colorBy: string | null;
   /** Legend entries switched off: values, "bin:<i>" for range classes, or NODATA / MIXED / OTHER / FADED. */
@@ -68,7 +70,7 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, qa: false, sideTab: 'filters', vehicleOpen: false,
+  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, layers: [], qa: false, sideTab: 'filters', vehicleOpen: false,
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, meta: null, theme: null,
 });
 

@@ -30,6 +30,12 @@ gunzip -c "$here/fixtures/era-shacl.nt.gz" > "$here/fixtures/era-shacl.nt"
   atlas load-file --env prod --vocab --graph http://data.europa.eu/949/graph/rinf/shacl /fixtures/era-shacl.nt
 rm -f "$here/fixtures/era-shacl.nt"
 
+# No config/layers.yaml in CI: no extra map layers, and the tile proxy knows none.
+nlayers=$(curl -fsS "$BASE/api/layers" | json "len(d)")
+[ "$nlayers" -eq 0 ] || fail "expected no extra map layers, got $nlayers"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/layers/nope/1/0/0")
+[ "$code" = 404 ] || fail "layer proxy for an unknown layer answered $code"
+
 post() { curl -fsS -X POST "$BASE/api/$1" -H 'content-type: application/json' -d "$2"; }
 
 ops=$(curl -fsS "$BASE/api/meta?env=prod" | json "next(c['count'] for c in d['classes'] if c['class']=='operational-point')")

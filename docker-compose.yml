@@ -61,8 +61,13 @@ services:
       ATLAS_PUBLIC_URL: ${ATLAS_PUBLIC_URL:-}
       ATLAS_TTL_EXPORT_MAX: ${ATLAS_TTL_EXPORT_MAX:-20000}
       ATLAS_SHACL_REPORT_URL: ${ATLAS_SHACL_REPORT_URL-https://shacl-report.matdata.eu/}
+    # Keys of the extra map layers in config/layers.yaml (ATLAS_LAYER_* in .env, docs/layers.md).
+    # Only the api container gets them; it proxies those layers' tiles.
+    env_file:
+      - path: .env
+        required: false
     volumes:
-      - ./config:/app/config:ro
+      - ./config:/app/config:ro         # also config/layers.yaml: extra map layers (docs/layers.md)
     depends_on:
       db:
         condition: service_healthy
