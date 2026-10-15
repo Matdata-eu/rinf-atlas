@@ -162,6 +162,23 @@ function initMapTools() {
   qa.addEventListener('change', () => store.set({ qa: qa.checked }));
   store.subscribe((s, prev) => { if (changed(s, prev, 'qa', 'meta')) showQa(); });
   showQa();
+  // Layers menu: a popover beside the layers button; closes on Escape or a click elsewhere.
+  const layersBtn = $<HTMLButtonElement>('layers-btn'), layersMenu = $('layers-menu');
+  const setLayersOpen = (open: boolean) => {
+    layersMenu.hidden = !open;
+    layersBtn.setAttribute('aria-expanded', String(open));
+  };
+  layersBtn.addEventListener('click', () => setLayersOpen(layersBtn.getAttribute('aria-expanded') !== 'true'));
+  document.addEventListener('pointerdown', (e) => {
+    if (!layersMenu.hidden && !$('map-ctrl-layers').contains(e.target as Node)) setLayersOpen(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !layersMenu.hidden) { setLayersOpen(false); layersBtn.focus(); }
+  });
+  // A dot on the button while an overlay is on, so it is not forgotten with the menu closed.
+  const layersOn = () => layersBtn.classList.toggle('has-on', Boolean(store.get().orm || (store.get().qa && !qaTool.hidden)));
+  store.subscribe((s, prev) => { if (changed(s, prev, 'orm', 'qa', 'meta')) layersOn(); });
+  layersOn();
   $('zoom-results').addEventListener('click', async () => {
     try {
       const { bbox } = await api.extent(queryState(store.get(), false));

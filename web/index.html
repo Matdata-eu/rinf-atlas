@@ -68,17 +68,32 @@
 
       <section class="map-wrap">
         <div id="map" class="map"></div>
-        <div class="map-tools">
-          <button id="zoom-results" class="btn btn-raised" title="Zoom to the extent of all matching features">Zoom to results</button>
-          <label class="btn btn-raised toggle-inline"><input id="orm-toggle" type="checkbox" /> OpenRailwayMap</label>
-          <button id="profile-btn" class="btn btn-raised" type="button" aria-pressed="false" title="Parameters along a national line or a series of sections of line">Line profile</button>
-          <label id="qa-tool" class="btn btn-raised toggle-inline" title="Ring features on which ERA's SHACL shapes found problems, coloured by the worst severity" hidden><input id="qa-toggle" type="checkbox" /> Data issues</label>
+        <div class="map-tools" role="toolbar" aria-label="Map tools">
+          <div class="tool-group">
+            <button id="profile-btn" class="btn tool-btn" type="button" aria-pressed="false" title="Parameters along a national line or a series of sections of line"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1.5 13.5h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="m2 10.5 3.2-4 3 2.5L14 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Line profile</span></button>
+            <button id="vehicle-btn" class="btn tool-btn" type="button" aria-pressed="false" aria-expanded="false" aria-controls="vehicle-panel" title="Where can a vehicle type run? Colour the sections of line by compatibility"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="3" y="1.75" width="10" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 7h9" stroke="currentColor" stroke-width="1.4"/><circle cx="5.8" cy="9.4" r=".9" fill="currentColor"/><circle cx="10.2" cy="9.4" r=".9" fill="currentColor"/><path d="m5 12-1.8 2.5M11 12l1.8 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Vehicle check</span></button>
+          </div>
           <div id="qa-legend" class="qa-legend btn-raised" hidden>
             <span><i class="qa-dot sev-violation"></i>Violation</span>
             <span><i class="qa-dot sev-warning"></i>Warning</span>
             <span><i class="qa-dot sev-info"></i>Info</span>
           </div>
-          <button id="vehicle-btn" class="btn btn-raised" type="button" aria-pressed="false" aria-expanded="false" aria-controls="vehicle-panel" title="Where can a vehicle type run? Colour the sections of line by compatibility">Vehicle check</button>
+        </div>
+        <!-- Moved into MapLibre's top-right control stack by map.ts: zoom buttons, then the layers menu. -->
+        <div id="map-ctrl-nav" class="maplibregl-ctrl maplibregl-ctrl-group">
+          <button id="zoom-in" class="maplibregl-ctrl-zoom-in" type="button" title="Zoom in" aria-label="Zoom in"><span class="maplibregl-ctrl-icon" aria-hidden="true"></span></button>
+          <button id="zoom-out" class="maplibregl-ctrl-zoom-out" type="button" title="Zoom out" aria-label="Zoom out"><span class="maplibregl-ctrl-icon" aria-hidden="true"></span></button>
+          <button id="zoom-results" class="ctrl-svg" type="button" title="Zoom to the extent of all matching features" aria-label="Zoom to results"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 5.5V2h3.5M10.5 2H14v3.5M14 10.5V14h-3.5M5.5 14H2v-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg></button>
+        </div>
+        <div id="map-ctrl-layers" class="maplibregl-ctrl layers-ctrl">
+          <div class="maplibregl-ctrl-group">
+            <button id="layers-btn" class="ctrl-svg" type="button" title="Map layers" aria-label="Map layers" aria-haspopup="true" aria-expanded="false" aria-controls="layers-menu"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14.5 5 8 8.2 1.5 5Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="m1.5 8 6.5 3.2L14.5 8M1.5 11l6.5 3.2 6.5-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+          <div id="layers-menu" class="layers-menu" role="group" aria-label="Map layers" hidden>
+            <h2 class="section-title">Map layers</h2>
+            <label class="layer-opt"><input id="orm-toggle" type="checkbox" /><span><b>OpenRailwayMap</b><small>Rail infrastructure drawn over the OpenStreetMap basemap</small></span></label>
+            <label id="qa-tool" class="layer-opt" hidden><input id="qa-toggle" type="checkbox" /><span><b>Data issues</b><small>Rings features on which ERA's SHACL shapes found problems, by worst severity</small></span></label>
+          </div>
         </div>
         <div id="map-msg" class="map-msg" hidden></div>
         <section id="profile" class="profile" aria-label="Line profile" hidden></section>

@@ -111,6 +111,11 @@ All notable changes to this project are documented here: https://github.com/Matd
 
 ### Changed
 
+- Tidier map toolbar: "Line profile" and "Vehicle check" share one control at
+  the top left; "Zoom to results" is an icon under the zoom buttons; the
+  OpenRailwayMap and "Data issues" overlays moved into a "Map layers" menu
+  (a dot on its button shows when an overlay is on). The map controls follow
+  the light and dark theme.
 - The worker keeps the "part of" links (`atlas:geometryFrom`, i.e.
   `era:isPartOf` / `era:hasPart`) of every feature, not only of those without
   a geometry of their own, and indexes them by target. Map colouring, the

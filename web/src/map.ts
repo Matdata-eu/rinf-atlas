@@ -214,7 +214,22 @@ export function initMap(container: HTMLElement) {
     },
   });
   if (import.meta.env.DEV) (window as unknown as { __map: maplibregl.Map }).__map = map; // for debugging / e2e
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  // Zoom buttons (with "zoom to results") and the layers menu live in index.html; stack them top right.
+  for (const id of ['map-ctrl-nav', 'map-ctrl-layers']) {
+    const el = document.getElementById(id);
+    if (el) map.addControl({ onAdd: () => el, onRemove: () => el.remove() }, 'top-right');
+  }
+  const zoomIn = document.getElementById('zoom-in') as HTMLButtonElement | null;
+  const zoomOut = document.getElementById('zoom-out') as HTMLButtonElement | null;
+  zoomIn?.addEventListener('click', (e) => map.zoomIn({}, { originalEvent: e }));
+  zoomOut?.addEventListener('click', (e) => map.zoomOut({}, { originalEvent: e }));
+  const zoomLimits = () => {
+    const z = map.getZoom();
+    if (zoomIn) zoomIn.disabled = z >= map.getMaxZoom();
+    if (zoomOut) zoomOut.disabled = z <= map.getMinZoom();
+  };
+  map.on('zoom', zoomLimits);
+  zoomLimits();
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
   // Raster basemap failures (offline, blocked hosts) are not fatal; keep the console clean.
   map.on('error', (e) => {

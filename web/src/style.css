@@ -251,7 +251,48 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 /* ---------- map ---------- */
 .map-wrap { position: relative; min-width: 0; min-height: 0; }
 .map-wrap > .map { position: absolute; inset: 0; background: var(--surface-2); } /* beats .maplibregl-map { position: relative } */
-.map-tools { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 2; }
+.map-tools { position: absolute; top: 10px; left: 10px; right: 60px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; z-index: 2; pointer-events: none; }
+.map-tools > * { pointer-events: auto; }
+/* The two tools that open a panel, as one segmented control */
+.tool-group { display: inline-flex; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 3px; gap: 2px; }
+.tool-btn { border: 0; background: none; color: var(--text); padding: 5px 10px; border-radius: 6px; }
+.tool-btn svg { flex: none; color: var(--accent); }
+.map-tools .tool-btn.btn[aria-pressed="true"] { color: var(--surface); } /* dark text on the light dark-theme accent */
+.tool-btn[aria-pressed="true"] svg { color: inherit; }
+.tool-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* MapLibre's top-right controls, themed: zoom in/out + zoom to results, then the layers menu */
+.map-wrap .maplibregl-ctrl-group { background: var(--surface); box-shadow: var(--shadow); border-radius: var(--radius); overflow: hidden; }
+.map-wrap .maplibregl-ctrl-group button { width: 32px; height: 32px; color: var(--text); }
+.map-wrap .maplibregl-ctrl-group button + button { border-top: 1px solid var(--border); }
+.map-wrap .maplibregl-ctrl-group button:not(:disabled):hover { background-color: var(--surface-2); }
+.map-wrap .maplibregl-ctrl button:disabled .maplibregl-ctrl-icon { opacity: 0.3; }
+.map-wrap .maplibregl-ctrl-group button:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.ctrl-svg { display: flex !important; align-items: center; justify-content: center; }
+.ctrl-svg svg { display: block; }
+:root[data-theme=dark] .maplibregl-ctrl-icon { filter: invert(1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .maplibregl-ctrl-icon { filter: invert(1); } }
+.layers-ctrl { position: relative; }
+#layers-btn.has-on::after {
+  content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--surface);
+}
+#layers-btn { position: relative; }
+#layers-btn[aria-expanded="true"] { background-color: var(--accent-soft); color: var(--accent); }
+.layers-menu {
+  position: absolute; top: 0; right: calc(100% + 8px); width: 260px; padding: 4px 6px 6px; z-index: 5;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); font-size: 13px; text-align: left;
+}
+.layers-menu[hidden] { display: none; }
+.layers-menu .section-title { margin: 6px 6px 4px; }
+.layer-opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px; border-radius: 6px; cursor: pointer; }
+.layer-opt[hidden] { display: none; }
+.layer-opt:hover { background: var(--surface-2); }
+.layer-opt input { margin: 2px 0 0; flex: none; }
+.layer-opt span { display: flex; flex-direction: column; gap: 1px; }
+.layer-opt b { font-weight: 500; }
+.layer-opt small { color: var(--muted); font-size: 12px; line-height: 1.35; }
 .toggle-inline { cursor: pointer; }
 .toggle-inline input { margin: 0; }
 .map-msg {
@@ -328,10 +369,15 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
   .status-when { display: none; }
   .layout, body.detail-open .layout { grid-template-columns: 1fr; }
   .map-wrap { grid-row: 1; grid-column: 1; }
-  /* One scrollable row, so the legend below it (top: 52px) never covers a button. */
-  .map-tools { top: 8px; left: 8px; right: 52px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  /* One row, so the legend below it (top: 52px) never covers a button. */
+  .map-tools { top: 8px; left: 8px; right: 52px; flex-wrap: nowrap; }
   .map-tools > * { flex: none; }
-  .map-tools .btn { font-size: 12px; padding: 5px 9px; }
+  .tool-btn { font-size: 12px; padding: 5px 8px; gap: 5px; }
+  .maplibregl-ctrl-top-right .maplibregl-ctrl { margin: 8px 8px 0 0; }
+  .layers-menu { width: min(260px, calc(100vw - 72px)); }
+  /* The data issues legend sits on its own line under the tools; the colour legend moves down for it. */
+  .map-tools .qa-legend { position: absolute; top: 40px; left: 0; }
+  .map-wrap:has(.qa-legend:not([hidden])) .legend { top: 84px; }
 
   .side {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
