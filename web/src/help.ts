@@ -63,11 +63,12 @@ export function openHelp() {
         section('Datasets and data quality', false,
           ['The ', b('datasets'), ' status button shows each infrastructure manager’s dataset: when it was published and processed, and whether it loaded.'],
           [b('Show on map'), ' limits the map to one dataset. New datasets are picked up automatically.'],
-          ['The ', b('Data issues'), ' layer rings elements where ERA’s validation rules found problems. An element’s details list them.']),
+          ['The ', b('Data issues'), ' map layer rings elements where ERA’s validation rules found problems. An element’s details list them.']),
         section('Sharing and display', false,
           [b('Share'), ' copies a link to exactly this view: map position, filters, selected element and open tools.'],
-          ['The ', b('OpenRailwayMap'), ' layer adds a railway overlay to the base map.'],
-          ['Whoever runs this site may also have added their own map layers next to it.'],
+          ['The ', b('Map layers'), ' button by the zoom buttons opens a menu of overlays: ', b('OpenRailwayMap'),
+            ' adds a railway overlay to the base map, and ', b('Data issues'), ' rings elements with problems.'],
+          ['Whoever runs this site may also have added their own layers to that menu, such as aerial photos or a company map.'],
           ['The theme button switches between system, light and dark.'],
           ['On a phone, drag the panel’s handle up or down to see more of the filters or the map.'])));
     document.body.append(dlg);
