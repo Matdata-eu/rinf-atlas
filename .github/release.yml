@@ -1,0 +1,10 @@
+# Groups the notes GitHub generates for a release ("Generate release notes").
+# Pull request titles follow Conventional Commits, so each line reads as a change.
+changelog:
+  exclude:
+    authors: [dependabot]
+  categories:
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Changes
+      labels: ["*"]
