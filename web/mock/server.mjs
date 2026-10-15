@@ -565,6 +565,50 @@ Object.assign(COMPAT_RULES.find((r) => r.key === 'energySupplySystem'),
   { when_missing: 'incompatible', none_value: NOT_ELECTRIFIED, missing_reason: 'No contact line' });
 Object.assign(COMPAT_RULES.find((r) => r.key === 'pantographHead'),
   { when_missing: 'incompatible', none_from: 'energySupplySystem', missing_reason: 'No contact line' });
+// The explanation fields of /api/compatibility/rules (infra, source, explanation). The real
+// API generates the text from the rule's annotations (api/app/compat.py explain_rule); this
+// is a shortened version of it for the mock rules.
+const era = (iri) => iri.replace(ERA, 'era:');
+const facetPath = (fk) => fk.split('.').map((p) => `era:${p}`).join('/');
+function mockSource(r) {
+  const lines = [`sh:path ${r.path.length > 1 ? `( ${r.path.map(era).join(' ')} )` : era(r.path[0])}`,
+    `atlas:characteristic "${r.key}"`, `rdfs:label "${r.label}"`, `atlas:compareTo ${r.facets.map((f) => `"${f}"`).join(', ')}`,
+    `atlas:constraint sh:${r.constraint}`];
+  if (r.when_missing === 'incompatible') lines.push('atlas:whenMissing atlas:Incompatible');
+  if (r.none_value) lines.push(`atlas:noneValue <${r.none_value}>`);
+  if (r.none_from) lines.push(`atlas:noneFrom "${r.none_from}"`);
+  if (r.missing_reason) lines.push(`atlas:missingReason "${r.missing_reason}"`);
+  if (r.unit) lines.push(`atlas:unit "${r.unit}"`);
+  return 'PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>\nPREFIX era: <http://data.europa.eu/949/>\n'
+    + 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nPREFIX sh: <http://www.w3.org/ns/shacl#>\n'
+    + 'PREFIX shape: <https://rinf-atlas.matdata.eu/shapes/>\n\nshape:vehicle-compatibility sh:property [\n'
+    + lines.map((l) => `    ${l} ;`).join('\n') + '\n] .\n';
+}
+function mockExplain(r) {
+  const names = r.facets.map((f) => `“${f}”`).join(' and ');
+  const anyNames = r.facets.map((f) => `“${f}”`).join(' or ');
+  const own = `the vehicle's “${r.label}”`;
+  const cmp = { minInclusive: ['at least', '≥', 'lower'], maxInclusive: ['at most', '≤', 'higher'] }[r.constraint];
+  const steps = [{ topic: 'compare', text: cmp
+    ? `Every ${names} value on the track must be ${cmp[0]} ${own} (sh:${r.constraint}: track value ${cmp[1]} vehicle value${r.unit ? `, in ${r.unit === 'M' ? 'm' : r.unit}` : ''}). The track is not compatible when one of its values is ${cmp[2]}.`
+    : r.constraint === 'in'
+      ? `Every value on the track must be one of the vehicle's (sh:in): it is compatible when each of its ${names} values is one of ${own}, and not compatible as soon as one is not.`
+      : `The track must offer at least one of the vehicle's values (sh:hasValue): it is compatible when one of its ${names} values is one of ${own}, and not compatible when none is.` }];
+  const src = r.none_from ? COMPAT_RULES.find((x) => x.key === r.none_from) : null;
+  const reason = r.missing_reason ? `, with the reason “${r.missing_reason}”` : '';
+  steps.push({ topic: 'missing', text: r.when_missing !== 'incompatible' ? `A track with no ${anyNames} value is unknown: the data cannot tell.`
+    : src ? `A track with no ${anyNames} value is not compatible${reason}, but only when it has no “${src.label}” value either. Where it has one, a missing value is unknown.`
+      : `A track with no ${anyNames} value is not compatible${reason}.` });
+  if (r.none_value) steps.push({ topic: 'none', text: 'A vehicle that can also do without it (e.g. bi-mode) adds “Not electrified” to its values. It is then compatible with every track for this characteristic: where the track has no value, and also where its values do not match (the detail then says: Compatible in “Not electrified” mode). “Not electrified” itself is not compared with the track\'s values.' });
+  if (src) steps.push({ topic: 'none', text: `When the vehicle's “${src.label}” includes “Not electrified”, it can do without it: every track is then compatible for this characteristic, whatever its values (the detail says: Compatible in “Not electrified” mode).` });
+  steps.push({ topic: 'rollup', text: 'Every running track of a section of line is checked. Per track the worst result of all characteristics counts (not compatible, then unknown, then compatible). The section of line takes the best track: green when at least one track is compatible on every characteristic, yellow when the best track is unknown or no track is linked to it, red when every track is not compatible.' });
+  steps.push({ topic: 'empty', text: 'Leave it empty and it is not checked.' });
+  return { vehicle_path: r.path.map(era).join(' / '), steps };
+}
+for (const r of COMPAT_RULES) {
+  Object.assign(r, { section_facets: [], source: mockSource(r), explanation: mockExplain(r),
+    infra: r.facets.map((fk) => ({ key: fk, label: fk, path: facetPath(fk), classes: ['running-track'], kind: r.kind === 'number' ? 'range' : 'terms', unit: r.unit })) });
+}
 const hash = (str) => { let x = 2166136261; for (const ch of str) x = Math.imul(x ^ ch.charCodeAt(0), 16777619) >>> 0; return x; };
 const tracksBySol = new Map();
 for (const sol of sols) {
@@ -620,7 +664,15 @@ const missingOf = (rule, track, profile) => {
   const ok = src.none_value && (Array.isArray(pv) ? pv : [pv]).includes(src.none_value);
   return { code: ok ? 0 : 2, note: rule.missing_reason };
 };
-const checkTrack = (rule, track, v, profile) => {
+// The vehicle can do without the system (it has the none value, e.g. not electrified):
+// every track is compatible for this rule; the comparison only explains why.
+const bypassOf = (rule, profile) => {
+  const src = rule.none_from ? COMPAT_RULES.find((r) => r.key === rule.none_from) : rule;
+  const pv = profile[src.key];
+  return src.none_value && (Array.isArray(pv) ? pv : [pv]).includes(src.none_value) ? src.none_value : null;
+};
+const checkTrack = (rule, track, v, profile) => (bypassOf(rule, profile) ? 0 : rawCheck(rule, track, v, profile));
+const rawCheck = (rule, track, v, profile) => {
   const vals = trackVals(rule, track);
   if (!vals.length) return missingOf(rule, track, profile).code;
   if (rule.kind === 'number') {
@@ -628,11 +680,19 @@ const checkTrack = (rule, track, v, profile) => {
     const bad = { minInclusive: (x) => x < n, maxInclusive: (x) => x > n, minExclusive: (x) => x <= n, maxExclusive: (x) => x >= n }[rule.constraint];
     return vals.some(bad) ? 2 : 0;
   }
-  const want = (Array.isArray(v) ? v : [v]).map(String);
+  const want = (Array.isArray(v) ? v : [v]).map(String).filter((x) => x !== rule.none_value);
   if (rule.constraint === 'in') return vals.every((x) => want.includes(String(x))) ? 0 : 2;
   return vals.some((x) => want.includes(String(x))) ? 0 : 2;
 };
 const COLOURS = ['green', 'yellow', 'red'];
+function noteOf(rule, t, v, profile) {
+  if (!trackVals(rule, t).length) {
+    const m = missingOf(rule, t, profile);
+    if (m.note) return { note: m.note };
+  }
+  const by = bypassOf(rule, profile);
+  return by && rawCheck(rule, t, v, profile) ? { note: 'Compatible in “Not electrified” mode', bypass: by } : {};
+}
 function compatOf(sol, checks, profile) {
   const tracks = (tracksBySol.get(sol.id) || []).map((t) => {
     const codes = checks.map((rule) => checkTrack(rule, t, profile[rule.key], profile));
@@ -1110,7 +1170,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/api/compatibility/rules') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
-      return send(res, 200, { track_classes: ['running-track'], section_class: 'section-of-line', rules: compatRules() });
+      return send(res, 200, { track_classes: ['running-track'], section_class: 'section-of-line',
+        class_labels: { 'running-track': 'Running track', 'section-of-line': 'Section of line' }, rules: compatRules() });
     }
     if (req.method === 'POST' && (p === '/api/compatibility' || p === '/api/compatibility/explain')) {
       const body = await readJson(req);
@@ -1135,7 +1196,7 @@ const server = http.createServer(async (req, res) => {
           id: t.id, iri: t.iri, label: t.label, class: t.class, status: COLOURS[worst],
           results: checks.map((rule, i) => ({ key: rule.key, result: ['ok', 'unknown', 'fail'][codes[i]],
             values: rule.facets.flatMap((fk) => (t.facets[fk] || []).map(({ value, label }) => ({ value, label }))),
-            note: trackVals(rule, t).length ? undefined : missingOf(rule, t, profile).note })),
+            ...noteOf(rule, t, profile[rule.key], profile) })),
         })),
       });
     }

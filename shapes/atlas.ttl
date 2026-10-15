@@ -63,7 +63,10 @@
 #                       for a track without a value for the compared facets
 #   atlas:noneValue     IRI the user can add to the vehicle's values meaning it
 #                       also runs where the system is absent (e.g. "not
-#                       electrified" for bi-mode): such tracks are compatible
+#                       electrified" for bi-mode): such tracks are compatible,
+#                       and since the vehicle can do without the system, so is
+#                       every other track for this rule and the rules naming it
+#                       in noneFrom (a mismatch or missing value never fails)
 #   atlas:noneFrom      characteristic key of the rule with atlas:noneValue that
 #                       tells whether the system is absent; whenMissing and
 #                       noneValue then apply only where it is absent, a missing

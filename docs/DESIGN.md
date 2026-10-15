@@ -154,9 +154,20 @@ PostGIS is read.
   `atlas:noneFrom`: they fail only where the energy supply is missing too,
   and stay unknown on an electrified track that lacks the parameter. The
   energy supply rule's `atlas:noneValue` ("Not electrified") is offered in
-  the profile: a bi-mode vehicle that has it is compatible with tracks
-  without a contact line (on electrified tracks its electric systems are
-  checked as before).
+  the profile: a bi-mode vehicle that has it can run on any track without
+  using the contact line, so the energy supply rule and every rule naming it
+  in `atlas:noneFrom` never fail for it, on tracks without a contact line and
+  on electrified tracks whose supply, pantograph heads, wire heights or
+  current it does not match (or that lack them). The comparison is still made
+  for the per-track explanation, which says "Compatible in “Not electrified”
+  mode" where that is what makes the track pass. This follows from the
+  annotations alone (no per-characteristic code).
+- Every characteristic explains itself ("How is this checked?" in the profile
+  editor and next to each line of the per-track detail). The API writes the
+  text from the rule's annotations (constraint, unit, whenMissing, noneValue,
+  noneFrom, missingReason, the section fallback, the compared facets and their
+  RINF paths); the worker publishes the rule's Turtle with it. A new rule in
+  `shapes/compatibility.ttl` is explained without any code change.
 - Not every vehicle parameter is a compatibility constraint: maximum speed
   only limits the speed, so it has no rule. Ordered scales (gauging profiles,
   EN 15528 line categories, ETCS baselines) are compared by set membership:

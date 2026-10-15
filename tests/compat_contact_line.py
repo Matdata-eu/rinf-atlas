@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Smoke check: a track without a contact line is not compatible with an electric
-vehicle (reason "No contact line"), and is with a bi-mode one ("not electrified").
+vehicle (reason "No contact line"), and is with a bi-mode one ("not electrified"),
+which is also compatible with electrified tracks whose supply or pantograph it lacks.
 
     tests/compat_contact_line.py http://localhost:8080
 
@@ -41,11 +42,27 @@ def main():
     y = call(base, "compatibility/explain", {"env": "prod", "iri": SOL, "profile": bimode})
     assert y["status"] == "green", f"bi-mode vehicle: {y}"
 
+    # a bi-mode vehicle whose supply matches no track still runs everywhere (not electrified)
+    other = {"energySupplySystem": ["http://example.org/rinf-atlas-test/energy-supply-systems/none-matches", none],
+             "pantographHead": ["http://example.org/rinf-atlas-test/pantograph-heads/none-matches"]}
+    o = call(base, "compatibility", {"env": "prod", "profile": other})
+    assert o["counts"]["red"] == 0, f"bi-mode vehicle with an unmatched supply: {o['counts']}"
+    wired = [s for s in call(base, "compatibility", {"env": "prod", "profile": {
+        "energySupplySystem": other["energySupplySystem"][:1]}})["red"] if s != x["id"]]
+    assert wired, "no electrified section of line in the data"
+    noted = 0
+    for sid in wired[:20]:
+        z = call(base, "compatibility/explain", {"env": "prod", "id": sid, "profile": other})
+        assert z["status"] == "green", f"bi-mode vehicle on section {sid}: {z['status']}"
+        # where the track has a supply the vehicle lacks: compatible in "not electrified" mode
+        noted += any(r.get("note", "").startswith("Compatible in") for t in z["tracks"] for r in t["results"])
+    assert noted, "no 'Compatible in not electrified mode' note on an electrified section"
+
     e = call(base, "compatibility", {"env": "prod", "profile": electric})
     b = call(base, "compatibility", {"env": "prod", "profile": bimode})
     sid = x["id"]
     assert sid in e["red"] and sid in b["green"], "section status in /api/compatibility"
-    print(f"no contact line: electric red, bi-mode green; sections electric {e['counts']}, bi-mode {b['counts']}")
+    print(f"no contact line: electric red, bi-mode green (also where its supply matches no track); sections electric {e['counts']}, bi-mode {b['counts']}")
 
 
 if __name__ == "__main__":

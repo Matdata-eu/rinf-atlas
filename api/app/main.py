@@ -652,6 +652,10 @@ def compatibility_rules(env: str):
         item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
                                       "facets", "applies_to", "when_missing", "none_value", "none_from",
                                       "missing_reason")}
+        # for explaining the rule: what it compares (facet, RINF path, classes) and its Turtle
+        item["section_facets"] = r.get("section_facets") or []
+        item["infra"] = r.get("infra") or [{"key": fk, "label": fk, "path": None, "classes": classes} for fk in r["facets"]]
+        item["source"] = r.get("source") or None
         if r["kind"] == "number":
             nums = [float(x["value"]) for x in rows if isinstance(x["value"], (int, float)) and not isinstance(x["value"], bool)]
             item["range"] = {"min": min(nums) if nums else None, "max": max(nums) if nums else None,
@@ -666,13 +670,19 @@ def compatibility_rules(env: str):
             item["values"] = vals
             iris |= {x["value"] for x in vals if isinstance(x["value"], str)}
         out.append(item)
-    labels = _labels(env, iris)
-    for item in out:
+    labels = _labels(env, iris | {r["none_value"] for r in cdef["rules"] if r.get("none_value")})
+    class_labels = {c["class"]: c["label"] for c in _defs()["classes"]}
+    by_key = {r["key"]: r for r in cdef["rules"]}
+    for r, item in zip(cdef["rules"], out):
         for v in item.get("values", []):
             x = v["value"]
             v["label"] = labels.get(x, _local(x)) if isinstance(x, str) else ("Yes" if x is True else "No")
             v["count"] = v.pop("n")
-    return {"track_classes": cdef["track_classes"], "section_class": cdef["section_class"], "rules": out}
+        item["explanation"] = cx.explain_rule(r, by_key, cdef["track_classes"], cdef["section_class"],
+                                              labels, class_labels)
+    return {"track_classes": cdef["track_classes"], "section_class": cdef["section_class"],
+            "class_labels": {k: class_labels.get(k, k) for k in cdef["track_classes"] + [cdef["section_class"]]},
+            "rules": out}
 
 
 _compat_cache: dict[str, tuple[str, dict]] = {}
@@ -735,11 +745,15 @@ def compatibility_explain(req: cx.ExplainRequest):
         for i, c in enumerate(cs):
             rule = rules[c.key]
             vals = facet_values(row, rule, rule["facets"])
-            item = {"key": c.key, "result": cx.RESULT[row[f"c{i}"]], "values": vals}
+            raw = row[f"c{i}"]
+            item = {"key": c.key, "result": cx.RESULT[cx.effective(c, raw)], "values": vals}
             # why a track without a value got its result (e.g. "No contact line")
             nr = cx.none_rule(rule, rules)
             if not vals and nr and rule.get("missing_reason") and not facet_values(row, nr, nr["facets"]):
                 item["note"] = rule["missing_reason"]
+            elif c.bypass and raw != cx.OK:
+                # compatible only because the vehicle can do without the system here
+                item["bypass"] = nr["none_value"]
             out.append(item)
         return out
 
@@ -748,7 +762,7 @@ def compatibility_explain(req: cx.ExplainRequest):
         tsql, tp = cx.track_detail_sql(cdef, track, req.env, iri)
         for r in _q(tsql, tp):
             res = results(r, track)
-            worst = max(r[f"c{i}"] for i in range(len(track)))
+            worst = max(cx.effective(c, r[f"c{i}"]) for i, c in enumerate(track))
             tracks.append({"id": r["id"], "iri": r["iri"], "label": r["label"], "class": r["class"],
                            "status": cx.STATUS[worst], "results": res})
     sec = []
@@ -758,10 +772,13 @@ def compatibility_explain(req: cx.ExplainRequest):
         sec = results(rows[0], section) if rows else []
     vals = {v for t in tracks for x in t["results"] for v in x["values"] if isinstance(v, str)}
     vals |= {v for x in sec for v in x["values"] if isinstance(v, str)}
+    vals |= {x["bypass"] for t in tracks for x in t["results"] if x.get("bypass")}
     labels = _labels(req.env, vals)
 
     def lab(res: list[dict]) -> None:
         for x in res:
+            if x.get("bypass"):
+                x["note"] = f"Compatible in “{labels.get(x['bypass'], _local(x['bypass']))}” mode"
             x["values"] = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str)
                             else ("Yes" if v is True else "No" if v is False else str(v))} for v in x["values"]]
     for t in tracks:

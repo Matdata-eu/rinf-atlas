@@ -169,6 +169,30 @@ def test_bi_mode_vehicle_runs_without_contact_line():
     assert f"THEN {cx.OK} ELSE {cx.UNKNOWN} END" in h.sql
 
 
+def test_bi_mode_vehicle_is_compatible_with_any_electrified_track():
+    """With "not electrified" the vehicle can run without the contact line, so a supply,
+    pantograph or wire height that does not match (or is missing) never makes it fail."""
+    (e, h, g), _ = cx.compile_profile(ELEC, {"e": ["http://ac25", NONE], "h": 6.5, "g": ["http://g/1435"]})
+    assert e.bypass and h.bypass and not g.bypass
+    assert e.status == (str(cx.OK), []) and h.status == (str(cx.OK), [])
+    assert cx.effective(e, cx.FAIL) == cx.OK and cx.effective(g, cx.FAIL) == cx.FAIL
+    # the comparison itself is kept, for explaining why the track would not match
+    assert e.sql.endswith(f"ELSE {cx.FAIL} END")
+    # the section status only depends on the other characteristics
+    cdef = {"section_class": "sol", "track_classes": ["track"]}
+    sql, params = cx.status_sql(cdef, [e, h, g], "prod")
+    assert sql.count("%s") == len(params) and "es" not in params and "height" not in params
+    # only "not electrified": still compatible everywhere for these rules
+    (e,), _ = cx.compile_profile(ELEC, {"e": [NONE]})
+    assert e.bypass
+
+
+def test_electric_vehicle_has_no_bypass():
+    (e, h), _ = cx.compile_profile(ELEC, {"e": ["http://ac25"], "h": 6.5})
+    assert not e.bypass and not h.bypass
+    assert e.status[0] == e.sql
+
+
 def test_pantograph_without_energy_supply_still_fails_without_contact_line():
     (h,), _ = cx.compile_profile(ELEC, {"h": 6.5})
     assert f"THEN {cx.FAIL} ELSE {cx.UNKNOWN} END" in h.sql

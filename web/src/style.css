@@ -524,6 +524,31 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .compat-note-reason { font-weight: 600; color: var(--text); }
 .compat-result.fail { color: var(--danger); }
 
+/* "How is this checked?" */
+.explain-link {
+  border: 0; background: none; padding: 2px 0; margin: 0 0 6px; color: var(--accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; font: inherit; font-size: 12px;
+}
+.explain-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 4px;
+  border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--muted);
+  font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer; vertical-align: 1px; padding: 0;
+}
+.explain-icon:hover { color: var(--accent); border-color: var(--accent); }
+.explain-link:focus-visible, .explain-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.explain-dialog { width: min(640px, calc(100vw - 32px)); }
+.explain-dialog .dlg-head h2 { font-size: 15px; padding-right: 8px; }
+.explain-body { font-size: 14px; line-height: 1.45; }
+.explain-step p { margin: 2px 0 8px; }
+.explain-facts { font-size: 13px; margin: 4px 0 10px; width: 100%; }
+.explain-facts th { width: 9.5em; vertical-align: top; text-align: left; color: var(--muted); font-weight: 500; }
+.explain-facts code, .explain-body pre { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.explain-source summary { cursor: pointer; color: var(--accent); padding: 4px 0; }
+.explain-source pre {
+  margin: 4px 0 0; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 6px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
 /* "Vehicle check": a map tool with a floating panel (a bottom sheet on phones), like the line profile */
 .map-tools .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .map-tools .btn.compat-on:not([aria-pressed="true"])::after {
