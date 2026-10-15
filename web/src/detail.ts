@@ -217,10 +217,22 @@ function renderGraph(body: HTMLElement) {
   const iri = stack[stack.length - 1];
   const holder = h('div', { class: 'graph' });
   body.classList.add('graph-body');
-  body.append(h('p', { class: 'muted small graph-help' }, 'Double-click a blue node to expand it. Drag to rearrange.'), holder);
+  const navBtn = (label: string, title: string, go: (g: GraphHandle) => void) =>
+    h('button', { class: 'btn btn-small', title, 'aria-label': title, disabled: true, onclick: () => graph && go(graph) }, label);
+  const backBtn = navBtn('← Back', 'Undo the last expansion (Alt+←)', (g) => g.back());
+  const fwdBtn = navBtn('Forward →', 'Redo the expansion (Alt+→)', (g) => g.forward());
+  body.append(
+    h('div', { class: 'graph-tools' },
+      h('div', { class: 'graph-nav', role: 'group', 'aria-label': 'Graph history' }, backBtn, fwdBtn),
+      h('p', { class: 'muted small graph-help' }, 'Double-click a blue node to expand it. Drag to rearrange.')),
+    holder);
+  const onHistory = (canBack: boolean, canForward: boolean) => {
+    backBtn.disabled = !canBack;
+    fwdBtn.disabled = !canForward;
+  };
   // vis-network is large: load it only when the Graph tab is opened.
   import('./graph').then(({ mountGraph }) => {
-    if (holder.isConnected) graph = mountGraph(holder, iri, describe, literalText);
+    if (holder.isConnected) graph = mountGraph(holder, iri, describe, literalText, onHistory);
   }).catch((e) => holder.replaceChildren(h('p', { class: 'error' }, `Graph failed to load: ${(e as Error).message}`)));
 }
 

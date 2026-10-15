@@ -310,7 +310,11 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .seg-btn[aria-pressed="true"] { background: var(--accent); color: #fff; }
 
 .graph { flex: 1; min-height: 360px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
-.graph-help { margin: 0 0 8px; }
+.graph-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+.graph-nav { display: inline-flex; gap: 4px; }
+.graph-nav .btn:disabled { opacity: 0.45; cursor: default; }
+.graph-help { margin: 0; }
+.graph:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ---------- phone ---------- */
 @media (max-width: 760px) {
