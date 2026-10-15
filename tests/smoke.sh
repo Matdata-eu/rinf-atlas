@@ -16,8 +16,9 @@ for _ in $(seq 1 60); do curl -fsS "$BASE/api/health" >/dev/null 2>&1 && break; 
 curl -fsS "$BASE/api/health" >/dev/null || fail "API not healthy"
 
 echo "loading sample graph"
-# gc-op.nt adds an operational point with a point and a polygon (a GeometryCollection).
-gunzip -c "$here/fixtures/lu-sample.nt.gz" | cat - "$here/fixtures/gc-op.nt" > "$here/fixtures/lu-sample.nt"
+# gc-op.nt adds an operational point with a point and a polygon (a GeometryCollection),
+# kp-nogeom.nt a kilometric post without any geometry (like DB InfraGO's).
+gunzip -c "$here/fixtures/lu-sample.nt.gz" | cat - "$here/fixtures/gc-op.nt" "$here/fixtures/kp-nogeom.nt" > "$here/fixtures/lu-sample.nt"
 "${compose[@]}" run --rm --no-deps -T -v "$here/fixtures:/fixtures:ro" worker \
   atlas load-file --env prod --graph "$GRAPH" /fixtures/lu-sample.nt
 rm -f "$here/fixtures/lu-sample.nt"
@@ -49,6 +50,12 @@ lux=$(post facets '{"env":"prod","classes":[],"filters":{"country":["http://publ
 
 hits=$(post search '{"env":"prod","classes":["operational-point"],"filters":{},"limit":5}' | json "len(d['items'])")
 [ "$hits" -eq 5 ] || fail "search returned $hits items"
+
+# Features without geometry are counted separately, so the UI can say they are not on the map.
+unloc=$(post search '{"env":"prod","classes":["kilometric-post"],"filters":{},"limit":1}' | json "d['unlocated'], d['total'], d['items'][0]['lon']")
+echo "kilometric posts (unlocated, total, lon): $unloc"; [ "$unloc" = "1 1 None" ] || fail "search unlocated count is wrong"
+unloc=$(post facets '{"env":"prod","classes":[],"filters":{}}' | json "d['unlocated_by_class']")
+[ "$unloc" = "{'kilometric-post': 1}" ] || fail "facets unlocated_by_class is $unloc"
 
 bbox=$(post extent '{"env":"prod","classes":[],"filters":{}}' | json "d['bbox']")
 echo "extent: $bbox"; [ "$bbox" != "None" ] || fail "no extent"

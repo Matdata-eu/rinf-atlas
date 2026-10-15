@@ -139,6 +139,7 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .pill.failed { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 .pill.pending, .pill.loading { background: color-mix(in srgb, var(--warn) 25%, transparent); }
 .zoom-hint { font-size: 11px; }
+.nomap-hint { font-size: 11px; padding: 0 0 4px 41px; margin-top: -2px; }
 
 /* ---------- layout ---------- */
 .layout {

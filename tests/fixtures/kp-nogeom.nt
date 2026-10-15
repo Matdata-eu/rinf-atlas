@@ -1,0 +1,4 @@
+<http://data.europa.eu/949/kilometricPost/atlas-test-nogeom> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/KilometricPost> .
+<http://data.europa.eu/949/kilometricPost/atlas-test-nogeom> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/kilometricPost/atlas-test-nogeom> <http://www.w3.org/2000/01/rdf-schema#label> "atlas-test-nogeom" .
+<http://data.europa.eu/949/kilometricPost/atlas-test-nogeom> <http://data.europa.eu/949/kilometer> "7.6E1"^^<http://www.w3.org/2001/XMLSchema#double> .

@@ -147,6 +147,8 @@ export type FacetResult =
 export interface FacetsResponse {
   total: number;
   by_class: Record<string, number>;
+  /** Per class, how many of by_class have no geometry (classes without any are left out). */
+  unlocated_by_class: Record<string, number>;
   facets: Record<string, FacetResult>;
 }
 
@@ -192,7 +194,8 @@ export interface RangeTheme extends ThemeBase {
 export type Theme = TermsTheme | RangeTheme;
 /** Tile / search value of a feature with several different values of a terms facet. */
 export const MIXED = '__mixed__';
-export interface SearchResponse { total: number; items: SearchItem[] }
+/** `unlocated`: how many of `total` have no geometry, so they are listed but not drawn on the map. */
+export interface SearchResponse { total: number; unlocated: number; items: SearchItem[] }
 
 export interface Feature {
   iri: string;
