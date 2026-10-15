@@ -144,6 +144,9 @@ assert "prod.running-track.point" in ids and "prod.running-track.line" in ids an
 for cid in ids:
     c = get(f"{ogc}/collections/{cid}")
     types = {f["geometry"]["type"] for f in get(f"{ogc}/collections/{cid}/items?limit=10000")["features"] if f["geometry"]}
+    if not types:  # a class without any geometry (the sample's kilometric post) has no type to declare
+        assert "geometryType" not in c, (cid, c["geometryType"])
+        continue
     assert types == {c["geometryType"]}, (cid, types, c.get("geometryType"))
 whole = get(f"{ogc}/collections/prod.running-track/items?limit=1")["numberMatched"]  # still served, unlisted
 parts = sum(get(f"{ogc}/collections/prod.running-track.{f}/items?limit=1")["numberMatched"] for f in ("point", "line"))
