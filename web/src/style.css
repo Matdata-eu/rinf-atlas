@@ -172,6 +172,7 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 
 .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 6px; }
 .toggle { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; cursor: pointer; }
+.toggle input { margin: 0; accent-color: var(--accent); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
 .chip {
