@@ -300,9 +300,9 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 8px; font-size: 12px; }
 .crumbs:focus { outline: none; }
-.crumbs .hist-nav + .crumb::before { content: none; }
 .crumb { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
 .crumb + .crumb::before, .crumbs .crumb.current:not(:first-child)::before { content: "› "; color: var(--muted); }
+.crumbs .hist-nav + .crumb::before, .crumbs .hist-nav + .crumb.current:not(:first-child)::before { content: none; }
 .crumb.current { font-weight: 600; }
 .describe-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .spacer { flex: 1; }
