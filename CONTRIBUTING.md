@@ -62,3 +62,7 @@ bash tests/smoke.sh
   pull request; run `scripts/check-commits.sh` to check yours locally.
 - Keep pull requests focused, and describe what a user would see before and
   after the change.
+- There is no changelog file: release notes live on
+  [GitHub Releases](https://github.com/Matdata-eu/rinf-atlas/releases), generated
+  from the merged pull requests and edited there, so give your pull request a
+  Conventional Commits title that reads well as a line in them.
