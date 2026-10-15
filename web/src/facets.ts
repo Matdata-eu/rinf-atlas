@@ -2,6 +2,7 @@
 import { api, isAbort, type FacetMeta, type FacetResult, type FacetsResponse, type FilterValue, type RangeFilter, type TermCount, type TermValue } from './api';
 import { datasetLabel } from './datasets';
 import { changed, debounce, fmt, h, isFilterEmpty, queryState, store, unitLabel, type AppState } from './state';
+import { PALETTE_ICON, setColorBy } from './thematic';
 
 const TOP_N = 10;
 const classList = document.getElementById('class-list') as HTMLUListElement;
@@ -181,7 +182,14 @@ function blockFor(f: FacetMeta): Block {
     renderFacets();
   } }, h('span', {}, f.label, f.unit ? h('small', { class: 'muted' }, ` (${unitLabel(f.unit)})`) : null),
     h('span', { class: 'chev', 'aria-hidden': 'true' }));
-  const root = h('section', { class: `facet facet-${f.kind}`, 'data-facet': filterKey(f) }, head, body);
+  // Shortcut: colour the map by this facet (or back to class colours when it already is).
+  const paint = h('button', {
+    type: 'button', class: 'icon-btn facet-paint', 'aria-pressed': 'false',
+    onclick: () => setColorBy(store.get().colorBy === filterKey(f) ? null : filterKey(f)),
+  });
+  paint.innerHTML = PALETTE_ICON;
+  const root = h('section', { class: `facet facet-${f.kind}`, 'data-facet': filterKey(f) },
+    h('div', { class: 'facet-head-row' }, head, paint), body);
   b = { root, body };
   if (f.kind === 'terms') {
     b.filter = h('input', { type: 'search', class: 'facet-filter', placeholder: `Filter ${f.label.toLowerCase()}…`, 'aria-label': `Filter ${f.label}` });
@@ -208,6 +216,11 @@ function renderBlock(s: AppState, f: FacetMeta): HTMLElement {
   b.root.classList.toggle('collapsed', isCollapsed);
   b.root.querySelector('.facet-head')!.setAttribute('aria-expanded', String(!isCollapsed));
   b.root.classList.toggle('active', active);
+  const painted = s.colorBy === filterKey(f);
+  const paint = b.root.querySelector<HTMLButtonElement>('.facet-paint')!;
+  paint.setAttribute('aria-pressed', String(painted));
+  paint.title = painted ? 'The map is coloured by this; click for class colours' : `Colour the map by ${f.label.toLowerCase()}`;
+  paint.setAttribute('aria-label', painted ? `Stop colouring the map by ${f.label}` : `Colour the map by ${f.label}`);
   const r = data?.facets[filterKey(f)];
   if (f.kind === 'range') renderRange(f, b, r);
   else renderTerms(f, b, r);
@@ -329,7 +342,7 @@ export function initFacets() {
     limitView.checked = s.limitToView;
     if (changed(s, prev, 'env')) { data = null; blocks.clear(); rows.clear(); labelCache.clear(); openClasses.clear(); }
     if (changed(s, prev, 'meta')) rows.clear(); // class colours, labels and facet lists may differ
-    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q')) render(); // instant feedback, counts follow
+    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'colorBy')) render(); // instant feedback, counts follow
     else if (s.view.zoom !== prev.view.zoom) renderClasses(); // min_zoom hints
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) loadSoon();
   });

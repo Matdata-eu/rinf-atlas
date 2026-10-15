@@ -9,4 +9,5 @@ web/dist/
 .ruff_cache/
 .pytest_cache/
 tests/fixtures/*.nt
+!tests/fixtures/gc-op.nt
 site/privacy.html

@@ -42,6 +42,7 @@ shape:section-of-line
     sh:property [  # RINF 1.1.0.0.0.6, 64464 instances in data
         sh:path era:solNature ;
         atlas:facet "solNature" ;
+        atlas:colorBy 20 ;
         rdfs:label "Nature of Section of Line" ;
         atlas:kind "terms" ;
         sh:order 30 ;
@@ -73,4 +74,19 @@ shape:section-of-line
         rdfs:label "Type of line referencing system (national line identification)" ;
         atlas:kind "terms" ;
         sh:order 70 ;
+    ] ;
+    # Links used by the line profile to chain sections (not filters).
+    sh:property [
+        sh:path era:opStart ;
+        atlas:facet "opStart" ;
+        rdfs:label "Start operational point" ;
+        atlas:kind "link" ;
+        sh:order 900 ;
+    ] ;
+    sh:property [
+        sh:path era:opEnd ;
+        atlas:facet "opEnd" ;
+        rdfs:label "End operational point" ;
+        atlas:kind "link" ;
+        sh:order 910 ;
     ] .

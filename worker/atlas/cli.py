@@ -6,8 +6,15 @@
   atlas generate-shapes [--force] [--no-data]
   atlas load-file --env E --graph IRI file.nt   offline testing
   atlas check-shapes             parse shapes/ and print the compiled facets
+  atlas validate [--env E] [--graph G] [--force]
+                                 data quality: validate provider graphs against
+                                 ERA's SHACL shapes (only those not validated
+                                 with the current shapes, unless --force)
+  atlas shapes-tags [--env E] [--limit N]
+                                 list the tags of ERA's ontology repository that
+                                 `quality.shapes_tag` can pin the shapes to
 
-While `atlas run` is active it owns the mirror, so sync / reindex from a
+While `atlas run` is active it owns the mirror, so sync / reindex / validate from a
 second process are queued as jobs (pass --now to run in-process instead).
 """
 from __future__ import annotations
@@ -19,8 +26,11 @@ import sys
 import time
 from pathlib import Path
 
-from . import db, mirror
+import pyoxigraph as ox
+
+from . import db, era_shapes, mirror, quality
 from .config import settings
+from .extract import refresh_facet_cache
 from .generate import generate
 from .shapes import ShapeError, load_shapes
 from .sync import publish_defs, reindex_env, stale_envs, sync_env
@@ -72,7 +82,7 @@ def cmd_sync(a) -> None:
     if not a.now and _loop_running(conn):
         return _enqueue(conn, "resync" if a.force else "sync", a.env)
     shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes)
+    publish_defs(conn, shapes, cfg.quality.enabled)
     for env in _envs(a.env):
         sync_env(cfg, conn, shapes, env, force=a.force)
 
@@ -82,7 +92,7 @@ def cmd_reindex(a) -> None:
     if not a.now and _loop_running(conn):
         return _enqueue(conn, "reindex", a.env)
     shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes)
+    publish_defs(conn, shapes, cfg.quality.enabled)
     for env in _envs(a.env):
         reindex_env(cfg, conn, shapes, env)
 
@@ -115,21 +125,54 @@ def run_generate(conn, force=False, no_data=False, out=None) -> None:
 
 def cmd_load_file(a) -> None:
     cfg, conn = settings(), _conn()
-    from .extract import derive_geometry, extract_graph, refresh_facet_cache
+    from .extract import derive_geometry, extract_graph
     shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes)
+    publish_defs(conn, shapes, cfg.quality.enabled)
     store = mirror.store(cfg.mirror_dir, a.env)
+    env = cfg.env(a.env)
     mirror.replace_graph(store, a.graph, Path(a.file))
     with conn.cursor() as cur:
-        cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, status, ingested_at)
-                       VALUES (%s,%s,%s,%s,'loaded',now()) ON CONFLICT (env, graph_iri)
-                       DO UPDATE SET status='loaded', ingested_at=now()""",
-                    (a.env, a.graph, "vocab" if a.vocab else "provider", Path(a.file).name))
+        triples = sum(1 for _ in store.quads_for_pattern(None, None, None, ox.NamedNode(a.graph)))
+        cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, status, triples, ingested_at)
+                       VALUES (%s,%s,%s,%s,'loaded',%s,now()) ON CONFLICT (env, graph_iri)
+                       DO UPDATE SET status='loaded', triples=EXCLUDED.triples, ingested_at=now()""",
+                    (a.env, a.graph, "vocab" if a.vocab else "provider", Path(a.file).name, triples))
     conn.commit()
     if not a.vocab:
+        quality.reset(conn, a.env, a.graph)
         extract_graph(conn, store, a.env, a.graph, shapes)
         derive_geometry(conn, a.env)
-        refresh_facet_cache(conn, a.env)
+    quality.validate_pending(cfg, conn, store, env, only=None if a.vocab else [a.graph])
+    refresh_facet_cache(conn, a.env)
+
+
+def cmd_validate(a) -> None:
+    cfg, conn = settings(), _conn()
+    if not a.now and _loop_running(conn):
+        return _enqueue(conn, "revalidate" if a.force else "validate", a.env)
+    for env in _envs(a.env):
+        store = mirror.store(cfg.mirror_dir, env.key)
+        n = quality.validate_pending(cfg, conn, store, env, force=a.force, only=a.graph or None)
+        if n:
+            refresh_facet_cache(conn, env.key)
+        log.info("%s: validated %d graph(s)", env.key, n)
+
+
+def cmd_shapes_tags(a) -> None:
+    """The tags `quality.shapes_tag` can name, newest first, marking the ones configured."""
+    cfg = settings()
+    envs = _envs(a.env)
+    q = envs[0].quality or cfg.quality if envs else cfg.quality
+    configured: dict[str, list[str]] = {}
+    for e in envs:
+        eq = e.quality or cfg.quality
+        configured.setdefault(eq.shapes_tag or "", []).append(e.key)
+    print(f"tags of {q.gitlab_url}/{q.shapes_repo} (shapes file: first of {', '.join(q.shapes_files)})")
+    for name, date in era_shapes.list_tags(q, limit=a.limit):
+        mark = f"   <- {', '.join(configured[name])}" if name in configured else ""
+        print(f"  {name:24} {date}{mark}")
+    if "" in configured:
+        print(f"no tag (ERA's mirrored shapes graph {q.shapes_graph}): {', '.join(configured[''])}")
 
 
 def cmd_check_shapes(a) -> None:
@@ -143,6 +186,15 @@ def cmd_check_shapes(a) -> None:
         if a.verbose:
             for f in c.facets:
                 print(f"    {f.key:32} {f.kind:8} {f.path}")
+    if shapes.compat:
+        cp = shapes.compat
+        print(f"compatibility: {len(cp.rules)} rules on {', '.join(cp.track_classes)} / {cp.section_class}")
+        for r in cp.rules:
+            extra = "".join([f"  missing={r.when_missing}" if r.when_missing != "unknown" else "",
+                             f"  none={r.none_value}" if r.none_value else "",
+                             f"  noneFrom={r.none_from}" if r.none_from else "",
+                             f"  section={','.join(r.section_facets)}" if r.section_facets else ""])
+            print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}{extra}")
 
 
 def cmd_run(a) -> None:
@@ -163,7 +215,7 @@ def cmd_run(a) -> None:
             _sleep(60)
             continue
         try:
-            publish_defs(conn, shapes)
+            publish_defs(conn, shapes, cfg.quality.enabled)
             for env in stale_envs(conn, shapes):
                 if env in cfg.envs:
                     log.info("%s: shapes changed, reindexing from the mirror", env)
@@ -177,15 +229,19 @@ def cmd_run(a) -> None:
                 for e in ([cfg.env(env)] if env else cfg.envs.values()):
                     if kind == "reindex":
                         reindex_env(cfg, conn, shapes, e)
+                    elif kind in ("validate", "revalidate"):
+                        if quality.validate_pending(cfg, conn, mirror.store(cfg.mirror_dir, e.key), e,
+                                                    force=kind == "revalidate", should_stop=lambda: _stop):
+                            refresh_facet_cache(conn, e.key)
                     else:
-                        sync_env(cfg, conn, shapes, e, force=(kind == "resync"))
+                        sync_env(cfg, conn, shapes, e, force=(kind == "resync"), should_stop=lambda: _stop)
                 _finish_job(conn, jid, "done")
             if time.time() >= next_poll:
                 for env in cfg.envs.values():
                     if _stop:
                         break
                     try:
-                        sync_env(cfg, conn, shapes, env)
+                        sync_env(cfg, conn, shapes, env, should_stop=lambda: _stop)
                     except Exception:
                         conn.rollback()
                         log.exception("%s sync failed; retrying next poll", env.key)
@@ -250,6 +306,16 @@ def main(argv=None) -> None:
     s.add_argument("--vocab", action="store_true")
     s.add_argument("file")
     s.set_defaults(fn=cmd_load_file)
+    s = sub.add_parser("validate", help="data quality: validate provider graphs against ERA's SHACL shapes")
+    s.add_argument("--env")
+    s.add_argument("--graph", action="append", help="graph IRI or IM code (repeatable); default: every pending graph")
+    s.add_argument("--force", action="store_true", help="validate again even if nothing changed")
+    s.add_argument("--now", action="store_true")
+    s.set_defaults(fn=cmd_validate)
+    s = sub.add_parser("shapes-tags", help="list the ERA ontology tags quality.shapes_tag can use (GitLab API)")
+    s.add_argument("--env")
+    s.add_argument("--limit", type=int, default=100)
+    s.set_defaults(fn=cmd_shapes_tags)
     s = sub.add_parser("check-shapes")
     s.add_argument("-v", "--verbose", action="store_true")
     s.set_defaults(fn=cmd_check_shapes)

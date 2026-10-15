@@ -19,12 +19,14 @@ shape:shared
     sh:property [
         sh:path era:inCountry ;
         atlas:facet "country" ;
+        atlas:colorBy 30 ;
         rdfs:label "Country" ;
         sh:order 1 ;
     ] ;
     sh:property [
         sh:path era:infrastructureManager ;
         atlas:facet "infrastructureManager" ;
+        atlas:colorBy 31 ;
         rdfs:label "Infrastructure manager" ;
         sh:order 2 ;
     ] .
