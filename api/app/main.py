@@ -284,8 +284,9 @@ def _compute_facets(state: QueryState) -> dict:
         return res
 
     sql_nc, p_nc = w.build(with_classes=False)
-    jobs = [_executor.submit(lambda: {r["class"]: r["n"] for r in _q(
-        f"SELECT f.class, count(*) AS n FROM feature f WHERE {sql_nc} GROUP BY 1", p_nc)})]
+    jobs = [_executor.submit(lambda: _q(
+        f"""SELECT f.class, count(*) AS n, count(*) FILTER (WHERE f.geom IS NULL) AS u
+            FROM feature f WHERE {sql_nc} GROUP BY 1""", p_nc))]
     def scoped(full: list[str], scope: str | None, fn):
         """Run fn on the plain facet keys of `full` and key the result by the full keys."""
         plain_keys = {split_key(k)[1]: k for k in full}
@@ -307,7 +308,9 @@ def _compute_facets(state: QueryState) -> dict:
         scope = split_key(k)[0]
         s_k, p_k = class_cond(*w.build(exclude_facet=k), scope)
         jobs.append(_executor.submit(scoped([k], scope, lambda ks, s_=s_k, p_=p_k: run(ks, s_, p_))))
-    by_class = jobs[0].result()
+    class_rows = jobs[0].result()
+    by_class = {r["class"]: r["n"] for r in class_rows}
+    unlocated = {r["class"]: r["u"] for r in class_rows if r["u"]}
     for j in jobs[1:]:
         out.update(j.result())
     total = sum(n for c, n in by_class.items() if not state.classes or c in state.classes)
@@ -325,7 +328,7 @@ def _compute_facets(state: QueryState) -> dict:
             vals = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str) else ("Yes" if v is True else "No" if v is False else str(v)),
                      "count": n} for v, n in f["values"][:TERMS_LIMIT]]
             result[k] = {"kind": f["kind"], "values": vals, "more": f["more"]}
-    return {"total": total, "by_class": by_class, "facets": result}
+    return {"total": total, "by_class": by_class, "unlocated_by_class": unlocated, "facets": result}
 
 
 @app.post("/api/search")
@@ -339,7 +342,7 @@ def search(req: SearchRequest):
         vcol = ", t.n AS v" if t["kind"] == "range" else ", t.v AS v"
         vjoin = "LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id"
         vp = [t["id"]]
-    total = _q(f"SELECT count(*) AS n FROM feature f WHERE {sql}", p)[0]["n"]
+    counts = _q(f"SELECT count(*) AS n, count(*) FILTER (WHERE f.geom IS NULL) AS u FROM feature f WHERE {sql}", p)[0]
     order = "cd.position NULLS LAST, f.label NULLS LAST, f.id"
     op: list = []
     if req.q and req.q.strip() and not req.q.startswith("http"):
@@ -352,7 +355,7 @@ def search(req: SearchRequest):
                   FROM feature f LEFT JOIN class_def cd ON cd.class = f.class {vjoin}
                   WHERE {sql} ORDER BY {order} LIMIT %s OFFSET %s""",
               vp + p + op + [req.limit, req.offset])
-    return {"total": total, "items": rows}
+    return {"total": counts["n"], "unlocated": counts["u"], "items": rows}
 
 
 themes = Themes(_q, lambda: pool.connection(), lambda: _defs(), lambda env: _data_version(env))

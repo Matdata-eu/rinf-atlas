@@ -115,9 +115,11 @@ function render() {
   renderChips();
 }
 
-interface ClassRow { li: HTMLLIElement; label: HTMLLabelElement; box: HTMLInputElement; hint: HTMLElement; count: HTMLElement;
+interface ClassRow { li: HTMLLIElement; label: HTMLLabelElement; box: HTMLInputElement; hint: HTMLElement; nomap: HTMLElement; count: HTMLElement;
   btn: HTMLButtonElement | null; badge: HTMLElement; panel: HTMLElement }
 const rows = new Map<string, ClassRow>();
+/** Share of a class without geometry from which its row says so. */
+const NOMAP_SHARE = 0.05;
 
 const FILTER_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 3h12l-4.6 5.6V13l-2.8 1.4V8.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
@@ -126,6 +128,7 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   if (r) return r;
   const box = h('input', { type: 'checkbox', 'data-class': c.class, onchange: () => toggleClass(c.class) });
   const hint = h('small', { class: 'muted zoom-hint', title: `Drawn on the map from zoom ${c.min_zoom}` }, ' zoom in to see');
+  const nomap = h('div', { class: 'muted nomap-hint', hidden: true });
   const count = h('span', { class: 'count' });
   const label = h('label', { class: 'check' }, box, h('span', { class: 'swatch', style: `background:${c.color}` }),
     h('span', { class: 'lbl' }, c.label, hint), count);
@@ -138,8 +141,8 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   }) : null;
   if (btn) { btn.innerHTML = FILTER_ICON; btn.append(badge); }
   const panel = h('div', { class: 'class-facets', hidden: true });
-  const li = h('li', { class: 'class-row' }, h('div', { class: 'class-line' }, label, btn ?? h('span', { class: 'filter-btn-spacer' })), panel);
-  r = { li, label, box, hint, count, btn, badge, panel };
+  const li = h('li', { class: 'class-row' }, h('div', { class: 'class-line' }, label, btn ?? h('span', { class: 'filter-btn-spacer' })), nomap, panel);
+  r = { li, label, box, hint, nomap, count, btn, badge, panel };
   rows.set(c.class, r);
   return r;
 }
@@ -155,8 +158,13 @@ function renderClasses() {
     const n = counts[c.class] ?? c.count;
     r.label.classList.toggle('zero', n === 0);
     r.box.checked = s.classes.includes(c.class);
-    r.hint.hidden = s.view.zoom >= (c.min_zoom ?? 0);
     r.count.textContent = fmt.format(n);
+    // Features without geometry are counted but never drawn; say so when they are a noticeable share.
+    const u = data?.unlocated_by_class?.[c.class] ?? 0;
+    r.hint.hidden = s.view.zoom >= (c.min_zoom ?? 0) || (n > 0 && u === n);
+    r.nomap.hidden = !(u > 0 && u >= n * NOMAP_SHARE);
+    r.nomap.textContent = u === n ? 'No location in RINF, not on the map' : `${fmt.format(u)} without location, not on the map`;
+    r.nomap.title = 'Listed in the results, but the infrastructure manager published no coordinates for them';
     const open = openClasses.has(c.class);
     const active = activeOn(s, c.class);
     r.li.classList.toggle('open', open);

@@ -9,9 +9,11 @@ const PAGE = 50;
 const list = document.getElementById('results') as HTMLOListElement;
 const more = document.getElementById('results-more') as HTMLButtonElement;
 const badge = document.getElementById('result-count') as HTMLSpanElement;
+const unlocatedMsg = document.getElementById('results-unlocated') as HTMLParagraphElement;
 
 let items: SearchItem[] = [];
 let total = 0;
+let unlocated = 0;
 let ctl: AbortController | null = null;
 
 async function load(reset: boolean) {
@@ -24,6 +26,7 @@ async function load(reset: boolean) {
     const r = await api.search(queryState(s), PAGE, reset ? 0 : items.length, ctl.signal);
     items = reset ? r.items : items.concat(r.items);
     total = r.total;
+    unlocated = r.unlocated ?? 0;
     render(reset);
   } catch (e) {
     if (!isAbort(e)) { console.error(e); list.replaceChildren(h('li', { class: 'error' }, `Search failed: ${(e as Error).message}`)); }
@@ -37,6 +40,12 @@ function render(reset: boolean) {
   const s = store.get();
   const colors = new Map((s.meta?.classes ?? []).map((c) => [c.class, c]));
   badge.textContent = fmt.format(total);
+  unlocatedMsg.hidden = !unlocated;
+  unlocatedMsg.textContent = total === 1 && unlocated === 1
+    ? 'This feature has no location in RINF, so it is listed here but not drawn on the map.'
+    : unlocated === total
+    ? `None of these ${fmt.format(total)} features has a location in RINF, so they are listed here but not drawn on the map.`
+    : `${fmt.format(unlocated)} of these ${fmt.format(total)} features have no location in RINF and are not drawn on the map.`;
   const rows = items.map((it) => {
     const c = colors.get(it.class);
     const located = it.lon != null && it.lat != null;

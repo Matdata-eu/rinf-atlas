@@ -28,3 +28,7 @@ Licence v1.2 (EUPL-1.2): the shapes declare it themselves (`dct:license
 <http://data.europa.eu/eli/dec_impl/2017/863/oj>`) and so does the repository.
 A copy of the licence, taken from that repository at tag `v3.3.4`, is in
 [`third_party/era-ontology/LICENSE`](../../third_party/era-ontology/LICENSE).
+
+`kp-nogeom.nt`: a made-up kilometric post with a label and a km value but no
+geometry, like the ones in DB InfraGO's dataset. `tests/smoke.sh` adds it to
+the sample to check that features without a location are counted as such.
