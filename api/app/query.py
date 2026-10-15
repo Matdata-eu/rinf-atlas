@@ -37,6 +37,12 @@ class QueryState(BaseModel):
 class SearchRequest(QueryState):
     limit: int = Field(50, ge=1, le=500)
     offset: int = Field(0, ge=0)
+    # Optional facet key the map is coloured by: items then carry its display value `v`.
+    color: str | None = None
+
+
+class ThemeRequest(QueryState):
+    key: str
 
 
 _TOKEN = re.compile(r"[\w]+", re.UNICODE)

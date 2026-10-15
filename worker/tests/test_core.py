@@ -2,9 +2,10 @@
 from pathlib import Path
 
 import pyoxigraph as ox
+import pytest
 from atlas.extract import normalize_wkt
 from atlas.mirror import skolemize
-from atlas.shapes import load_shapes
+from atlas.shapes import ShapeError, load_shapes
 
 SHAPES = Path(__file__).resolve().parents[2] / "shapes"
 
@@ -37,6 +38,24 @@ def test_repo_shapes_compile():
     lvl = next(f for f in track.facets if f.key == "etcs.etcsLevelType")
     assert lvl.path == "(<http://data.europa.eu/949/etcs>/<http://data.europa.eu/949/etcsLevelType>)"
     assert {f.key for f in s.shared} == {"country", "infrastructureManager"}
+    speed = next(f for f in track.facets if f.key == "maximumPermittedSpeed")
+    assert speed.color_by == 1 and speed.kind == "range"
+
+
+def test_color_by_must_be_an_integer_on_a_facet(tmp_path):
+    shape = """
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX ex: <http://ex/>
+ex:s a sh:NodeShape ; atlas:key "k" ; sh:targetClass ex:C ;
+  sh:property [ sh:path ex:p ; atlas:facet "p" ; atlas:colorBy {v} ; atlas:kind "{kind}" ] .
+"""
+    (tmp_path / "x.ttl").write_text(shape.format(v="3", kind="terms"))
+    assert load_shapes(tmp_path).classes[0].facets[0].color_by == 3
+    for v, kind in (('"soon"', "terms"), ("1", "text")):
+        (tmp_path / "x.ttl").write_text(shape.format(v=v, kind=kind))
+        with pytest.raises(ShapeError):
+            load_shapes(tmp_path)
 
 
 def test_shape_paths(tmp_path):
@@ -70,3 +89,21 @@ def test_skolemize_keeps_lists_intact(tmp_path):
          "<http://www.w3.org/2002/07/owl#unionOf>/<http://www.w3.org/1999/02/22-rdf-syntax-ns#first> ?d }")
     assert [r["d"].value for r in st.query(q)] == ["http://ex/A"]
     assert '"a _:b ."' in out.read_text()
+
+
+def test_link_facets_for_the_line_profile():
+    s = load_shapes(SHAPES)
+    by = {c.key: {f.key: f for f in c.facets} for c in s.classes}
+    assert by["section-of-line"]["opStart"].kind == "link"
+    assert by["section-of-line"]["opEnd"].path == "<http://data.europa.eu/949/opEnd>"
+    # Tracks find their section through the geometryFrom ("part of") links, not a link facet.
+    for cls in ("track", "running-track"):
+        assert "partOf" not in by[cls]
+        shape = next(c for c in s.classes if c.key == cls)
+        assert shape.geometry_from == ["(<http://data.europa.eu/949/isPartOf>|^<http://data.europa.eu/949/hasPart>)"]
+
+
+def test_link_values_are_iris_only():
+    from atlas.extract import _val
+    assert _val(ox.NamedNode("http://ex/op"), "link") == "http://ex/op"
+    assert _val(ox.Literal("x"), "link") is None

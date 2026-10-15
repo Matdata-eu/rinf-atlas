@@ -41,3 +41,16 @@ export function literalText(t: RdfTerm): string {
   else if (t.datatype && !t.datatype.endsWith('#string')) s += ` ^^${prefixed(t.datatype)}`;
   return s;
 }
+
+/** Display text for an N-Triples term (an IRI as a prefixed name, a literal as its lexical form). */
+export function ntText(v: string): string {
+  if (v.startsWith('<') && v.endsWith('>')) return prefixed(v.slice(1, -1));
+  const m = /^"([\s\S]*)"(?:\^\^<[^>]*>|@[\w-]+)?$/.exec(v);
+  if (!m) return v;
+  return m[1].replace(/\\(["\\nrt])/g, (_, c: string) => ({ n: '\n', r: '\r', t: '\t' } as Record<string, string>)[c] ?? c);
+}
+
+/** A SPARQL property path with its IRIs as prefixed names. */
+export function pathText(p: string): string {
+  return p.replace(/<([^>]+)>/g, (_, iri: string) => prefixed(iri));
+}

@@ -37,6 +37,10 @@ services:
       ATLAS_ENVS: ${ATLAS_ENVS:-}
       ATLAS_ONLY_GRAPHS: ${ATLAS_ONLY_GRAPHS:-}
       ATLAS_POLL_MINUTES: ${ATLAS_POLL_MINUTES:-30}
+      ATLAS_QUALITY: ${ATLAS_QUALITY:-1}
+      ATLAS_QUALITY_MAX_TRIPLES: ${ATLAS_QUALITY_MAX_TRIPLES:-}
+      ATLAS_QUALITY_MINUTES: ${ATLAS_QUALITY_MINUTES:-}
+      ATLAS_QUALITY_SHAPES_TAG: ${ATLAS_QUALITY_SHAPES_TAG:-}
     volumes:
       - mirror:/data
       - ./shapes:/app/shapes          # edit shapes on the host; the worker reindexes on change
@@ -54,7 +58,9 @@ services:
     environment:
       DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@db:5432/atlas
       ATLAS_ENVS: ${ATLAS_ENVS:-}
+      ATLAS_PUBLIC_URL: ${ATLAS_PUBLIC_URL:-}
       ATLAS_TTL_EXPORT_MAX: ${ATLAS_TTL_EXPORT_MAX:-20000}
+      ATLAS_SHACL_REPORT_URL: ${ATLAS_SHACL_REPORT_URL-https://shacl-report.matdata.eu/}
     volumes:
       - ./config:/app/config:ro
     depends_on:

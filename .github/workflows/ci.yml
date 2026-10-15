@@ -34,6 +34,8 @@ jobs:
         run: ruff check worker api
       - name: Worker tests
         run: pytest -q worker/tests
+      - name: API tests
+        run: pytest -q api/tests
       - name: Shapes compile
         env:
           ATLAS_CONFIG: config/environments.yaml

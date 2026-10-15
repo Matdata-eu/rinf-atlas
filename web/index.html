@@ -23,6 +23,7 @@
         <input id="q" type="search" placeholder="Search labels, codes…" autocomplete="off" aria-label="Full-text search" />
       </div>
       <div id="status" class="status" title="Dataset status"></div>
+      <button id="share-btn" class="btn share-btn" type="button" title="Copy a link to this exact view: map, filters, selection and the tools you have open" aria-label="Share a link to this view"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="12" cy="3.5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12.5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m5.8 7 4.4-2.5M5.8 9l4.4 2.5" stroke="currentColor" stroke-width="1.5"/></svg><span class="share-label">Share</span></button>
       <button id="theme-btn" class="icon-btn theme-btn" type="button"></button>
       <button id="about-btn" class="icon-btn theme-btn" type="button" title="About, credits and feedback" aria-label="About, credits and feedback"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="4.9" r="1" fill="currentColor"/></svg></button>
     </header>
@@ -40,6 +41,11 @@
           <section id="pane-filters" class="pane">
             <div id="chips" class="chips"></div>
             <label class="toggle"><input id="limit-view" type="checkbox" /> Limit to map view</label>
+            <h2 class="section-title" id="colorby-title">Map colours</h2>
+            <div class="colorby">
+              <button id="colorby-btn" class="colorby-btn" type="button" aria-haspopup="dialog" aria-describedby="colorby-title"></button>
+              <button id="colorby-clear" class="icon-btn colorby-clear" type="button" title="Back to class colours" aria-label="Back to class colours" hidden>×</button>
+            </div>
             <h2 class="section-title">Classes</h2>
             <ul id="class-list" class="class-list"></ul>
             <h2 class="section-title">Filters for every class</h2>
@@ -51,6 +57,7 @@
               <button id="export-csv" class="btn btn-small" type="button" title="Download every matching feature as one CSV table (UTF-8)">CSV</button>
               <button id="export-xlsx" class="btn btn-small" type="button" title="Download every matching feature as an Excel workbook, one sheet per class">Excel</button>
               <button id="export-ttl" class="btn btn-small" type="button" title="Download the outgoing triples of every matching entity as Turtle, fetched live from ERA">Turtle</button>
+              <button id="export-gis" class="btn btn-small" type="button" title="Copy the OGC API URL of these results, to load them as layers in QGIS or ArcGIS">Open in GIS</button>
             </div>
             <p id="export-msg" class="export-msg" hidden></p>
             <ol id="results" class="results"></ol>
@@ -64,12 +71,30 @@
         <div class="map-tools">
           <button id="zoom-results" class="btn btn-raised" title="Zoom to the extent of all matching features">Zoom to results</button>
           <label class="btn btn-raised toggle-inline"><input id="orm-toggle" type="checkbox" /> OpenRailwayMap</label>
+          <button id="profile-btn" class="btn btn-raised" type="button" aria-pressed="false" title="Parameters along a national line or a series of sections of line">Line profile</button>
+          <label id="qa-tool" class="btn btn-raised toggle-inline" title="Ring features on which ERA's SHACL shapes found problems, coloured by the worst severity" hidden><input id="qa-toggle" type="checkbox" /> Data issues</label>
+          <div id="qa-legend" class="qa-legend btn-raised" hidden>
+            <span><i class="qa-dot sev-violation"></i>Violation</span>
+            <span><i class="qa-dot sev-warning"></i>Warning</span>
+            <span><i class="qa-dot sev-info"></i>Info</span>
+          </div>
+          <button id="vehicle-btn" class="btn btn-raised" type="button" aria-pressed="false" aria-expanded="false" aria-controls="vehicle-panel" title="Where can a vehicle type run? Colour the sections of line by compatibility">Vehicle check</button>
         </div>
         <div id="map-msg" class="map-msg" hidden></div>
+        <section id="profile" class="profile" aria-label="Line profile" hidden></section>
+        <section id="vehicle-panel" class="vehicle-panel" role="dialog" aria-modal="false" aria-labelledby="vehicle-panel-title" hidden>
+          <button class="sheet-handle vehicle-handle" type="button" aria-label="Expand or shrink the vehicle check"><span></span></button>
+          <div class="vehicle-panel-head">
+            <h2 id="vehicle-panel-title">Vehicle check</h2>
+            <button id="vehicle-close" class="icon-btn" type="button" title="Close the panel (the colouring stays on)" aria-label="Close the vehicle check panel">×</button>
+          </div>
+          <div id="pane-vehicle" class="vehicle-panel-body"></div>
+        </section>
       </section>
 
       <aside id="detail" class="detail" aria-label="Feature details" hidden></aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   </body>
 </html>

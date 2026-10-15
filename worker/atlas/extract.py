@@ -71,6 +71,8 @@ def _flip(wkt: str) -> str:
 
 
 def _val(term, kind: str):
+    if kind == "link":  # IRI of another indexed feature
+        return term.value if isinstance(term, ox.NamedNode) else None
     if kind == "terms":
         if isinstance(term, ox.NamedNode):
             return term.value
@@ -211,9 +213,14 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                 for s, term in ex.pairs(cls, path):
                     if s not in geoms and isinstance(term, ox.NamedNode):
                         links.append((env, graph, s, cls.key, rule, term.value))
+        # Kept even when the feature has a geometry of its own: derive_geometry only
+        # uses them for features without one, but they are also the index's record of
+        # what a feature is part of (era:isPartOf / ^era:hasPart). Map colouring rolls
+        # track values up to their section of line, the vehicle compatibility check and
+        # the line profile find a section's tracks through them.
         for path in cls.geometry_from:
             for s, term in ex.pairs(cls, path):
-                if s not in geoms and isinstance(term, ox.NamedNode):
+                if isinstance(term, ox.NamedNode):
                     links.append((env, graph, s, cls.key, "from", term.value))
 
         for s in subs:
@@ -226,7 +233,10 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
         counts[cls.key] = len(subs)
 
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM feature WHERE env=%s AND graph_iri=%s", (env, graph))
+        # Features are upserted, and only those gone from the graph are deleted, so a
+        # feature keeps its id across re-extraction: map tiles (cached by browsers and by
+        # the map itself) and id lists such as the vehicle compatibility result must
+        # keep referring to the same features after a sync.
         cur.execute("DELETE FROM feature_link WHERE env=%s AND graph_iri=%s", (env, graph))
         cur.execute("""CREATE TEMP TABLE IF NOT EXISTS stage_feature (
             env text, iri text, class text, class_iri text, graph_iri text, label text,
@@ -241,10 +251,15 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                    facets, to_tsvector('simple', unaccent(coalesce(search_text, '')))
             FROM (SELECT *, ST_CollectionHomogenize(atlas_geom(wkt)) AS g FROM stage_feature) s
             ON CONFLICT (env, iri, class) DO UPDATE SET
+                class_iri = EXCLUDED.class_iri,
                 graph_iri = EXCLUDED.graph_iri, label = EXCLUDED.label, geom = EXCLUDED.geom,
                 geom_source = EXCLUDED.geom_source, facets = EXCLUDED.facets, search = EXCLUDED.search,
                 geom3857 = EXCLUDED.geom3857
         """)
+        cur.execute("""
+            DELETE FROM feature f WHERE f.env = %s AND f.graph_iri = %s
+              AND NOT EXISTS (SELECT 1 FROM stage_feature s WHERE s.iri = f.iri AND s.class = f.class)
+        """, (env, graph))
         if links:
             with cur.copy("COPY feature_link (env, graph_iri, iri, class, rule, target) FROM STDIN") as cp:
                 for link in links:
@@ -350,11 +365,15 @@ def refresh_facet_cache(conn: psycopg.Connection, env: str) -> None:
     t0 = time.time()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_cache WHERE env=%s", (env,))
+        cur.execute("DELETE FROM theme WHERE env=%s", (env,))  # map colouring, recomputed by the API on demand
         cur.execute("""
             INSERT INTO facet_cache (env, class, key, value, n)
             SELECT f.env, f.class, kv.key, v.value, count(*)
             FROM feature f, jsonb_each(f.facets) kv, jsonb_array_elements(kv.value) v
-            WHERE f.env = %s GROUP BY 1, 2, 3, 4
+            WHERE f.env = %s
+              -- link facets (feature IRIs) are never counted as filter values
+              AND NOT EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.kind = 'link')
+            GROUP BY 1, 2, 3, 4
         """, (env,))
         cur.execute("""INSERT INTO index_state (env) VALUES (%s) ON CONFLICT (env)
                        DO UPDATE SET updated_at = now()""", (env,))

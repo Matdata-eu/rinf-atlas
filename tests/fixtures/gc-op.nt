@@ -1,0 +1,10 @@
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://data.europa.eu/949/OperationalPoint> .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://data.europa.eu/949/opName> "Atlas test point and polygon"@en .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://data.europa.eu/949/uopid> "LUXGC" .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://data.europa.eu/949/inCountry> <http://publications.europa.eu/resource/authority/country/LUX> .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://data.europa.eu/949/infrastructureManager> <http://data.europa.eu/949/body/organisation/organisationRole/0082_IM> .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://www.opengis.net/ont/geosparql#hasGeometry> <http://data.europa.eu/949/geometry/atlas-test-gc-point> .
+<http://data.europa.eu/949/operationalPoint/atlas-test-gc> <http://www.opengis.net/ont/geosparql#hasGeometry> <http://data.europa.eu/949/geometry/atlas-test-gc-polygon> .
+<http://data.europa.eu/949/geometry/atlas-test-gc-point> <http://www.opengis.net/ont/geosparql#asWKT> "POINT (6.1 49.75)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+<http://data.europa.eu/949/geometry/atlas-test-gc-polygon> <http://www.opengis.net/ont/geosparql#asWKT> "POLYGON ((6.09 49.74, 6.11 49.74, 6.11 49.76, 6.09 49.76, 6.09 49.74))"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .

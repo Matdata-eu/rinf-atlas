@@ -72,6 +72,11 @@ TERMS_STRINGS = {ERA + "lineId"}  # strings that make good term facets (national
 GEOM_PATH = ("[ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) "
              "( era:netReference gsp:hasGeometry gsp:asWKT ) ) ]")
 PART_OF = "[ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ]"
+# Link facets (atlas:kind "link") the line profile needs: (key, SHACL path, label).
+LINKS = {
+    "SectionOfLine": [("opStart", "era:opStart", "Start operational point"),
+                      ("opEnd", "era:opEnd", "End operational point")],
+}
 
 
 @dataclass
@@ -339,6 +344,10 @@ def render_class(c: ClassInfo, version: str, with_data: bool) -> str:
             note.append(f"{cand.usage} instances in data")
         out.append("    sh:property [" + (f"  # {', '.join(note)}" if note else "") + "\n"
                    + "\n".join(lines) + "\n    ] ;\n")
+    for j, (key, path, label) in enumerate(LINKS.get(name, [])):
+        out.append(f"    sh:property [\n        sh:path {path} ;\n        atlas:facet {_ttl_str(key)} ;\n"
+                   f"        rdfs:label {_ttl_str(label)} ;\n        atlas:kind \"link\" ;\n"
+                   f"        sh:order {900 + j * 10} ;\n    ] ;\n")
     text = "".join(out).rstrip(" ;\n") + " .\n"
     return text
 

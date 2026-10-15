@@ -14,9 +14,15 @@ server and is hosted on a best-effort basis, so expect occasional downtime.
 
 Documentation: [how datasets are updated](docs/datasets.md),
 [architecture](docs/architecture.md), [HTTP API](docs/api.md),
-[design notes](docs/DESIGN.md).
+[shareable links](docs/urls.md), [design notes](docs/DESIGN.md).
 
 ![RINF Atlas: operational points and sections of line in Belgium](docs/screenshots/overview.png)
+
+A **line profile** lays a national line, a series of sections of line picked on
+the map, or the route between two operational points out as a strip along the
+distance, with one row per parameter of their tracks (maximum speed,
+electrification, gauge, ETCS level, gauging, line category...; rows are
+configurable), linked to the map and downloadable as CSV.
 
 Search and the map never query ERA live: a worker mirrors the RINF named
 graphs and indexes them into PostGIS. Only "describe" (and the graph
@@ -79,7 +85,14 @@ Every `poll_interval_minutes` (default 30) the worker, per environment:
    and only re-downloads graphs whose fingerprint changed (one streaming
    N-Triples export per graph via the RDF4J `/statements` endpoint);
 4. replaces the graph in the local mirror, re-extracts its features, and
-   derives missing geometry; graphs that disappeared are removed.
+   derives missing geometry; graphs that disappeared are removed;
+5. validates changed graphs against the SHACL shapes ERA publishes
+   (`graph/rinf/shacl`). The Datasets dialog shows the violations and warnings
+   per dataset, the map can ring features with issues, a feature's details
+   list its results, and each report downloads as a standard
+   `sh:ValidationReport` to explore in
+   [shacl-report](https://github.com/Matdata-eu/shacl-report). See
+   [docs/datasets.md](docs/datasets.md#data-quality).
 
 ## Facets are SHACL you own
 
@@ -98,7 +111,7 @@ shape:operational-point a sh:NodeShape ;
         sh:path era:opType ;            # any SHACL path: sequence, inverse, alternative, *, +, ?
         atlas:facet "opType" ;
         rdfs:label "Type of operational point" ;
-        atlas:kind "terms" ;            # terms | range | boolean | text (search only)
+        atlas:kind "terms" ;            # terms | range | boolean | text (search only) | link
         sh:order 50 ;
     ] .
 ```
@@ -114,6 +127,38 @@ era:opEnd)` for sections of line, `atlas:geometryFrom` (for tracks: the
 operational point or section of line they are part of; platforms: their
 track; and so on, resolved in chains).
 
+## Use in QGIS
+
+Atlas layers load straight into a desktop GIS as OGC API – Features (one
+layer per class, with every facet as an attribute; a class that mixes
+geometry types, such as operational points with points and polygons, is one
+layer per type: `prod.operational-point.point`, `prod.operational-point.polygon`,
+and a feature with both a point and a polygon is in each layer with that part)
+and as vector tiles. On the
+demo:
+
+| | URL |
+|---|---|
+| OGC API – Features | `https://rinf-atlas.matdata.eu/api/ogc` |
+| One class as GeoJSON | `https://rinf-atlas.matdata.eu/api/ogc/collections/prod.tunnel/items?limit=1000` |
+| Vector tiles | `https://rinf-atlas.matdata.eu/api/tiles/{z}/{x}/{y}.pbf?state=eyJlbnYiOiJwcm9kIn0` |
+| Vector tile style | `https://rinf-atlas.matdata.eu/api/style.json?env=prod` (TileJSON: `/api/tiles.json?env=prod`) |
+
+- **Features:** Layer › Add Layer › Add WFS / OGC API – Features Layer ›
+  New, paste the URL, Connect, pick the classes. QGIS fetches what is in view,
+  page by page. ArcGIS Pro: Insert › Connections › Server › New OGC API
+  Server. GDAL: `ogrinfo OAPIF:https://rinf-atlas.matdata.eu/api/ogc`.
+- **Filtered:** in the app, choose classes and filters, open Results and
+  click **Open in GIS**; it copies an `/api/ogc/filtered/...` URL that serves
+  only what matches. Items also take the facets as query parameters, e.g.
+  `.../prod.tunnel/items?lengthOfTunnel=1000..&country=http://publications.europa.eu/resource/authority/country/BEL`.
+- **Vector tiles:** Layer › Add Layer › Add Vector Tile Layer › New Generic
+  Connection, the tiles URL as URL (max zoom 14) and the style URL as Style
+  URL for the map's class colours. Fast for a whole country, but tiles carry
+  only `id, iri, class, label` (and below zoom 8 only `id, class`).
+
+Details and limits: [docs/api.md](docs/api.md#gis-access-ogc-api--features-vector-tiles).
+
 ## Commands
 
 Run inside the worker container (`docker compose exec worker atlas ...`).
@@ -124,6 +169,8 @@ up by the loop:
 |---|---|
 | `atlas sync [--env prod] [--force]` | poll now; `--force` re-downloads everything |
 | `atlas reindex [--env prod]` | re-extract from the mirror (also automatic on shape changes) |
+| `atlas validate [--env prod] [--graph G] [--force]` | data quality: validate graphs against ERA's SHACL shapes (automatic after a sync) |
+| `atlas shapes-tags [--env prod]` | list the ERA ontology tags `quality.shapes_tag` can pin the shapes to |
 | `atlas generate-shapes [--force] [--no-data]` | regenerate starter shapes into `shapes/` (keeps existing files unless `--force`) |
 | `atlas check-shapes [-v]` | parse `shapes/` and print the compiled facets |
 | `atlas load-file --env prod --graph IRI file.nt` | index a local file (testing; stop the worker first) |
@@ -133,7 +180,13 @@ up by the loop:
 `config/environments.yaml` lists the environments (SPARQL repository,
 dataset explorer API, vocabulary graphs) and the provider-graph pattern.
 `.env` sets the port, database password, `ATLAS_ENVS` (subset of
-environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs).
+environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs). Behind a TLS
+proxy, set `ATLAS_PUBLIC_URL` (e.g. `https://rinf-atlas.example.org`) so the
+OGC API links use it. The `quality:` block of `environments.yaml` (and
+`ATLAS_QUALITY*` in `.env`) tunes or turns off the data quality validation,
+per environment if needed: which SHACL shapes (ERA's published graph, or a
+pinned tag of ERA's ontology repository such as `v3.3.4`) and the largest
+dataset to validate (15M triples by default).
 
 To publish a privacy statement for your instance, put a page at
 `site/privacy.html` (start from `site/privacy.example.html`); the app then
@@ -145,12 +198,13 @@ lists what the app processes, as a basis for what to disclose.
 | Path | |
 |---|---|
 | `worker/` | ingest worker (`atlas` CLI): discovery, Oxigraph mirror, SHACL-driven extraction, shape generator |
-| `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, live describe |
+| `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, export, OGC API – Features, live describe |
 | `web/` | TypeScript + MapLibre + vis-network frontend (built into the nginx image) |
 | `shapes/` | facet shapes (edit these) |
 | `site/` | optional pages for your instance, such as `privacy.html` |
 | `db/init.sql` | PostGIS schema |
 | `docs/api.md` | HTTP API contract |
+| `docs/urls.md` | shareable links: the URL scheme of the web app |
 | `docs/datasets.md` | how datasets are updated |
 | `docs/architecture.md` | architecture overview |
 | `docs/DESIGN.md` | design notes |
@@ -179,8 +233,8 @@ the data the app shows or the services it loads at runtime:
   (Directive (EU) 2016/797, Regulation (EU) 2019/777). The infrastructure
   managers who submit it remain responsible for it, and ERA's
   [RINF terms of use](https://www.era.europa.eu/system/files/2022-11/rinf_terms_of_use_en.pdf)
-  apply. No data is stored in this repository except the small test extract in
-  `tests/fixtures/`, which credits its source. This project is not affiliated
+  apply. No data is stored in this repository except the small test extracts in
+  `tests/fixtures/`, which credit their sources. This project is not affiliated
   with ERA.
 - **ERA vocabulary**: the facet shapes in `shapes/` use class and property IRIs
   and labels from the [ERA ontology](https://data-interop.era.europa.eu/era-vocabulary/)
@@ -192,6 +246,20 @@ the data the app shows or the services it loads at runtime:
 - **Rail overlay** (optional): [OpenRailwayMap](https://www.openrailwaymap.org/) tiles
   (CC-BY-SA 2.0, data ODbL), free only for small, public, non-commercial use
   ([conditions](https://wiki.openstreetmap.org/wiki/OpenRailwayMap/API)).
+- **ERA SHACL shapes** (the data quality rules), © ERA, are licensed under the
+  [EUPL 1.2](third_party/era-ontology/LICENSE), as the shapes and ERA's
+  [ontology repository](https://gitlab.com/era-europa-eu/public/interoperable-data-programme/era-ontology/era-ontology)
+  state. The worker mirrors them from ERA's repository like the data, or, when
+  `quality.shapes_tag` is set, downloads them from that GitLab repository at
+  the tag (same licence) into its cache; they are not part of the images.
+  `tests/fixtures/era-shacl.nt.gz` is an unmodified copy for the tests,
+  credited in [tests/fixtures/README.md](tests/fixtures/README.md).
+- **shacl-report**: the worker image includes the
+  [shacl-report](https://github.com/Matdata-eu/shacl-report) 1.0.0 binary
+  (Apache-2.0, by Mathias Vanden Auweele) to render the reports; its `LICENSE`
+  and `THIRD_PARTY_NOTICES.md` (the licences of the libraries compiled into it
+  and embedded in its HTML reports, all permissive) ship with it in the image
+  under `/usr/share/licenses/shacl-report/`.
 - **Dependencies** are under permissive licences (MIT, BSD, ISC, Apache-2.0)
   or weak copyleft used unmodified: psycopg (LGPL-3.0) and, at build time only,
   lightningcss (MPL-2.0). The PostGIS image (GPL-2.0) runs as an unmodified,

@@ -31,12 +31,57 @@
 #   atlas:facet         facet key; reuse the same key in several shapes to share
 #                       one facet across classes
 #   rdfs:label / sh:name  facet label
-#   atlas:kind          "terms" (default) | "range" | "boolean" | "text"
+#   atlas:kind          "terms" (default) | "range" | "boolean" | "text" | "link"
 #                       text = only added to full-text search, no facet
+#                       link = IRIs of other indexed features (start/end
+#                       operational point of a section); stored and shown in
+#                       the detail panel and exports, not offered as a
+#                       filter. The line profile chains sections with these.
+#                       (What a feature is part of needs no link facet: the
+#                       atlas:geometryFrom links are kept for every feature.)
 #   sh:datatype         optional; used for range formatting
 #   sh:order            facet order in the panel
+#   atlas:colorBy       integer; suggest the facet in the map's "Colour by"
+#                       picker, lower numbers first (every terms, boolean and
+#                       range facet can colour the map; these are listed first)
+#
+# Vehicle compatibility rules (shapes/compatibility.ttl): a sh:NodeShape with
+#   atlas:compatibility true   marks the rule shape (at most one; no atlas:key)
+#   atlas:trackClass    class key(s) whose features are the tracks of a section
+#   atlas:sectionClass  class key of the sections of line (default "section-of-line")
+# and per sh:property (one vehicle characteristic):
+#   sh:path             the characteristic's ERA property from era:VehicleType
+#                       (an IRI or a sequence of IRIs; used for Turtle export)
+#   atlas:characteristic  key in vehicle profiles and the API
+#   atlas:compareTo     infrastructure facet key(s) compared with (repeatable)
+#   atlas:constraint    sh:hasValue | sh:in | sh:minInclusive | sh:maxInclusive |
+#                       sh:minExclusive | sh:maxExclusive, applied to the
+#                       infrastructure values with the vehicle value(s)
+#   atlas:appliesTo     "track" (default) | "section"
+#   atlas:unit          unit of the number the user enters
+#   atlas:whenMissing   atlas:Unknown (default) | atlas:Incompatible: the result
+#                       for a track without a value for the compared facets
+#   atlas:noneValue     IRI the user can add to the vehicle's values meaning it
+#                       also runs where the system is absent (e.g. "not
+#                       electrified" for bi-mode): such tracks are compatible,
+#                       and since the vehicle can do without the system, so is
+#                       every other track for this rule and the rules naming it
+#                       in noneFrom (a mismatch or missing value never fails)
+#   atlas:noneFrom      characteristic key of the rule with atlas:noneValue that
+#                       tells whether the system is absent; whenMissing and
+#                       noneValue then apply only where it is absent, a missing
+#                       value elsewhere stays unknown
+#   atlas:missingReason short text shown for a track where the system is absent
+#   rdfs:label, rdfs:comment, sh:datatype, sh:order, atlas:enabled false
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl:   <http://www.w3.org/2002/07/owl#>
 
 atlas: a owl:Ontology ; rdfs:label "RINF Atlas shape annotations" .
+
+atlas:Unknown a rdfs:Resource ;
+    rdfs:label "Unknown" ;
+    rdfs:comment "atlas:whenMissing value: a track without a value makes the characteristic unknown (yellow)." .
+atlas:Incompatible a rdfs:Resource ;
+    rdfs:label "Incompatible" ;
+    rdfs:comment "atlas:whenMissing value: a track without a value is not compatible (red)." .

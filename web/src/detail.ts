@@ -1,16 +1,25 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
-import { api, ApiError, isAbort, type DescribeResponse, type Feature, type RdfTerm, type Triple } from './api';
+import { api, ApiError, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
+import { compatBlock } from './compat';
 import type { GraphHandle } from './graph';
 import { fitGeometry, flyTo, setSelectionGeometry } from './map';
-import { literalText, prefixed, shortIri } from './rdf';
+import { showLineProfile } from './profile';
+import { literalText, ntText, pathText, prefixed, shortIri } from './rdf';
 import { changed, fmt, h, store, unitLabel, type DetailTab } from './state';
+import { describeOf } from './url';
 
 const panel = document.getElementById('detail') as HTMLElement;
 
 let feature: Feature | null = null;
 let featureErr: string | null = null;
-let stack: string[] = []; // describe navigation (stack[0] = selected feature)
-let direction: 'out' | 'in' = 'out';
+// Describe navigation lives in the store (and so in the link): the selected feature, then
+// the IRIs followed from it, and the direction.
+const nav = () => describeOf(store.get());
+const stackNow = () => { const s = store.get(); return s.selected ? [s.selected, ...nav().path] : []; };
+const setNav = (path: string[], dir = nav().dir) => {
+  const sel = store.get().selected;
+  if (sel) store.set({ describe: path.length || dir !== 'out' ? { for: sel, path, dir } : null });
+};
 let graph: GraphHandle | null = null;
 let ctl: AbortController | null = null;
 /** Pending "zoom to" request: fit the map once this feature's geometry has loaded. */
@@ -20,7 +29,7 @@ export const ZOOM_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-h
 
 /** Selects a feature and fits the map to its geometry; `fallback` (lon, lat) is used when it has none. */
 export function zoomToFeature(iri: string, fallback?: [number, number]) {
-  if (store.get().selected === iri && feature && stack[0] === iri) { zoomNow(feature.geometry, fallback); return; }
+  if (store.get().selected === iri && feature) { zoomNow(feature.geometry, fallback); return; }
   zoomWanted = { iri, fallback };
   store.set({ selected: iri }); // open() fits the map once the feature has loaded
 }
@@ -60,7 +69,9 @@ function close() { store.set({ selected: null }); }
 async function open(iri: string) {
   ctl?.abort();
   ctl = new AbortController();
-  feature = null; featureErr = null; stack = [iri]; direction = 'out';
+  feature = null; featureErr = null;
+  // Describe navigation started from another feature no longer applies.
+  queueMicrotask(() => { const d = store.get().describe; if (d && d.for !== store.get().selected) store.set({ describe: null }); });
   setSelectionGeometry(null);
   panel.hidden = false;
   document.body.classList.add('detail-open');
@@ -134,30 +145,77 @@ function renderProperties(body: HTMLElement) {
   const rows = Object.entries(f.facets)
     .sort(([a], [b]) => (facetMeta.get(a)?.position ?? 999) - (facetMeta.get(b)?.position ?? 999))
     .map(([k, vals]) => h('tr', {},
-      h('th', {}, facetMeta.get(k)?.label ?? k),
+      h('th', {}, facetMeta.get(k)?.label ?? f.facet_labels?.[k] ?? k),
       h('td', {}, ...vals.map((v) => {
         const unit = facetMeta.get(k)?.unit;
         const text = v.label ?? (typeof v.value === 'boolean' ? (v.value ? 'Yes' : 'No')
           : typeof v.value === 'number' && unit ? `${fmt.format(v.value)} ${unitLabel(unit)}` : String(v.value));
+        // link facets point at other indexed features: open them here
+        if (f.facet_kinds?.[k] === 'link' && typeof v.value === 'string') {
+          const iri = v.value;
+          return h('div', {}, h('button', { class: 'link', title: iri, onclick: () => store.set({ selected: iri, detailTab: 'properties' }) }, text));
+        }
         return typeof v.value === 'string' && /^https?:\/\//.test(v.value)
           ? h('div', {}, h('a', { href: v.value, target: '_blank', rel: 'noopener', title: v.value }, text))
           : h('div', {}, text);
       }))));
   body.append(
+    compatBlock(f) ?? '',
     h('table', { class: 'kv' }, h('tbody', {},
       ...rows,
       h('tr', {}, h('th', {}, 'Graph'), h('td', {}, h('code', { class: 'small' }, f.graph_iri))))),
     h('div', { class: 'row-actions' },
       f.geometry ? h('button', { class: 'btn', onclick: () => fitGeometry(f.geometry!) }, 'Zoom to feature') : null,
+      ...(f.classes.includes('section-of-line') ? (f.facets['nationalLine.lineId'] ?? []).map((v) => h('button', {
+        class: 'btn', title: 'Parameters along this national line', onclick: () => showLineProfile(String(v.value), f.graph_iri),
+      }, `Line profile ${v.label ?? v.value}`)) : []),
       h('button', { class: 'btn', onclick: () => store.set({ detailTab: 'describe' }) }, 'Describe live')),
   );
+  if (f.quality && store.get().meta?.quality?.enabled) body.append(qualitySection(f, f.quality));
+}
+
+const SEV_TEXT = { violation: 'Violation', warning: 'Warning', info: 'Info' } as const;
+
+/** Results of the validation against ERA's SHACL shapes whose focus node is this feature. */
+function qualitySection(f: Feature, q: FeatureQuality): HTMLElement {
+  const env = store.get().env;
+  const sec = h('section', { class: 'qa-section', 'aria-label': 'Data quality' },
+    h('h3', {}, 'Data quality ', h('small', { class: 'muted', title: q.shapes ? `${q.shapes.label}\n${q.shapes.url ?? q.shapes.graph}` : '' },
+      q.shapes?.kind === 'tag' ? `ERA SHACL shapes ${q.shapes.tag}` : `ERA SHACL shapes${q.shapes?.version ? ` v${q.shapes.version}` : ''}`)));
+  if (q.status === null || q.status === 'skipped' || q.status === 'failed') {
+    sec.append(h('p', { class: 'muted small' }, q.status === null ? 'This dataset has not been validated yet.'
+      : q.reason === 'too_large' ? `Its dataset was not validated: it is too large${q.note ? ` ${q.note.replace(/^not validated: too large /, '')}` : ''}.`
+        : `This dataset was not validated${q.note ? `: ${q.note}` : '.'}`));
+    return sec;
+  }
+  const partial = q.status === 'partial' ? ' (the check of this dataset stopped early, so this list may be incomplete)' : '';
+  if (!q.results.length) {
+    sec.append(h('p', { class: 'qa-ok small' }, `No issues found on this ${f.label ? 'feature' : 'resource'}${partial}.`));
+  } else {
+    const counts = (['violation', 'warning', 'info'] as const).map((s) => [s, q.results.filter((r) => r.severity === s).length] as const).filter(([, n]) => n);
+    sec.append(h('p', { class: 'small' }, ...counts.flatMap(([s, n]) => [h('span', { class: `pill sev-${s}` }, `${n} ${SEV_TEXT[s].toLowerCase()}${n === 1 ? '' : 's'}`), ' ']),
+      partial ? h('span', { class: 'muted' }, partial) : null));
+    sec.append(h('ul', { class: 'qa-results' }, ...q.results.map((r) => h('li', { class: `sev-${r.severity}` },
+      h('div', { class: 'qa-msg' }, h('span', { class: `pill sev-${r.severity}` }, SEV_TEXT[r.severity]), ' ', r.message ?? shortIri(r.component)),
+      h('div', { class: 'qa-meta muted small' },
+        r.path ? h('span', {}, 'Path ', h('code', { title: r.path }, pathText(r.path))) : null,
+        r.value ? h('span', {}, 'Value ', h('code', { title: r.value }, r.value_label ?? ntText(r.value))) : null,
+        h('span', {}, 'Rule ', h('a', { href: r.shape.startsWith('http') ? r.shape : undefined, target: '_blank', rel: 'noopener', title: `${r.shape}\n${r.component}` }, shortIri(r.shape))))))));
+    if (q.truncated) sec.append(h('p', { class: 'muted small' }, `Showing the first ${q.results.length} results; the dataset report has them all.`));
+  }
+  const links = h('div', { class: 'row-actions' });
+  if (q.html) links.append(h('a', { class: 'btn btn-small', href: api.qualityReportUrl(env, f.graph_iri, 'html'), target: '_blank', rel: 'noopener', title: 'The whole dataset report in shacl-report' }, 'Dataset report'));
+  if (q.report) links.append(h('a', { class: 'btn btn-small', href: api.qualityReportUrl(env, f.graph_iri, 'ttl'), download: '', title: 'sh:ValidationReport (Turtle) of the whole dataset' }, 'Report .ttl'));
+  links.append(h('button', { class: 'btn btn-small', onclick: () => store.set({ qa: true }), title: 'Ring features with issues on the map' }, 'Show issues on map'));
+  sec.append(links);
+  return sec;
 }
 
 function termCell(t: RdfTerm, labels: Record<string, string>): HTMLElement {
   if (t.type === 'uri') {
     const lbl = labels[t.value];
     return h('td', {},
-      h('button', { class: 'link iri-btn', title: t.value, onclick: () => { stack.push(t.value); render(); } },
+      h('button', { class: 'link iri-btn', title: t.value, onclick: () => setNav([...nav().path, t.value]) },
         lbl ? h('span', {}, lbl) : null, h('code', {}, prefixed(t.value))));
   }
   if (t.type === 'bnode') return h('td', {}, h('code', { class: 'muted' }, `_:${t.value}`));
@@ -166,22 +224,24 @@ function termCell(t: RdfTerm, labels: Record<string, string>): HTMLElement {
 }
 
 function renderDescribe(body: HTMLElement) {
+  const stack = stackNow();
+  const direction = nav().dir;
   const iri = stack[stack.length - 1];
   const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Describe history' },
-    stack.length > 1 ? h('button', { class: 'btn btn-small', onclick: () => { stack.pop(); render(); } }, '← Back') : null,
+    stack.length > 1 ? h('button', { class: 'btn btn-small', onclick: () => setNav(nav().path.slice(0, -1)) }, '← Back') : null,
     ...stack.map((x, i) => i === stack.length - 1
       ? h('span', { class: 'crumb current', title: x }, shortIri(x))
-      : h('button', { class: 'link crumb', title: x, onclick: () => { stack = stack.slice(0, i + 1); render(); } }, shortIri(x))));
+      : h('button', { class: 'link crumb', title: x, onclick: () => setNav(nav().path.slice(0, i)) }, shortIri(x))));
   const dirToggle = h('div', { class: 'seg', role: 'group', 'aria-label': 'Direction' },
     ...(['out', 'in'] as const).map((d) => h('button', { class: 'seg-btn', 'aria-pressed': String(direction === d),
-      onclick: () => { direction = d; render(); } }, d === 'out' ? 'Outgoing' : 'Incoming')));
+      onclick: () => setNav(nav().path, d) }, d === 'out' ? 'Outgoing' : 'Incoming')));
   const tools = h('div', { class: 'describe-tools' }, dirToggle, h('span', { class: 'spacer' }));
   const table = h('div', { class: 'describe-table' }, h('p', { class: 'muted loading-text' }, 'Querying ERA…'));
   body.append(crumbs, tools, table);
 
   if (stack.length > 1) {
     featureOrNull(iri).then((f) => {
-      if (f && stack[stack.length - 1] === iri) {
+      if (f && stackNow().at(-1) === iri) {
         tools.append(h('button', { class: 'btn btn-small', onclick: () => {
           store.set({ selected: f.iri, detailTab: 'properties' });
           if (f.geometry) fitGeometry(f.geometry);
@@ -192,7 +252,7 @@ function renderDescribe(body: HTMLElement) {
 
   const dir = direction;
   describe(iri, dir).then((r) => {
-    if (stack[stack.length - 1] !== iri || direction !== dir || !table.isConnected) return;
+    if (stackNow().at(-1) !== iri || nav().dir !== dir || !table.isConnected) return;
     if (!r.triples.length) { table.replaceChildren(h('p', { class: 'muted' }, dir === 'out' ? 'No outgoing triples.' : 'No incoming triples.')); return; }
     const sorted = [...r.triples].sort((a, b) => rank(a) - rank(b) || prefixed(a.p).localeCompare(prefixed(b.p)));
     const head = dir === 'out' ? ['Predicate', 'Object'] : ['Subject', 'Predicate'];
@@ -214,7 +274,7 @@ function renderDescribe(body: HTMLElement) {
 const rank = (t: Triple) => (t.p.endsWith('#type') ? 0 : t.p.endsWith('#label') || t.p.endsWith('#prefLabel') ? 1 : 2);
 
 function renderGraph(body: HTMLElement) {
-  const iri = stack[stack.length - 1];
+  const iri = stackNow().at(-1)!;
   const holder = h('div', { class: 'graph' });
   body.classList.add('graph-body');
   body.append(h('p', { class: 'muted small graph-help' }, 'Double-click a blue node to expand it. Drag to rearrange.'), holder);
@@ -235,7 +295,7 @@ export function initDetail() {
         document.body.classList.remove('detail-open');
         setSelectionGeometry(null);
       }
-    } else if (changed(s, prev, 'detailTab') && s.selected) render();
+    } else if (changed(s, prev, 'detailTab', 'describe') && s.selected) render();
     else if (changed(s, prev, 'meta') && s.selected) {
       panel.querySelector('.kicker')?.replaceWith(kicker()); // class label/colour arrive with meta
       if (s.detailTab === 'properties') render();
