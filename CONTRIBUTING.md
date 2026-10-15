@@ -55,5 +55,10 @@ bash tests/smoke.sh
 - New UI state that changes what is shown goes in the link (`web/src/url.ts`) and `docs/urls.md`; old links keep working.
 - Facet changes belong in `shapes/*.ttl` (see `shapes/atlas.ttl` for the
   annotations), not in code.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org):
+  `<type>(<optional scope>): <description>`, with type `feat`, `fix`, `docs`,
+  `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` or `revert`
+  (e.g. `fix(web): keep the legend open on zoom`). CI checks every commit in a
+  pull request; run `scripts/check-commits.sh` to check yours locally.
 - Keep pull requests focused, and describe what a user would see before and
   after the change.
