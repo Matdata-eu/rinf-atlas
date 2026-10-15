@@ -1076,6 +1076,13 @@ const ENVS = [
 const checkEnv = (env) => ENVS.some((e) => e.key === env);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const MOCK_LAYERS = [
+  { id: 'opentopomap', label: 'Topographic map', description: 'OpenTopoMap contours and relief over the base map', type: 'raster',
+    tiles: ['a', 'b', 'c'].map((x) => `https://${x}.tile.opentopomap.org/{z}/{x}/{y}.png`), proxied: false,
+    tile_size: 256, min_zoom: 0, max_zoom: 17, opacity: 0.6, position: 'below',
+    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)' },
+];
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
@@ -1083,6 +1090,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' }); return res.end(); }
     if (p === '/api/envs') return send(res, 200, ENVS);
+    // Deployer layers (config/layers.yaml): one public layer the browser loads directly.
+    if (p === '/api/layers') return send(res, 200, MOCK_LAYERS);
     if (p === '/api/meta') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
       const classes = CLASSES.map((c) => ({ min_zoom: 0, ...c, count: features.filter((f) => f.class === c.class).length }));

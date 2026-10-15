@@ -1192,3 +1192,8 @@ def describe(env: str, iri: str, direction: str = Query("out", pattern="^(out|in
 from . import gis  # noqa: E402
 
 gis.install(app)
+
+# Extra map layers configured by the deployer (config/layers.yaml), with a tile proxy for keys.
+from . import layers as extra_layers  # noqa: E402
+
+app.include_router(extra_layers.router)

@@ -1,0 +1,87 @@
+# Extra map layers for this instance (docs/layers.md). Copy to config/layers.yaml
+# and edit; the API re-reads the file when it changes. config/layers.yaml is
+# git-ignored, so `git pull` leaves it alone.
+#
+# Each layer appears in the map's "Map layers" menu, off until a user ticks it.
+#
+#   id           lowercase letters, digits, dashes; also used in shared links
+#   label        name in the menu; description: one line under it
+#   type         raster (XYZ/TMS image tiles, default), vector (MVT tiles) or wms
+#   url          tile URL with {z} {x} {y} (or {-y} for TMS, {s} with subdomains);
+#                for wms the service URL (GetMap parameters are added)
+#   headers      HTTP headers sent with every tile request (needs the proxy)
+#   proxy        fetch tiles through the API, so keys stay on the server.
+#                Default: true when url or headers use ${ATLAS_LAYER_...}, else false
+#   attribution  HTML shown in the map attribution while the layer is on
+#   opacity      0..1 (raster and wms); tile_size: 256 (default) or 512
+#   min_zoom / max_zoom   zooms the provider has tiles for
+#   position     below (under the RINF data, default for raster/wms) or above
+#   cache_seconds  how long browsers may keep a proxied tile (default 86400)
+#   wms          for type wms: layers (required), styles, format, version
+#                (1.3.0 default, or 1.1.1), transparent, params: {extra: value}
+#   style        for type vector: MapLibre style layers without id/source, each
+#                with its source-layer (https://maplibre.org/maplibre-style-spec/layers/)
+#
+# Secrets: write ${ATLAS_LAYER_SOMETHING} anywhere in url, headers or wms and
+# set ATLAS_LAYER_SOMETHING in .env. Only variables starting with ATLAS_LAYER_
+# can be used.
+
+layers:
+  # A public layer with no key: the browser loads it straight from the provider.
+  - id: opentopomap
+    label: Topographic map
+    description: OpenTopoMap contours and relief over the base map
+    url: https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png
+    subdomains: [a, b, c]
+    max_zoom: 17
+    opacity: 0.6
+    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+
+  # A private raster layer with the key in the URL: proxied, the key never reaches browsers.
+  - id: aerial
+    label: Aerial photos
+    description: Orthophotos from our imagery provider
+    url: https://tiles.example.com/ortho/{z}/{x}/{y}.jpg?apikey=${ATLAS_LAYER_BASEMAP_KEY}
+    max_zoom: 20
+    attribution: Imagery &copy; Example Imaging
+
+  # A WMS behind HTTP basic authentication. ATLAS_LAYER_WMS_BASIC holds
+  # base64("user:password"), e.g. `printf 'user:password' | base64`.
+  - id: track-plans
+    label: Track plans
+    description: Schematic track layout from the infrastructure manager's GIS
+    type: wms
+    url: https://gis.example.com/geoserver/wms
+    headers:
+      Authorization: Basic ${ATLAS_LAYER_WMS_BASIC}
+    wms:
+      layers: infra:track_plan
+      format: image/png
+      transparent: true
+    attribution: Track plans &copy; Example Rail
+
+  # Vector tiles with a bearer token, drawn above the RINF data.
+  - id: catenary
+    label: Catenary masts
+    description: Overhead line masts from the asset register
+    type: vector
+    url: https://vt.example.com/assets/{z}/{x}/{y}.pbf
+    headers:
+      Authorization: Bearer ${ATLAS_LAYER_VECTOR_TOKEN}
+    min_zoom: 12
+    max_zoom: 16
+    style:
+      - type: circle
+        source-layer: masts
+        paint: { circle-radius: 3, circle-color: '#6b4f2a', circle-stroke-color: '#fff', circle-stroke-width: 1 }
+
+  # A provider that only accepts keys locked to your site's address (referrer
+  # restricted) can be used with proxy: false. The key is then visible to anyone
+  # who opens the map, so only do this with a key the provider limits to your domain.
+  - id: maptiler-satellite
+    label: Satellite (MapTiler)
+    type: raster
+    url: https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=${ATLAS_LAYER_MAPTILER_KEY}
+    proxy: false
+    tile_size: 512
+    attribution: '<a href="https://www.maptiler.com/copyright/">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap contributors</a>'

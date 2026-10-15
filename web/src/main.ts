@@ -4,6 +4,7 @@ import { openAbout } from './about';
 import { initCompat } from './compat';
 import { initDatasets, openDatasets } from './datasets';
 import { initDetail } from './detail';
+import { initExtraLayers } from './extra-layers';
 import { initProfile } from './profile';
 import { initFacets } from './facets';
 import { fitBbox, initMap, jumpToView, TILE_MODE } from './map';
@@ -176,9 +177,11 @@ function initMapTools() {
     if (e.key === 'Escape' && !layersMenu.hidden) { setLayersOpen(false); layersBtn.focus(); }
   });
   // A dot on the button while an overlay is on, so it is not forgotten with the menu closed.
-  const layersOn = () => layersBtn.classList.toggle('has-on', Boolean(store.get().orm || (store.get().qa && !qaTool.hidden)));
-  store.subscribe((s, prev) => { if (changed(s, prev, 'orm', 'qa', 'meta')) layersOn(); });
+  const layersOn = () => layersBtn.classList.toggle('has-on', Boolean(store.get().orm || store.get().layers.length || (store.get().qa && !qaTool.hidden)));
+  store.subscribe((s, prev) => { if (changed(s, prev, 'orm', 'layers', 'qa', 'meta')) layersOn(); });
   layersOn();
+  // The deployer's own layers (config/layers.yaml), between OpenRailwayMap and Data issues.
+  void initExtraLayers(qaTool);
   $('zoom-results').addEventListener('click', async () => {
     try {
       const { bbox } = await api.extent(queryState(store.get(), false));

@@ -193,6 +193,12 @@ To publish a privacy statement for your instance, put a page at
 links it as **Privacy**. [docs/privacy.md](docs/privacy.md) explains how and
 lists what the app processes, as a basis for what to disclose.
 
+To add your own map layers (aerial photos, a WMS, vector tiles, including
+private ones that need an API key), list them in `config/layers.yaml` (start
+from `config/layers.example.yaml`); they appear in the **Map layers** menu.
+Keys go in `.env` and stay on the server: the API proxies those tiles.
+[docs/layers.md](docs/layers.md) explains how and the trade-offs.
+
 ## Layout
 
 | Path | |
@@ -209,6 +215,7 @@ lists what the app processes, as a basis for what to disclose.
 | `docs/architecture.md` | architecture overview |
 | `docs/DESIGN.md` | design notes |
 | `docs/privacy.md` | adding a privacy statement; what the app processes |
+| `docs/layers.md` | adding your own map layers, with API keys |
 
 ## Feedback
 

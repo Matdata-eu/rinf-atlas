@@ -310,6 +310,20 @@ export interface CompatExplain {
   tracks: { id: number | string; iri: string; label: string | null; class: string; status: CompatColour; results: CompatCheck[] }[];
 }
 
+/** An extra map layer configured by whoever deploys this instance (config/layers.yaml, docs/layers.md). */
+export interface MapLayer {
+  id: string; label: string; description: string;
+  type: 'raster' | 'vector' | 'wms';
+  /** Tile URL templates; a proxied layer's point at /api/layers/{id}/... so its key stays on the server. */
+  tiles: string[]; proxied: boolean;
+  tile_size: number; min_zoom: number; max_zoom: number; opacity: number;
+  attribution: string;
+  /** Under the RINF data or above it. */
+  position: 'below' | 'above';
+  /** Vector layers: MapLibre style layers (no id or source). */
+  style?: Record<string, unknown>[];
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -333,6 +347,9 @@ const qs = (o: Record<string, string>) => new URLSearchParams(o).toString();
 
 export const api = {
   envs: () => request<Env[]>('/envs'),
+  layers: () => request<MapLayer[]>('/layers'),
+  /** Absolute tile URL of a proxied layer (MapLibre needs absolute URLs in workers). */
+  layerTilesUrl: (id: string) => `${new URL(BASE, location.href).href.replace(/\/$/, '')}/layers/${encodeURIComponent(id)}/{z}/{x}/{y}`,
   meta: (env: string) => request<Meta>(`/meta?${qs({ env })}`),
   facets: (st: QueryState, signal?: AbortSignal) => post<FacetsResponse>('/facets', st, signal),
   search: (st: QueryState, limit: number, offset: number, signal?: AbortSignal, color?: string | null) =>

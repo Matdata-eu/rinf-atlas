@@ -6,6 +6,11 @@ All notable changes to this project are documented here: https://github.com/Matd
 
 ### Added
 
+- **Your own map layers**: list raster tiles, WMS layers or vector tiles in
+  `config/layers.yaml` and they appear in the "Map layers" menu (and in shared
+  links). Layers that need an API key, a bearer token or a login take it from
+  `ATLAS_LAYER_*` variables in `.env`; the API proxies their tiles so the key
+  never reaches the browser. See docs/layers.md.
 - GIS access: an OGC API – Features service at `/api/ogc` (one collection per
   environment and class, split per geometry type when a class mixes points,
   lines and polygons, with GeometryCollections split into their parts, bbox,
