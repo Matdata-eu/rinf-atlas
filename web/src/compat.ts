@@ -10,6 +10,7 @@ import {
 import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setTipNote, TILE_MODE } from './map';
 import { changed, debounce, fmt, h, store, unitLabel } from './state';
 import * as V from './vehicles';
+import { explainButton } from './compat-explain';
 
 const SRC = 'compat';
 const LAYERS = ['compat-casing', 'compat-line', 'compat-circle'];
@@ -430,6 +431,7 @@ function ruleBlock(r: CompatRule): HTMLElement {
   headEls.set(r.key, state);
   const body = h('div', { class: 'facet-body' },
     r.comment ? h('p', { class: 'muted small compat-comment' }, r.comment) : null,
+    r.explanation ? explainButton(r, rules, 'link') : null,
     h('div', { class: 'compat-values' }));
   const root = h('section', { class: 'facet' + (isOpen ? '' : ' collapsed'), 'data-rule': r.key },
     h('button', { class: 'facet-head', 'aria-expanded': String(isOpen), onclick: () => {
@@ -541,7 +543,7 @@ function checksTable(checks: CompatCheck[]): HTMLElement {
     const unit = r?.unit ? ` ${unitLabel(r.unit)}` : '';
     const vals = c.values.map((v) => typeof v.value === 'number' ? `${fmt.format(v.value)}${unit}` : valueLabel(v.value, v.label));
     return h('tr', {},
-      h('th', {}, r?.label ?? c.key),
+      h('th', {}, r?.label ?? c.key, r?.explanation ? explainButton(r, rules, 'icon') : null),
       h('td', {}, h('span', { class: `compat-result ${c.result}` }, `${RESULT_ICON[c.result]} ${RESULT_TEXT[c.result]}`),
         c.note ? h('div', { class: 'compat-note-reason small' }, c.note) : null,
         vals.length ? h('div', { class: 'muted small' }, `Track: ${vals.join(', ')}`) : null));

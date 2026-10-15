@@ -134,6 +134,12 @@ PostGIS is read.
   for the per-track explanation, which says "Compatible in “Not electrified”
   mode" where that is what makes the track pass. This follows from the
   annotations alone (no per-characteristic code).
+- Every characteristic explains itself ("How is this checked?" in the profile
+  editor and next to each line of the per-track detail). The API writes the
+  text from the rule's annotations (constraint, unit, whenMissing, noneValue,
+  noneFrom, missingReason, the section fallback, the compared facets and their
+  RINF paths); the worker publishes the rule's Turtle with it. A new rule in
+  `shapes/compatibility.ttl` is explained without any code change.
 - Not every vehicle parameter is a compatibility constraint: maximum speed
   only limits the speed, so it has no rule. Ordered scales (gauging profiles,
   EN 15528 line categories, ETCS baselines) are compared by set membership:

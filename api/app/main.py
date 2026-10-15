@@ -500,6 +500,10 @@ def compatibility_rules(env: str):
         item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
                                       "facets", "applies_to", "when_missing", "none_value", "none_from",
                                       "missing_reason")}
+        # for explaining the rule: what it compares (facet, RINF path, classes) and its Turtle
+        item["section_facets"] = r.get("section_facets") or []
+        item["infra"] = r.get("infra") or [{"key": fk, "label": fk, "path": None, "classes": classes} for fk in r["facets"]]
+        item["source"] = r.get("source") or None
         if r["kind"] == "number":
             nums = [float(x["value"]) for x in rows if isinstance(x["value"], (int, float)) and not isinstance(x["value"], bool)]
             item["range"] = {"min": min(nums) if nums else None, "max": max(nums) if nums else None,
@@ -514,13 +518,19 @@ def compatibility_rules(env: str):
             item["values"] = vals
             iris |= {x["value"] for x in vals if isinstance(x["value"], str)}
         out.append(item)
-    labels = _labels(env, iris)
-    for item in out:
+    labels = _labels(env, iris | {r["none_value"] for r in cdef["rules"] if r.get("none_value")})
+    class_labels = {c["class"]: c["label"] for c in _defs()["classes"]}
+    by_key = {r["key"]: r for r in cdef["rules"]}
+    for r, item in zip(cdef["rules"], out):
         for v in item.get("values", []):
             x = v["value"]
             v["label"] = labels.get(x, _local(x)) if isinstance(x, str) else ("Yes" if x is True else "No")
             v["count"] = v.pop("n")
-    return {"track_classes": cdef["track_classes"], "section_class": cdef["section_class"], "rules": out}
+        item["explanation"] = cx.explain_rule(r, by_key, cdef["track_classes"], cdef["section_class"],
+                                              labels, class_labels)
+    return {"track_classes": cdef["track_classes"], "section_class": cdef["section_class"],
+            "class_labels": {k: class_labels.get(k, k) for k in cdef["track_classes"] + [cdef["section_class"]]},
+            "rules": out}
 
 
 _compat_cache: dict[str, tuple[str, dict]] = {}

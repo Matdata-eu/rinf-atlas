@@ -17,6 +17,12 @@ ATLAS = "https://rinf-atlas.matdata.eu/ns#"
 RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 RDFS = "http://www.w3.org/2000/01/rdf-schema#"
 XSD = "http://www.w3.org/2001/XMLSchema#"
+# Prefixes for showing IRIs and rules compactly (the rule's Turtle, property paths).
+PREFIXES = {
+    "era": "http://data.europa.eu/949/", "sh": SH, "atlas": ATLAS, "rdf": RDF, "rdfs": RDFS, "xsd": XSD,
+    "shape": "https://rinf-atlas.matdata.eu/shapes/", "gsp": "http://www.opengis.net/ont/geosparql#",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+}
 
 DEFAULT_GEOMETRY_PATH = (
     "(<http://www.opengis.net/ont/geosparql#hasGeometry>/<http://www.opengis.net/ont/geosparql#asWKT>"
@@ -87,6 +93,11 @@ class CompatRule:
     # Track rules: the compared facets also indexed on the section class. A track without
     # a value takes the value of its section of line (RINF puts some parameters there).
     section_facets: list[str] = field(default_factory=list)
+    # For explaining the rule: each compared facet with its label, the RINF property path
+    # it is read from (compact, e.g. era:contactLineSystem/era:energySupplySystem) and the
+    # classes that index it; and the rule itself as Turtle.
+    infra: list[dict] = field(default_factory=list)
+    source: str = ""
 
 
 @dataclass
@@ -266,6 +277,72 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
     return out
 
 
+def compact_iri(iri: str) -> str:
+    for p, ns in PREFIXES.items():
+        if iri.startswith(ns) and all(c.isalnum() or c in "-_." for c in iri[len(ns):]) and iri[len(ns):]:
+            return f"{p}:{iri[len(ns):]}"
+    return f"<{iri}>"
+
+
+def compact_path(path: str) -> str:
+    """A SPARQL property path with prefixed names, without redundant outer parentheses."""
+    import re
+    out = re.sub(r"<([^>]+)>", lambda m: compact_iri(m.group(1)), path)
+    while out.startswith("(") and out.endswith(")") and out.count("(") == 1:
+        out = out[1:-1]
+    return out
+
+
+_ORDER = [SH + "path", ATLAS + "characteristic", RDFS + "label", RDFS + "comment", ATLAS + "compareTo",
+          ATLAS + "constraint", ATLAS + "appliesTo", ATLAS + "whenMissing", ATLAS + "noneValue",
+          ATLAS + "noneFrom", ATLAS + "missingReason", SH + "datatype", ATLAS + "unit", SH + "order"]
+
+
+def _turtle_term(st: ox.Store, t, indent: str) -> str:
+    if isinstance(t, ox.NamedNode):
+        return compact_iri(t.value)
+    if isinstance(t, ox.Literal):
+        v = t.value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+        dt = t.datatype.value if t.datatype else XSD + "string"
+        if t.language:
+            return f'"{v}"@{t.language}'
+        if dt == XSD + "string":
+            return f'"{v}"'
+        if dt in (XSD + "integer", XSD + "boolean") or (dt == XSD + "decimal" and "." in v):
+            return v
+        return f'"{v}"^^{compact_iri(dt)}'
+    # blank node: an RDF list or a nested node
+    first = next(iter(st.quads_for_pattern(t, ox.NamedNode(RDF + "first"), None)), None)
+    if first is not None:
+        items, node = [], t
+        while isinstance(node, ox.BlankNode):
+            f = next(iter(st.quads_for_pattern(node, ox.NamedNode(RDF + "first"), None)), None)
+            if f is None:
+                break
+            items.append(_turtle_term(st, f.object, indent))
+            node = next(iter(st.quads_for_pattern(node, ox.NamedNode(RDF + "rest"), None))).object
+        return "( " + " ".join(items) + " )"
+    return _turtle_node(st, t, indent)
+
+
+def _turtle_node(st: ox.Store, node, indent: str) -> str:
+    """A blank node as an inline Turtle [ ... ] block, its predicates in a readable order."""
+    preds: dict[str, list] = {}
+    for q in st.quads_for_pattern(node, None, None):
+        preds.setdefault(q.predicate.value, []).append(q.object)
+    order = sorted(preds, key=lambda p: (_ORDER.index(p) if p in _ORDER else len(_ORDER), p))
+    inner = indent + "    "
+    lines = [f"{inner}{compact_iri(p)} {', '.join(_turtle_term(st, o, inner) for o in preds[p])} ;" for p in order]
+    return "[\n" + "\n".join(lines) + f"\n{indent}]"
+
+
+def rule_turtle(st: ox.Store, shape, prop) -> str:
+    """One compatibility rule (a sh:property of the rule shape) as standalone Turtle."""
+    body = f"{compact_iri(shape.value) if isinstance(shape, ox.NamedNode) else '[]'} sh:property {_turtle_node(st, prop, '')} ."
+    used = sorted({p for p in PREFIXES if f"{p}:" in body})
+    return "".join(f"PREFIX {p}: <{PREFIXES[p]}>\n" for p in used) + "\n" + body + "\n"
+
+
 def _index_compat_facets(shapes: ShapeSet) -> None:
     """Index every facet a track rule compares on every track class, also where that
     class's own shape does not list it (e.g. a parameter only in running-track.ttl but
@@ -281,6 +358,18 @@ def _index_compat_facets(shapes: ShapeSet) -> None:
                 if src and not any(f.key == fk for f in shapes.all_facets(c)):
                     c.facets.append(replace(src))
                     c.facets.sort(key=lambda f: (f.order, f.key))
+    # what each rule compares, for explaining it
+    section = by_key[shapes.compat.section_class]
+    for rule in shapes.compat.rules:
+        classes = tracks if rule.applies_to == "track" else [section]
+        rule.infra = []
+        for fk in rule.facets:
+            defs = [(c, f) for c in classes for f in shapes.all_facets(c) if f.key == fk]
+            if not defs:
+                continue
+            f = defs[0][1]
+            rule.infra.append({"key": fk, "label": f.label, "path": compact_path(f.path),
+                               "classes": [c.key for c, _ in defs], "kind": f.kind, "unit": f.unit})
 
 
 def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None:
@@ -365,7 +454,8 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             facets=facets, applies_to=applies, kind=kind, datatype=dt, unit=r.lit(prop, ATLAS + "unit"),
             comment=r.label(prop, RDFS + "comment", SH + "description"), order=int(r.lit(prop, SH + "order", "100")),
             when_missing=when_missing, none_value=none_value, none_from=r.lit(prop, ATLAS + "noneFrom"),
-            missing_reason=r.label(prop, ATLAS + "missingReason"), section_facets=section_facets))
+            missing_reason=r.label(prop, ATLAS + "missingReason"), section_facets=section_facets,
+            source=rule_turtle(st, node, prop)))
     by_rule = {x.key: x for x in rules}
     for x in rules:
         if x.none_from and not (x.none_from in by_rule and by_rule[x.none_from].none_value):

@@ -253,3 +253,121 @@ def section_detail_sql(cdef: dict, checks: list[Check], env: str, sol_iri: str) 
     sql = f"""SELECT s.id, s.iri, s.label, s.facets, {cols} FROM feature s
               WHERE s.env = %s AND s.class = %s AND s.iri = %s"""
     return sql, params + [env, cdef["section_class"], sol_iri]
+
+
+# --- explaining a rule in words, generated from its annotations ----------------
+
+PREFIXES = {"era": "http://data.europa.eu/949/", "sh": "http://www.w3.org/ns/shacl#",
+            "atlas": "https://rinf-atlas.matdata.eu/ns#", "xsd": "http://www.w3.org/2001/XMLSchema#",
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#"}
+# QUDT unit keys (atlas:unit) as written after a number; mirrors web/src/state.ts
+UNITS = {"M": "m", "KiloM": "km", "MilliM": "mm", "CentiM": "cm", "M2": "m²", "KiloM-PER-HR": "km/h",
+         "M-PER-SEC": "m/s", "M-PER-SEC2": "m/s²", "MilliM-PER-M": "mm/m", "V": "V", "KiloV": "kV", "A": "A",
+         "TONNE": "t", "KiloGM": "kg", "DEG": "°", "SEC": "s", "HZ": "Hz", "W": "W", "KiloW": "kW", "PERCENT": "%"}
+# numeric constraint -> (words, symbol, the infrastructure values that fail), "infra <symbol> vehicle"
+_COMPARE = {"minInclusive": ("at least", "≥", "lower"), "maxInclusive": ("at most", "≤", "higher"),
+            "minExclusive": ("more than", ">", "equal or lower"), "maxExclusive": ("less than", "<", "equal or higher")}
+
+
+def compact(iri: str) -> str:
+    for p, ns in PREFIXES.items():
+        rest = iri[len(ns):]
+        if iri.startswith(ns) and rest and all(ch.isalnum() or ch in "-_." for ch in rest):
+            return f"{p}:{rest}"
+    return f"<{iri}>"
+
+
+def _join(items: list[str], last: str = "and") -> str:
+    items = [x for x in items if x]
+    if len(items) < 2:
+        return "".join(items)
+    return ", ".join(items[:-1]) + f" {last} " + items[-1]
+
+
+def _quote(text: str) -> str:
+    return f"“{text}”"
+
+
+def explain_rule(rule: dict, by_key: dict[str, dict], track_classes: list[str], section_class: str,
+                 labels: dict[str, str] | None = None, class_labels: dict[str, str] | None = None) -> dict:
+    """How a rule is checked, in plain language, built from its annotations only (so it
+    works for any rule): the vehicle property it reads and one sentence per step, each
+    {topic, text} with topic compare, missing, none, fallback, rollup or empty.
+
+    labels: IRI -> label (for the none value); class_labels: class key -> label."""
+    labels, class_labels = labels or {}, class_labels or {}
+    own = f"the vehicle's {_quote(rule.get('label') or rule['key'])}"
+    unit = UNITS.get(rule.get("unit") or "", rule.get("unit") or "")
+    infra = rule.get("infra") or [{"key": fk, "label": fk} for fk in rule["facets"]]
+    names = _join([_quote(f.get("label") or f["key"]) for f in infra])
+    any_names = _join([_quote(f.get("label") or f["key"]) for f in infra], "or")
+    track = rule["applies_to"] == "track"
+    where = "track" if track else "section of line"
+    steps: list[dict] = []
+
+    def say(topic: str, text: str) -> None:
+        steps.append({"topic": topic, "text": text})
+
+    c = rule["constraint"]
+    pooled = f" The values of {names} are taken together." if len(infra) > 1 else ""
+    if c == "hasValue":
+        say("compare", f"The {where} must offer at least one of the vehicle's values (sh:hasValue): it is "
+                       f"compatible when one of its {names} values is one of {own}, and "
+                       f"not compatible when none is.{pooled}")
+    elif c == "in":
+        say("compare", f"Every value on the {where} must be one of the vehicle's (sh:in): it is compatible when "
+                       f"each of its {names} values is one of {own}, and not compatible "
+                       f"as soon as one is not.{pooled}")
+    elif c in _COMPARE:
+        words, sym, bad = _COMPARE[c]
+        in_unit = f", in {unit}" if unit else ""
+        say("compare", f"Every {names} value on the {where} must be {words} {own} "
+                       f"(sh:{c}: {where} value {sym} vehicle value{in_unit}). The {where} is not compatible when "
+                       f"one of its values is {bad}.{pooled}")
+    else:
+        say("compare", f"The {where}'s {names} values are compared with the vehicle's using sh:{c}.")
+
+    # a track (or section) without a value
+    reason = f", with the reason {_quote(rule['missing_reason'])}" if rule.get("missing_reason") else ""
+    src = by_key.get(rule["none_from"]) if rule.get("none_from") else None
+    if rule.get("when_missing") == "incompatible" and src is not None:
+        say("missing", f"A {where} with no {any_names} value is not compatible{reason}, but only when it has no "
+                       f"{_quote(src.get('label') or src['key'])} value either. Where it has one, a missing "
+                       f"value is unknown.")
+    elif rule.get("when_missing") == "incompatible":
+        say("missing", f"A {where} with no {any_names} value is not compatible{reason}.")
+    else:
+        say("missing", f"A {where} with no {any_names} value is unknown: the data cannot tell.")
+
+    # the vehicle's "none" option (e.g. not electrified)
+    owner = src if src is not None else rule
+    if owner.get("none_value"):
+        nv = owner["none_value"]
+        nl = _quote(labels.get(nv) or nv.rstrip("/").rsplit("/", 1)[-1])
+        if owner is rule:
+            say("none", f"A vehicle that can also do without it (e.g. bi-mode) adds {nl} to its values. It is "
+                        f"then compatible with every {where} for this characteristic: where the {where} has no "
+                        f"value, and also where its values do not match (the detail then says: Compatible in "
+                        f"{nl} mode). {nl} itself is not compared with the {where}'s values.")
+        else:
+            say("none", f"When the vehicle's {_quote(owner.get('label') or owner['key'])} includes {nl}, it can "
+                        f"do without it: every {where} is then compatible for this characteristic, whatever its "
+                        f"values (the detail says: Compatible in {nl} mode).")
+
+    # where the value is looked up, and how results make the section's colour
+    if track:
+        if rule.get("section_facets"):
+            fb = [_quote(f.get("label") or f["key"]) for f in infra if f["key"] in rule["section_facets"]]
+            say("fallback", f"A track with no {_join(fb, 'or')} value of its own takes the value of its section of "
+                            f"line, where RINF records it for some lines.")
+        cls = _join([class_labels.get(k, k).lower() for k in track_classes], "or")
+        say("rollup", f"Every {cls} of a section of line is checked. Per track the worst result of all "
+                      f"characteristics counts (not compatible, then unknown, then compatible). The section of "
+                      f"line takes the best track: green when at least one track is compatible on every "
+                      f"characteristic, yellow when the best track is unknown or no track is linked to it, red "
+                      f"when every track is not compatible.")
+    else:
+        say("rollup", f"This characteristic is checked on the {class_labels.get(section_class, section_class).lower()} "
+                      f"itself, not per track. Its result can only make the colour its tracks give worse.")
+    say("empty", "Leave it empty and it is not checked.")
+    return {"vehicle_path": " / ".join(compact(p) for p in rule.get("path") or []), "steps": steps}

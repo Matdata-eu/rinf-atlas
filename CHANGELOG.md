@@ -29,6 +29,15 @@ All notable changes to this project are documented here: https://github.com/Matd
   Rules declare it with `atlas:whenMissing`, `atlas:noneValue`,
   `atlas:noneFrom` and `atlas:missingReason`.
 
+- Vehicle compatibility: "How is this checked?" for every characteristic, in
+  the profile editor and in the per-track detail. It explains in plain
+  language, generated from the rule in `shapes/compatibility.ttl`, which
+  vehicle and RINF properties are compared and how, what a track without a
+  value gives, the "not electrified" exception, the fallback to the section
+  of line and how tracks make the section's colour, and shows the rule as
+  Turtle. `GET /api/compatibility/rules` has the new `infra`, `source`,
+  `explanation` and `section_facets` fields.
+
 ### Changed
 - Vehicle compatibility looks parameters up on every track class (sidings
   too, and tracks typed `era:Track` get the parameters of running tracks)
