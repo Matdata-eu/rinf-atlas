@@ -299,6 +299,8 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 8px; font-size: 12px; }
+.crumbs:focus { outline: none; }
+.crumbs .hist-nav + .crumb::before { content: none; }
 .crumb { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
 .crumb + .crumb::before, .crumbs .crumb.current:not(:first-child)::before { content: "› "; color: var(--muted); }
 .crumb.current { font-weight: 600; }
@@ -311,8 +313,8 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 
 .graph { flex: 1; min-height: 360px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .graph-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
-.graph-nav { display: inline-flex; gap: 4px; }
-.graph-nav .btn:disabled { opacity: 0.45; cursor: default; }
+.hist-nav { display: inline-flex; gap: 4px; }
+.hist-nav .btn:disabled { opacity: 0.45; cursor: default; }
 .graph-help { margin: 0; }
 .graph:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
