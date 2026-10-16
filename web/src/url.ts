@@ -149,7 +149,7 @@ const SIDE_TABS: SideTab[] = ['filters', 'results'];
 
 /** URL-backed state with the value it has when its parameter is absent (applied on Back / Forward). */
 export const URL_DEFAULTS: Partial<AppState> = {
-  classes: [], filters: {}, graphs: [], q: '', limitToView: false, orm: false, layers: [], qa: false,
+  classes: [], filters: {}, graphs: [], q: '', limitToView: false, orm: false, layers: [], qa: false, allZoom: [],
   selected: null, detailTab: 'properties', describe: null, sideTab: 'filters',
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, vehicleOpen: false,
 };
@@ -170,6 +170,7 @@ export function parseHash(hash: string): Partial<AppState> {
   if (get('orm') === '1') out.orm = true;
   if (get('lyr')) out.layers = get('lyr').split(',').filter(Boolean);
   if (get('qa') === '1') out.qa = true;
+  if (get('az')) out.allZoom = get('az').split(',').filter(Boolean);
   if (get('sel')) {
     out.selected = decStr(get('sel'));
     const tab = get('tab') as DetailTab;
@@ -223,6 +224,7 @@ export function hashParams(s: AppState): [string, string][] {
     if (s.colorHidden.length) p.push(['colh', encList(s.colorHidden, true)]);
   }
   if (s.qa) p.push(['qa', '1']);
+  if (s.allZoom.length) p.push(['az', s.allZoom.join(',')]);
   if (s.profileOpen) {
     p.push(['lp', s.profile ? encProfile(s.profile) : '']);
     if (s.profileRows) p.push(['lpr', s.profileRows.length ? s.profileRows.join(',') : '-']);
@@ -252,7 +254,7 @@ export const buildHash = (s: AppState) => '#' + hashParams(s).map(([k, v]) => `$
 function navSignature(s: AppState): string {
   const d = s.selected ? describeOf(s) : null;
   return JSON.stringify([s.env, s.classes, encFilters(s.filters), s.graphs, s.q, s.selected, s.selected ? s.detailTab : null,
-    d && [d.path, d.dir], s.colorBy, s.qa, s.profileOpen, s.profile, s.vehicleOpen, s.vehicle?.name ?? null]);
+    d && [d.path, d.dir], s.colorBy, s.qa, s.allZoom, s.profileOpen, s.profile, s.vehicleOpen, s.vehicle?.name ?? null]);
 }
 
 // ---------- history ----------

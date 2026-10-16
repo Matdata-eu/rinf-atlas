@@ -123,9 +123,15 @@ function classRank(c: unknown): number {
   return i < 0 ? 999 : i;
 }
 
+/** The query state of the map tiles: the app's query plus the classes forced on at every zoom. */
+function tileState(s: AppState = store.get()) {
+  const st = queryState(s, false);
+  return s.allZoom.length ? { ...st, all_zoom: s.allZoom } : st;
+}
+
 function sourceSpec(): maplibregl.SourceSpecification {
   if (TILE_MODE === 'geojson') return { type: 'geojson', data: EMPTY };
-  return { type: 'vector', tiles: [api.tilesUrl(queryState(store.get(), false), store.get().colorBy)], minzoom: 0, maxzoom: 14 };
+  return { type: 'vector', tiles: [api.tilesUrl(tileState(), store.get().colorBy)], minzoom: 0, maxzoom: 14 };
 }
 
 type RasterPaintKey = 'raster-brightness-max' | 'raster-saturation' | 'raster-contrast';
@@ -277,7 +283,7 @@ export function initMap(container: HTMLElement) {
     if (changed(s, prev, 'meta', 'colorBy')) applyStyle(s); // theme / hidden entries: onThemeStyleChange
     if (changed(s, prev, 'orm')) map.setLayoutProperty('orm', 'visibility', s.orm ? 'visible' : 'none');
     if (changed(s, prev, 'qa')) for (const id of QA_LAYERS) map.setLayoutProperty(id, 'visibility', s.qa ? 'visible' : 'none');
-    if (changed(s, prev, 'env', 'classes', 'filters', 'graphs', 'q', 'colorBy')) refreshData();
+    if (changed(s, prev, 'env', 'classes', 'filters', 'graphs', 'q', 'colorBy', 'allZoom')) refreshData();
   });
   return map;
 }
@@ -291,7 +297,7 @@ function refreshData() {
   const src = map.getSource(SRC);
   if (TILE_MODE === 'vector') {
     // As soon as the source exists (before 'load'), so no tiles are fetched without an environment.
-    (src as maplibregl.VectorTileSource | undefined)?.setTiles([api.tilesUrl(queryState(s, false), s.colorBy)]);
+    (src as maplibregl.VectorTileSource | undefined)?.setTiles([api.tilesUrl(tileState(s), s.colorBy)]);
     return;
   }
   if (!loaded) return;

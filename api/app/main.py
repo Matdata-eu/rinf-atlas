@@ -454,7 +454,7 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
     theme = themes.get(st.env, color) if color else None
     st.bbox = None
     d = _defs()
-    allowed = [c for c, mz in d["min_zoom"].items() if mz <= z and (not st.classes or c in st.classes)]
+    allowed = [c for c, mz in d["min_zoom"].items() if (mz <= z or c in st.all_zoom) and (not st.classes or c in st.classes)]
     if not allowed:
         return Response(b"", media_type="application/vnd.mapbox-vector-tile")
     st.classes = allowed
