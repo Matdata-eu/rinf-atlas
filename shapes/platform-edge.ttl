@@ -19,7 +19,7 @@ shape:platform-edge
     atlas:color "#ff7f0e" ;
     atlas:geometry "any" ;
     atlas:order 60 ;
-    atlas:minZoom 10 ;
+    atlas:minZoom 6 ;
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;

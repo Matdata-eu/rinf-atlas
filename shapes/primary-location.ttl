@@ -19,7 +19,7 @@ shape:primary-location
     atlas:color "#e8a33d" ;
     atlas:geometry "point" ;
     atlas:order 95 ;
-    atlas:minZoom 8 ;
+    atlas:minZoom 4 ;
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:inversePath era:primaryLocation ] ;

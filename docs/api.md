@@ -132,8 +132,9 @@ operational points that no chain of sections connects answers 404.
   `more: true` means there are more.
 - Tiles: feature id (`fid`) is set as the MVT feature id. From zoom 8 up the
   properties are `id, iri, class, label, qa`. **Below zoom 8 only `id, class, qa` are
-  included** and features that collapse onto the same pixels are sent once,
-  which keeps a Europe-wide tile small; resolve a click with
+  included** and features that collapse onto the same pixels are sent once
+  (across classes, the one first in the class list, which the map draws on
+  top), which keeps a Europe-wide tile small; resolve a click with
   `/api/feature?env=&id=`. Classes are left out of tiles below their
   `min_zoom` (from the shapes, see `/api/meta`). Lines are simplified below
   zoom 10. Tiles are sent with `Cache-Control: public, max-age=300`.
