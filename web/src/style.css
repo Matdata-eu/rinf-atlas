@@ -366,6 +366,10 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .map-picker small { grid-column: 2; color: var(--muted); font-size: 12px; }
 .map-picker .qa-dot { grid-column: 3; grid-row: 1; align-self: start; margin-top: 3px; }
 .maplibregl-ctrl-attrib { font-size: 11px; }
+.map-wrap .zoom-level {
+  padding: 1px 5px; border-radius: 3px; background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--text); font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: auto;
+}
 
 /* ---------- detail ---------- */
 .detail {
