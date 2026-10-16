@@ -545,7 +545,7 @@ const CV = {
   ac25: ct('energy-supply-systems', 'AC10', 'AC 25kV-50Hz'), dc3: ct('energy-supply-systems', 'DC30', 'DC 3kV'),
   dc15: ct('energy-supply-systems', 'DC40', 'DC 1.5kV'),
   ep: ct('compliant-pantograph-heads', '20', '1600 mm (EP)'), be: ct('other-pantograph-heads', '40', '1760 mm (BE)'),
-  l1: ct('etcs-levels', '20', '1'), l2: ct('etcs-levels', '30', '2'),
+  l1: ct('etcs-levels', '20', '1'), l2: ct('etcs-levels', '30', '2'), ln: ct('etcs-levels', '10', 'N'), l0: ct('etcs-levels', '50', '0'),
   ga: ct('gaugings', '10', 'GA'), gb: ct('gaugings', '20', 'GB'), gc: ct('gaugings', '30', 'GC'), g1: ct('gaugings', '40', 'G1'), g2: ct('gaugings', '60', 'G2'),
   tc: ct('train-detection', '10', 'track circuit'), wd: ct('train-detection', '20', 'wheel detector'),
   d4: ct('load-capability-line-categories', '90', 'D4'), c4: ct('load-capability-line-categories', '60', 'C4'),
@@ -569,6 +569,10 @@ Object.assign(COMPAT_RULES.find((r) => r.key === 'energySupplySystem'),
   { when_missing: 'incompatible', none_value: NOT_ELECTRIFIED, missing_reason: 'No contact line' });
 Object.assign(COMPAT_RULES.find((r) => r.key === 'pantographHead'),
   { when_missing: 'incompatible', none_from: 'energySupplySystem', missing_reason: 'No contact line' });
+// A vehicle without ETCS runs on tracks with no ETCS (N), level 0 or NTC; others require ETCS.
+Object.assign(COMPAT_RULES.find((r) => r.key === 'etcsLevel'), {
+  without_value: `${CC}etcs-levels/10`, without_label: 'No ETCS installed',
+  without_matches: ['10', '50', '60'].map((c) => `${CC}etcs-levels/${c}`) });
 // The explanation fields of /api/compatibility/rules (infra, source, explanation). The real
 // API generates the text from the rule's annotations (api/app/compat.py explain_rule); this
 // is a shortened version of it for the mock rules.
@@ -582,6 +586,8 @@ function mockSource(r) {
   if (r.none_value) lines.push(`atlas:noneValue <${r.none_value}>`);
   if (r.none_from) lines.push(`atlas:noneFrom "${r.none_from}"`);
   if (r.missing_reason) lines.push(`atlas:missingReason "${r.missing_reason}"`);
+  if (r.without_value) lines.push(`atlas:withoutValue <${r.without_value}>`, `atlas:withoutLabel "${r.without_label}"`,
+    `atlas:withoutMatches ${r.without_matches.map((x) => `<${x}>`).join(', ')}`);
   if (r.unit) lines.push(`atlas:unit "${r.unit}"`);
   return 'PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>\nPREFIX era: <http://data.europa.eu/949/>\n'
     + 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nPREFIX sh: <http://www.w3.org/ns/shacl#>\n'
@@ -605,6 +611,7 @@ function mockExplain(r) {
       : `A track with no ${anyNames} value is not compatible${reason}.` });
   if (r.none_value) steps.push({ topic: 'none', text: 'A vehicle that can also do without it (e.g. bi-mode) adds “Not electrified” to its values. It is then compatible with every track for this characteristic: where the track has no value, and also where its values do not match (the detail then says: Compatible in “Not electrified” mode). “Not electrified” itself is not compared with the track\'s values.' });
   if (src) steps.push({ topic: 'none', text: `When the vehicle's “${src.label}” includes “Not electrified”, it can do without it: every track is then compatible for this characteristic, whatever its values (the detail says: Compatible in “Not electrified” mode).` });
+  if (r.without_value) steps.push({ topic: 'without', text: `A vehicle without the system picks “${r.without_label}”. It is then compatible with a track that has “N”, “0” or “NTC”, and not compatible with a track whose values are all others: that track requires the system.` });
   steps.push({ topic: 'rollup', text: 'Every running track of a section of line is checked. Per track the worst result of all characteristics counts (not compatible, then unknown, then compatible). The section of line takes the best track: green when at least one track is compatible on every characteristic, yellow when the best track is unknown or no track is linked to it, red when every track is not compatible.' });
   steps.push({ topic: 'empty', text: 'Leave it empty and it is not checked.' });
   return { vehicle_path: r.path.map(era).join(' / '), steps };
@@ -631,6 +638,7 @@ for (const sol of sols) {
     }
     const e = r();
     if (e < 0.35) f['etcs.etcsLevelType'] = [CV.l1]; else if (e < 0.6) f['etcs.etcsLevelType'] = [CV.l2];
+    else if (e < 0.8) f['etcs.etcsLevelType'] = [e < 0.7 ? CV.ln : CV.l0];
     if (r() < 0.7) f['trainDetectionSystem.trainDetectionSystemType'] = r() < 0.5 ? [CV.tc] : [CV.tc, CV.wd];
     if (r() < 0.6) f['trackLoadCapability.loadCapabilityLineCategory'] = [r() < 0.7 ? CV.d4 : CV.c4];
     if (r() < 0.6) { const v = [400, 600, 740, 750][Math.floor(r() * 4)]; f.maxPermittedTrainLength = [{ value: v, label: String(v) }]; }
@@ -649,6 +657,11 @@ const compatRules = () => COMPAT_RULES.map((rule) => {
     let n = 0;
     for (const ts of tracksBySol.values()) for (const t of ts) if (!rule.facets.some((fk) => (t.facets[fk] || []).length)) n++;
     vals.unshift({ value: rule.none_value, label: 'Not electrified', count: n, none: true });
+  }
+  if (rule.without_value) {
+    const n = vals.filter((v) => rule.without_matches.includes(v.value)).reduce((s, v) => s + v.count, 0);
+    vals.splice(0, vals.length, { value: rule.without_value, label: rule.without_label, count: n, without: true },
+      ...vals.filter((v) => v.value !== rule.without_value));
   }
   if (rule.kind !== 'number') return { ...rule, values: vals };
   const nums = vals.map((v) => v.value);
@@ -684,7 +697,8 @@ const rawCheck = (rule, track, v, profile) => {
     const bad = { minInclusive: (x) => x < n, maxInclusive: (x) => x > n, minExclusive: (x) => x <= n, maxExclusive: (x) => x >= n }[rule.constraint];
     return vals.some(bad) ? 2 : 0;
   }
-  const want = (Array.isArray(v) ? v : [v]).map(String).filter((x) => x !== rule.none_value);
+  let want = (Array.isArray(v) ? v : [v]).map(String).filter((x) => x !== rule.none_value);
+  if (rule.without_value && want.includes(rule.without_value)) want = [...want.filter((x) => x !== rule.without_value), ...rule.without_matches];
   if (rule.constraint === 'in') return vals.every((x) => want.includes(String(x))) ? 0 : 2;
   return vals.some((x) => want.includes(String(x))) ? 0 : 2;
 };

@@ -32,6 +32,13 @@
 #                      has no value for that rule either (no contact line), and
 #                      is unknown otherwise (contact line without the parameter)
 #   atlas:missingReason  shown in the per-track explanation for such a track
+#   atlas:withoutValue an IRI the user can pick besides the real values, meaning
+#                      "the vehicle does not have this system at all" (e.g. no
+#                      ETCS on board), labelled by atlas:withoutLabel. Picking it
+#                      replaces it, in the comparison, by the atlas:withoutMatches
+#                      values: the track values a vehicle without the system runs
+#                      on (e.g. no ETCS, level 0, NTC). A track that only has
+#                      other values (it requires the system) is not compatible
 #
 # Shape-level: atlas:trackClass (repeatable) and atlas:sectionClass name the
 # indexed classes (shape keys) that are evaluated.
@@ -151,9 +158,17 @@ shape:vehicle-compatibility
         sh:path era:etcsEquipmentOnBoardLevel ;
         atlas:characteristic "etcsLevel" ;
         rdfs:label "ETCS level on board" ;
-        rdfs:comment "Every ETCS level the on-board equipment supports; the track must have one of them." ;
+        rdfs:comment "Every ETCS level the on-board equipment supports; the track must have one of them. Pick \"No ETCS installed\" for a vehicle without ETCS: a track that requires ETCS (only level 1, 2 or 3) is then not compatible." ;
         atlas:compareTo "etcs.etcsLevelType" ;
         atlas:constraint sh:hasValue ;
+        # ERA SKOS etcs-levels: 10 = N (no ETCS; dropped from the current
+        # scheme but still in RINF data), 50 = level 0, 60 = NTC, 20 / 30 / 40
+        # = level 1 / 2 / 3. A vehicle without ETCS runs on the first three.
+        atlas:withoutValue <http://data.europa.eu/949/concepts/etcs-levels/10> ;
+        atlas:withoutLabel "No ETCS installed" ;
+        atlas:withoutMatches <http://data.europa.eu/949/concepts/etcs-levels/10>,
+            <http://data.europa.eu/949/concepts/etcs-levels/50>,
+            <http://data.europa.eu/949/concepts/etcs-levels/60> ;
         sh:order 70 ;
     ] ;
     sh:property [

@@ -9,6 +9,7 @@ const TOPICS: Record<string, string> = {
   compare: 'Comparison',
   missing: 'When there is no value',
   none: 'Vehicles that can do without it',
+  without: 'Vehicles without the system',
   fallback: 'Where the value comes from',
   rollup: 'Colour of the section of line',
   empty: 'Not filled in',
@@ -37,6 +38,9 @@ function facts(r: CompatRule, rules: CompatRules | null): HTMLElement {
     r.none_value ? row('None value', noneLabel ?? r.none_value) : null,
     r.none_from ? row('None from', rules?.rules.find((x) => x.key === r.none_from)?.label ?? r.none_from) : null,
     r.missing_reason ? row('Missing reason', r.missing_reason) : null,
+    r.without_value ? row('Without value', r.without_label ?? r.without_value) : null,
+    r.without_matches?.length ? row('Without matches', (r.without_matches).map((x) =>
+      r.values?.find((v) => v.value === x)?.label ?? x.replace(/\/$/, '').split('/').pop()).join(', ')) : null,
     r.section_facets?.length ? row('Section fallback', r.section_facets.join(', ')) : null,
   ];
   return h('table', { class: 'kv explain-facts' }, h('tbody', {}, ...rows));

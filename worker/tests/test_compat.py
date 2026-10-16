@@ -38,6 +38,11 @@ def test_repo_rules_compile():
         assert rules[k].when_missing == "incompatible" and rules[k].none_from == "energySupplySystem"
         assert rules[k].missing_reason == "No contact line"
     assert rules["wheelSetGauge"].when_missing == "unknown"
+    # no ETCS on board: runs on N, level 0 and NTC tracks only
+    et = rules["etcsLevel"]
+    lv = ERA + "concepts/etcs-levels/"
+    assert et.without_value == lv + "10" and et.without_label == "No ETCS installed"
+    assert et.without_matches == [lv + "10", lv + "50", lv + "60"]
 
 
 def test_repo_rule_facets_are_indexed_on_every_track_class():
@@ -202,3 +207,25 @@ def test_default_missing_is_unknown_and_falls_back_to_the_section():
     (g,), _ = cx.compile_profile(ELEC, {"g": ["http://g/1435"]})
     assert _missing_branch(g) == str(cx.UNKNOWN)
     assert "s.facets -> %s" in g.sql and g.sql.count("%s") == len(g.params)
+
+
+ETCS = [{"key": "l", "constraint": "hasValue", "facets": ["lvl"], "applies_to": "track", "kind": "terms",
+         "without_value": "http://N", "without_matches": ["http://N", "http://L0", "http://NTC"]}]
+
+
+def test_vehicle_without_etcs_matches_tracks_that_do_not_require_it():
+    (c,), _ = cx.compile_profile(ETCS, {"l": ["http://N"]})
+    assert sorted(c.params[-1]) == ["http://L0", "http://N", "http://NTC"]
+    assert _missing_branch(c) == str(cx.UNKNOWN) and not c.bypass
+    # with a level as well, both are matched
+    (c,), _ = cx.compile_profile(ETCS, {"l": ["http://L1", "http://N"]})
+    assert sorted(c.params[-1]) == ["http://L0", "http://L1", "http://N", "http://NTC"]
+    # an ETCS vehicle is compared with its own levels only
+    (c,), _ = cx.compile_profile(ETCS, {"l": ["http://L2"]})
+    assert c.params[-1] == ["http://L2"]
+
+
+def test_without_value_needs_matches(tmp_path):
+    with pytest.raises(ShapeError, match="withoutValue"):
+        _write(tmp_path, 'sh:property [ sh:path ex:g ; atlas:characteristic "g" ; atlas:compareTo "gauge" ; '
+                         'atlas:constraint sh:hasValue ; atlas:withoutValue ex:none ] .')

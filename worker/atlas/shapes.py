@@ -95,6 +95,12 @@ class CompatRule:
     none_value: str | None = None
     none_from: str | None = None
     missing_reason: str | None = None  # atlas:missingReason, shown for such a track
+    # A vehicle option meaning "does not have the system" (atlas:withoutValue, e.g. no ETCS),
+    # labelled without_label. In the comparison it stands for without_matches: the track
+    # values such a vehicle runs on (e.g. no ETCS, level 0, NTC); other values fail.
+    without_value: str | None = None
+    without_label: str | None = None
+    without_matches: list[str] = field(default_factory=list)
     # Track rules: the compared facets also indexed on the section class. A track without
     # a value takes the value of its section of line (RINF puts some parameters there).
     section_facets: list[str] = field(default_factory=list)
@@ -303,7 +309,8 @@ def compact_path(path: str) -> str:
 
 _ORDER = [SH + "path", ATLAS + "characteristic", RDFS + "label", RDFS + "comment", ATLAS + "compareTo",
           ATLAS + "constraint", ATLAS + "appliesTo", ATLAS + "whenMissing", ATLAS + "noneValue",
-          ATLAS + "noneFrom", ATLAS + "missingReason", SH + "datatype", ATLAS + "unit", SH + "order"]
+          ATLAS + "noneFrom", ATLAS + "missingReason", ATLAS + "withoutValue", ATLAS + "withoutLabel",
+          ATLAS + "withoutMatches", SH + "datatype", ATLAS + "unit", SH + "order"]
 
 
 def _turtle_term(st: ox.Store, t, indent: str) -> str:
@@ -453,6 +460,12 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
         none_value = _iri(r.one(prop, ATLAS + "noneValue"))
         if r.one(prop, ATLAS + "noneValue") is not None and (not none_value or kind != "terms"):
             raise ShapeError(f"compatibility.{key}: atlas:noneValue must be an IRI, on a rule compared by value")
+        without_value = _iri(r.one(prop, ATLAS + "withoutValue"))
+        without_matches = sorted(x for x in (_iri(o) for o in r.objs(prop, ATLAS + "withoutMatches")) if x)
+        if r.one(prop, ATLAS + "withoutValue") is not None and (not without_value or kind != "terms"
+                                                               or constraint != "hasValue" or not without_matches):
+            raise ShapeError(f"compatibility.{key}: atlas:withoutValue must be an IRI, on a sh:hasValue rule "
+                             f"compared by value, with atlas:withoutMatches IRIs")
         section_facets = []
         if applies == "track":
             on_section = facet_keys([section_class])
@@ -463,6 +476,8 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             comment=r.label(prop, RDFS + "comment", SH + "description"), order=int(r.lit(prop, SH + "order", "100")),
             when_missing=when_missing, none_value=none_value, none_from=r.lit(prop, ATLAS + "noneFrom"),
             missing_reason=r.label(prop, ATLAS + "missingReason"), section_facets=section_facets,
+            without_value=without_value, without_label=r.label(prop, ATLAS + "withoutLabel"),
+            without_matches=without_matches if without_value else [],
             source=rule_turtle(st, node, prop)))
     by_rule = {x.key: x for x in rules}
     for x in rules:

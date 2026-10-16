@@ -142,7 +142,11 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
 
     A vehicle that accepts the absence of the system (e.g. a bi-mode vehicle with "not
     electrified") can run on any track without using it, so for those rules every track
-    is compatible (Check.bypass); the comparison is kept to tell why in the detail."""
+    is compatible (Check.bypass); the comparison is kept to tell why in the detail.
+
+    A vehicle that has the rule's without_value (e.g. no ETCS installed) is compared with
+    the without_matches values instead (e.g. no ETCS, level 0, NTC): a track with only
+    other values requires the system and is not compatible."""
     by_key = {r["key"]: r for r in rules}
     ignored = sorted(k for k in profile if k not in by_key)
     checks: list[Check] = []
@@ -175,6 +179,10 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
         vals = _terms(v, key, r["kind"])
         if r.get("none_value"):
             vals = [x for x in vals if x != r["none_value"]] or [r["none_value"]]
+        wv = r.get("without_value")
+        if wv and wv in vals:  # "does not have the system": the track values it runs on
+            own_vals = [x for x in vals if x != wv]
+            vals = own_vals + [x for x in r.get("without_matches") or [] if x not in own_vals]
         head = f"CASE WHEN jsonb_array_length({own}) = 0 THEN {missing} "
         if c == "in":  # every infrastructure value is one of the vehicle's
             sql = head + f"WHEN {own} <@ %s::jsonb THEN {OK} ELSE {FAIL} END"
@@ -284,6 +292,10 @@ def _join(items: list[str], last: str = "and") -> str:
     return ", ".join(items[:-1]) + f" {last} " + items[-1]
 
 
+def _local_name(iri: str) -> str:
+    return iri.rstrip("/").rsplit("/", 1)[-1]
+
+
 def _quote(text: str) -> str:
     return f"“{text}”"
 
@@ -353,6 +365,14 @@ def explain_rule(rule: dict, by_key: dict[str, dict], track_classes: list[str], 
             say("none", f"When the vehicle's {_quote(owner.get('label') or owner['key'])} includes {nl}, it can "
                         f"do without it: every {where} is then compatible for this characteristic, whatever its "
                         f"values (the detail says: Compatible in {nl} mode).")
+
+    # the vehicle's "without" option (e.g. no ETCS installed)
+    if rule.get("without_value"):
+        wl = _quote(rule.get("without_label") or labels.get(rule["without_value"]) or _local_name(rule["without_value"]))
+        ml = _join([_quote(labels.get(x) or _local_name(x)) for x in rule.get("without_matches") or []], "or")
+        say("without", f"A vehicle without the system picks {wl}. It is then compatible with a {where} that has "
+                       f"{ml}, and not compatible with a {where} whose values are all others: that {where} "
+                       f"requires the system.")
 
     # where the value is looked up, and how results make the section's colour
     if track:

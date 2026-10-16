@@ -162,10 +162,15 @@ PostGIS is read.
   for the per-track explanation, which says "Compatible in “Not electrified”
   mode" where that is what makes the track pass. This follows from the
   annotations alone (no per-characteristic code).
+- A vehicle can also lack a system altogether: the ETCS level rule's
+  `atlas:withoutValue` ("No ETCS installed", the RINF code N) stands, in the
+  comparison, for its `atlas:withoutMatches` values (N, level 0, NTC). A track
+  that only lists level 1, 2 or 3 requires ETCS and is red for such a vehicle;
+  a track without an ETCS level stays unknown.
 - Every characteristic explains itself ("How is this checked?" in the profile
   editor and next to each line of the per-track detail). The API writes the
   text from the rule's annotations (constraint, unit, whenMissing, noneValue,
-  noneFrom, missingReason, the section fallback, the compared facets and their
+  noneFrom, missingReason, withoutValue, the section fallback, the compared facets and their
   RINF paths); the worker publishes the rule's Turtle with it. A new rule in
   `shapes/compatibility.ttl` is explained without any code change.
 - Not every vehicle parameter is a compatibility constraint: maximum speed

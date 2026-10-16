@@ -119,3 +119,10 @@ def test_every_repo_rule_is_explained_with_its_source_and_facets():
     assert es["infra"][0]["path"] == "era:contactLineSystem/era:energySupplySystem"
     assert "atlas:noneValue <http://data.europa.eu/949/concepts/contact-line-systems/40>" in es["source"]
     assert "sh:path ( era:configDependentParameter era:vehiclePantographHead )" in by_key["pantographHead"]["source"]
+
+
+def test_without_value():
+    t = explain(rule(without_value="http://N", without_label="No ETCS installed",
+                     without_matches=["http://N", "http://L0"]))
+    assert "picks “No ETCS installed”" in t["without"] and "“N” or “L0”" in t["without"]
+    assert "requires the system" in t["without"]

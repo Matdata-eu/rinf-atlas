@@ -277,6 +277,11 @@ export interface CompatRule {
   none_from?: string | null;
   /** Shown for a track where the system is absent, e.g. "No contact line". */
   missing_reason?: string | null;
+  /** A value meaning "the vehicle does not have the system" (e.g. no ETCS); listed first in values with without: true. */
+  without_value?: string | null;
+  without_label?: string | null;
+  /** The track values a vehicle without the system runs on (e.g. no ETCS, level 0, NTC). */
+  without_matches?: string[];
   /** Facets a track without a value takes from its section of line. */
   section_facets?: string[];
   /** What the rule compares: each facet, the RINF property path it is read from, the classes indexing it. */

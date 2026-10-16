@@ -439,7 +439,8 @@ function termEditor(r: CompatRule, body: HTMLElement) {
   let values: { value: string | boolean; label: string; count: number | null }[] = r.kind === 'boolean'
     ? [true, false].map((b) => ({ value: b, label: b ? 'Yes' : 'No', count: known.get(String(b))?.count ?? 0 }))
     : (r.values ?? []).map((v) => ({ value: v.value as string, count: v.count,
-      label: String(v.value) === r.none_value ? noneLabel(r, valueLabel(v.value, v.label)) : valueLabel(v.value, v.label) }));
+      label: String(v.value) === r.none_value ? noneLabel(r, valueLabel(v.value, v.label))
+        : String(v.value) === r.without_value ? r.without_label ?? valueLabel(v.value, v.label) : valueLabel(v.value, v.label) }));
   for (const v of cur) if (!values.some((x) => String(x.value) === String(v))) values.unshift({ value: v, label: valueLabel(v), count: null });
   const needle = (needles.get(r.key) ?? '').toLowerCase();
   const shown = needle ? values.filter((v) => v.label.toLowerCase().includes(needle) || String(v.value).toLowerCase().includes(needle)) : values;

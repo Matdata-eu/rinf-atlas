@@ -654,7 +654,7 @@ def compatibility_rules(env: str):
                      WHERE env=%s AND key = ANY(%s) AND class = ANY(%s) GROUP BY 1""", [env, r["facets"], classes])
         item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
                                       "facets", "applies_to", "when_missing", "none_value", "none_from",
-                                      "missing_reason")}
+                                      "missing_reason", "without_value", "without_label", "without_matches")}
         # for explaining the rule: what it compares (facet, RINF path, classes) and its Turtle
         item["section_facets"] = r.get("section_facets") or []
         item["infra"] = r.get("infra") or [{"key": fk, "label": fk, "path": None, "classes": classes} for fk in r["facets"]]
@@ -670,16 +670,23 @@ def compatibility_rules(env: str):
                 n = _q("""SELECT count(*) AS n FROM feature WHERE env=%s AND class = ANY(%s)
                           AND NOT facets ?| %s""", [env, classes, r["facets"]])[0]["n"]
                 vals = [{"value": r["none_value"], "n": n, "none": True}] + vals
+            if r.get("without_value"):
+                # "does not have the system" (e.g. no ETCS) first, its count the tracks it runs on
+                wv, wm = r["without_value"], set(r.get("without_matches") or [])
+                n = sum(x["n"] for x in rows if x["value"] in wm)
+                vals = [{"value": wv, "n": n, "without": True}] + [x for x in vals if x["value"] != wv]
             item["values"] = vals
             iris |= {x["value"] for x in vals if isinstance(x["value"], str)}
         out.append(item)
-    labels = _labels(env, iris | {r["none_value"] for r in cdef["rules"] if r.get("none_value")})
+    labels = _labels(env, iris | {r["none_value"] for r in cdef["rules"] if r.get("none_value")}
+                     | {x for r in cdef["rules"] for x in r.get("without_matches") or []})
     class_labels = {c["class"]: c["label"] for c in _defs()["classes"]}
     by_key = {r["key"]: r for r in cdef["rules"]}
     for r, item in zip(cdef["rules"], out):
         for v in item.get("values", []):
             x = v["value"]
-            v["label"] = labels.get(x, _local(x)) if isinstance(x, str) else ("Yes" if x is True else "No")
+            v["label"] = (r["without_label"] if v.get("without") and r.get("without_label")
+                          else labels.get(x, _local(x)) if isinstance(x, str) else ("Yes" if x is True else "No"))
             v["count"] = v.pop("n")
         item["explanation"] = cx.explain_rule(r, by_key, cdef["track_classes"], cdef["section_class"],
                                               labels, class_labels)
