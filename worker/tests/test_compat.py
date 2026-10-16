@@ -267,3 +267,23 @@ def test_term_values_need_a_numeric_constraint(tmp_path):
     with pytest.raises(ShapeError, match="termValue"):
         _write(tmp_path, 'sh:property [ sh:path ex:g ; atlas:characteristic "g" ; atlas:compareTo "gauge" ; '
                          'atlas:constraint sh:hasValue ; atlas:termValue [ atlas:term ex:a ; atlas:value 1 ] ] .')
+
+
+def test_repo_etcs_not_applicable_counts_as_no_etcs():
+    shapes = load_shapes(ROOT / "shapes")
+    et = next(r for r in shapes.compat.rules if r.key == "etcsLevel")
+    assert et.implied == [{"facet": "notApplicable", "when": ERA + "etcs",
+                           "value": ERA + "concepts/etcs-levels/10"}]
+    # indexed on every track class, also where the class's own shape does not list it
+    for c in shapes.classes:
+        if c.key in shapes.compat.track_classes:
+            assert any(f.key == "notApplicable" for f in shapes.all_facets(c)), c.key
+
+
+def test_implied_value_is_pooled_with_the_track_values():
+    rule = dict(ETCS[0], implied=[{"facet": "na", "when": "http://etcs", "value": "http://N"}])
+    (c,), _ = cx.compile_profile([rule], {"l": ["http://N"]})
+    assert "facets -> %s, '[]'::jsonb) ? %s THEN jsonb_build_array(%s::text)" in c.sql
+    assert c.sql.count("%s") == len(c.params) and ["na", "http://etcs", "http://N"] == c.params[1:4]
+    assert cx.implied_values(rule, {"na": ["http://etcs"]}) == ["http://N"]
+    assert cx.implied_values(rule, {"na": ["http://other"]}) == []

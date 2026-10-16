@@ -10,6 +10,7 @@ const TOPICS: Record<string, string> = {
   missing: 'When there is no value',
   none: 'Vehicles that can do without it',
   without: 'Vehicles without the system',
+  implied: 'Values implied by other data',
   fallback: 'Where the value comes from',
   rollup: 'Colour of the section of line',
   empty: 'Not filled in',
