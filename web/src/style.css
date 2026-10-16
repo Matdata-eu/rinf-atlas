@@ -1,12 +1,21 @@
+/* IBM Plex (SIL OFL 1.1, see fonts/OFL.txt), self-hosted so no third party sees visitors. */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-style: normal; font-display: swap; src: url("./fonts/IBMPlexSans-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-style: normal; font-display: swap; src: url("./fonts/IBMPlexSans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600 700; font-style: normal; font-display: swap; src: url("./fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url("./fonts/IBMPlexMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500 700; font-style: normal; font-display: swap; src: url("./fonts/IBMPlexMono-Medium.woff2") format("woff2"); }
+
+/* Palette follows the app icon: rail navy #10273F, sleeper steel #5F86AB, signal amber #F5B700. */
 :root {
-  --bg: #f6f7f9;
+  --bg: #f3f5f7;
   --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --border: #dfe3e8;
-  --text: #1c2330;
-  --muted: #667085;
-  --accent: #1f4fa8;
-  --accent-soft: #e6eefb;
+  --surface-2: #eef1f4;
+  --border: #d8dfe6;
+  --text: #10273f;
+  --muted: #4a5868;
+  --accent: #1f4e79;
+  --accent-soft: #e4ecf4;
+  --signal: #f5b700;
   --danger: #b42318;
   --ok: #12b76a;
   --warn: #f79009;
@@ -15,34 +24,34 @@
   --side-w: 320px;
   --detail-w: 440px;
   --top-h: 52px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light dark;
 }
 /* Dark theme: follows the OS unless the theme switch forces light or dark (data-theme). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme=light]) {
-    --bg: #0f1218;
-    --surface: #171b23;
-    --surface-2: #1f2430;
-    --border: #2c3341;
-    --text: #e5e9f0;
-    --muted: #98a2b3;
-    --accent: #7aa7ff;
-    --accent-soft: #1d2b47;
+    --bg: #0a1622;
+    --surface: #0f1e2e;
+    --surface-2: #16293d;
+    --border: #243a51;
+    --text: #e6edf3;
+    --muted: #a3b3c4;
+    --accent: #8fb6dc;
+    --accent-soft: #19324d;
     --danger: #f97066;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 35%);
   }
 }
 :root[data-theme=dark] {
-  --bg: #0f1218;
-  --surface: #171b23;
-  --surface-2: #1f2430;
-  --border: #2c3341;
-  --text: #e5e9f0;
-  --muted: #98a2b3;
-  --accent: #7aa7ff;
-  --accent-soft: #1d2b47;
+  --bg: #0a1622;
+  --surface: #0f1e2e;
+  --surface-2: #16293d;
+  --border: #243a51;
+  --text: #e6edf3;
+  --muted: #a3b3c4;
+  --accent: #8fb6dc;
+  --accent-soft: #19324d;
   --danger: #f97066;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 35%);
 }
@@ -74,11 +83,23 @@ code { font-family: var(--mono); font-size: 0.92em; }
   align-items: center;
   gap: 12px;
   padding: 0 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
   z-index: 5;
+  /* The bar is rail navy in both themes; everything inside it (fields, buttons, the status popover) picks these up. */
+  --surface: #10273f;
+  --surface-2: #1a3552;
+  --border: #2d4a68;
+  --text: #ffffff;
+  --muted: #b7c4d1;
+  --accent: var(--signal);
+  --accent-soft: #24405e;
+  color-scheme: dark;
+  background: var(--surface);
+  color: var(--text);
+  border-bottom: 2px solid var(--signal);
 }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; white-space: nowrap; letter-spacing: -0.01em; }
+.topbar input::placeholder { color: var(--muted); opacity: 1; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 400; font-size: 17px; white-space: nowrap; letter-spacing: -0.01em; }
+.brand b { font-weight: 600; }
 .logo {
   width: 24px; height: 24px; flex: none;
   background: url("/favicon.svg") center / contain no-repeat;
@@ -147,7 +168,7 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .ds-table tr.removed { opacity: 0.55; }
 .ds-table .err { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-table button.sort { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mono { font-family: var(--mono); }
 .btn.small { font-size: 12px; padding: 2px 8px; white-space: nowrap; }
 @media (max-width: 720px) {
   .ds-table th:nth-child(3), .ds-table td:nth-child(3), .ds-table th:nth-child(6), .ds-table td:nth-child(6) { display: none; }
@@ -467,7 +488,7 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .help-sec ul { margin: 0 0 10px; padding-left: 18px; }
 .help-sec li { margin: 4px 0; line-height: 1.45; }
 .help-body kbd {
-  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 5px;
+  font: 11px/1 var(--mono); padding: 2px 5px;
   border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface-2);
 }
 .gis-dialog { width: min(640px, calc(100vw - 32px)); }
@@ -475,7 +496,7 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .gis-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .gis-row p { margin: 4px 0 0; }
 .gis-input { display: flex; gap: 6px; }
-.gis-input input { flex: 1; min-width: 0; margin: 0; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gis-input input { flex: 1; min-width: 0; margin: 0; font: 12px var(--mono); }
 
 /* ---------- map colours ("Colour by") ---------- */
 .colorby { display: flex; align-items: center; gap: 2px; margin-bottom: 4px; }
