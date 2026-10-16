@@ -44,6 +44,10 @@
 #   atlas:pathFactor   the ERA property along sh:path holds the value times this
 #                      factor (e.g. 1000 for an axle load entered in t, kg in
 #                      ERA); used for the Turtle import / export of profiles
+#   atlas:impliedValue [ atlas:facet "key" ; atlas:when <IRI> ; atlas:value <IRI> ]:
+#                      a track whose facet "key" has the atlas:when value counts
+#                      as having atlas:value for this rule (e.g. era:notApplicable
+#                      era:etcs counts as ETCS level N)
 #   atlas:withoutValue an IRI the user can pick besides the real values, meaning
 #                      "the vehicle does not have this system at all" (e.g. no
 #                      ETCS on board), labelled by atlas:withoutLabel. Picking it
@@ -177,6 +181,13 @@ shape:vehicle-compatibility
         # ERA SKOS etcs-levels: 10 = N (no ETCS; dropped from the current
         # scheme but still in RINF data), 50 = level 0, 60 = NTC, 20 / 30 / 40
         # = level 1 / 2 / 3. A vehicle without ETCS runs on the first three.
+        # A track that declares ETCS not applicable (era:notApplicable era:etcs)
+        # has no ETCS: it counts as level N.
+        atlas:impliedValue [
+            atlas:facet "notApplicable" ;
+            atlas:when era:etcs ;
+            atlas:value <http://data.europa.eu/949/concepts/etcs-levels/10> ;
+        ] ;
         atlas:withoutValue <http://data.europa.eu/949/concepts/etcs-levels/10> ;
         atlas:withoutLabel "No ETCS installed" ;
         atlas:withoutMatches <http://data.europa.eu/949/concepts/etcs-levels/10>,

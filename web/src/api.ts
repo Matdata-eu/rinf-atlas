@@ -282,6 +282,8 @@ export interface CompatRule {
   without_label?: string | null;
   /** The track values a vehicle without the system runs on (e.g. no ETCS, level 0, NTC). */
   without_matches?: string[];
+  /** A track whose facet has the value `when` counts as having `value` (e.g. ETCS not applicable: level N). */
+  implied?: { facet: string; when: string; value: string }[];
   /** A numeric rule on a facet of concepts: the number each concept stands for (e.g. axle load per line category). */
   term_values?: Record<string, number>;
   /** The ERA property along path holds the value times this factor (e.g. 1000: t in the profile, kg in ERA). */

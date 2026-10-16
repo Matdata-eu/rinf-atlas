@@ -79,6 +79,22 @@ def _pooled(facets: list[str], alias: str, fallback: set[str] = frozenset()) -> 
     return "(" + " || ".join(parts) + ")", params
 
 
+def _implied(rule: dict, alias: str) -> tuple[str, list]:
+    """rule.implied as SQL appended to the pooled values: the value a track counts as
+    having when another facet has a given value (e.g. ETCS not applicable -> level N)."""
+    parts, params = [], []
+    for x in rule.get("implied") or []:
+        parts.append(f" || CASE WHEN coalesce({alias}.facets -> %s, '[]'::jsonb) ? %s "
+                     f"THEN jsonb_build_array(%s::text) ELSE '[]'::jsonb END")
+        params += [x["facet"], x["when"], x["value"]]
+    return "".join(parts), params
+
+
+def implied_values(rule: dict, facets: dict) -> list:
+    """The values rule.implied adds for a feature with these facets (as _implied)."""
+    return [x["value"] for x in rule.get("implied") or [] if x["when"] in (facets.get(x["facet"]) or [])]
+
+
 def none_accepted(rule: dict, by_key: dict[str, dict], profile: dict[str, Any]) -> bool:
     """Whether the vehicle runs where the rule's system is absent: it has the "none"
     value (e.g. not electrified) for this rule or for the rule named by none_from."""
@@ -175,6 +191,9 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
         alias = "f" if r["applies_to"] == "track" else "s"
         fb = set(r.get("section_facets") or [])
         own, own_p = _pooled(r["facets"], alias, fb)
+        if r.get("implied"):
+            imp, imp_p = _implied(r, alias)
+            own, own_p = f"({own}{imp})", own_p + imp_p
         # what a track without a value gives
         nr = none_rule(r, by_key)
         bypass = nr is not None and bool(nr.get("none_value")) and none_accepted(r, by_key, profile)
@@ -404,6 +423,11 @@ def explain_rule(rule: dict, by_key: dict[str, dict], track_classes: list[str], 
             say("none", f"When the vehicle's {_quote(owner.get('label') or owner['key'])} includes {nl}, it can "
                         f"do without it: every {where} is then compatible for this characteristic, whatever its "
                         f"values (the detail says: Compatible in {nl} mode).")
+
+    # values implied by another facet (e.g. ETCS not applicable -> level N)
+    for x in rule.get("implied") or []:
+        say("implied", f"A {where} whose {_quote(x['facet'])} includes {_quote(labels.get(x['when']) or compact(x['when']))} "
+                       f"counts as having {_quote(labels.get(x['value']) or _local_name(x['value']))}.")
 
     # the vehicle's "without" option (e.g. no ETCS installed)
     if rule.get("without_value"):

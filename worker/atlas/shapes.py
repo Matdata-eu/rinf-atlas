@@ -101,6 +101,10 @@ class CompatRule:
     without_value: str | None = None
     without_label: str | None = None
     without_matches: list[str] = field(default_factory=list)
+    # A track whose facet has a value counts as having another value for this rule
+    # (atlas:impliedValue): [{"facet": key, "when": IRI, "value": IRI}], e.g. a track with
+    # era:notApplicable era:etcs counts as ETCS level N.
+    implied: list[dict] = field(default_factory=list)
     # A numeric rule compared with a facet of concepts: the number each concept stands
     # for (atlas:termValue, e.g. the axle load limit of an EN 15528 line category).
     term_values: dict[str, float] = field(default_factory=dict)
@@ -315,7 +319,7 @@ def compact_path(path: str) -> str:
 _ORDER = [SH + "path", ATLAS + "characteristic", RDFS + "label", RDFS + "comment", ATLAS + "compareTo",
           ATLAS + "constraint", ATLAS + "appliesTo", ATLAS + "whenMissing", ATLAS + "noneValue",
           ATLAS + "noneFrom", ATLAS + "missingReason", ATLAS + "withoutValue", ATLAS + "withoutLabel",
-          ATLAS + "withoutMatches", ATLAS + "termValue", SH + "datatype", ATLAS + "unit", SH + "order"]
+          ATLAS + "withoutMatches", ATLAS + "impliedValue", ATLAS + "termValue", SH + "datatype", ATLAS + "unit", SH + "order"]
 
 
 def _turtle_term(st: ox.Store, t, indent: str) -> str:
@@ -372,7 +376,7 @@ def _index_compat_facets(shapes: ShapeSet) -> None:
     for rule in shapes.compat.rules:
         if rule.applies_to != "track":
             continue
-        for fk in rule.facets:
+        for fk in rule.facets + [x["facet"] for x in rule.implied]:
             src = next((f for c in tracks for f in shapes.all_facets(c) if f.key == fk), None)
             for c in tracks:
                 if src and not any(f.key == fk for f in shapes.all_facets(c)):
@@ -459,6 +463,17 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
                 t = None
             if not t:
                 raise ShapeError(f"compatibility.{key}: atlas:termValue needs an atlas:term IRI and a numeric atlas:value")
+        implied = []
+        for iv in r.objs(prop, ATLAS + "impliedValue"):
+            x = {"facet": r.lit(iv, ATLAS + "facet"), "when": _iri(r.one(iv, ATLAS + "when")),
+                 "value": _iri(r.one(iv, ATLAS + "value"))}
+            if not all(x.values()) or constraint not in COMPAT_TERMS:
+                raise ShapeError(f"compatibility.{key}: atlas:impliedValue needs atlas:facet, atlas:when and "
+                                 f"atlas:value IRIs, on a rule compared by value")
+            if x["facet"] not in known or known[x["facet"]].kind != "terms":
+                raise ShapeError(f"compatibility.{key}: atlas:impliedValue facet {x['facet']!r} is not a terms "
+                                 f"facet of {applies} classes")
+            implied.append(x)
         if term_values and constraint not in COMPAT_NUMERIC:
             raise ShapeError(f"compatibility.{key}: atlas:termValue needs a numeric constraint")
         for fk in facets:
@@ -493,7 +508,7 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             when_missing=when_missing, none_value=none_value, none_from=r.lit(prop, ATLAS + "noneFrom"),
             missing_reason=r.label(prop, ATLAS + "missingReason"), section_facets=section_facets,
             without_value=without_value, without_label=r.label(prop, ATLAS + "withoutLabel"),
-            without_matches=without_matches if without_value else [], term_values=term_values,
+            without_matches=without_matches if without_value else [], term_values=term_values, implied=implied,
             path_factor=float(r.lit(prop, ATLAS + "pathFactor")) if r.lit(prop, ATLAS + "pathFactor") else None,
             source=rule_turtle(st, node, prop)))
     by_rule = {x.key: x for x in rules}

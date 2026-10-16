@@ -380,6 +380,13 @@ shape:running-track
         atlas:kind "boolean" ;
         sh:order 470 ;
     ] ;
+    sh:property [  # era:notApplicable: the RINF parameters that do not apply to the track
+        sh:path era:notApplicable ;
+        atlas:facet "notApplicable" ;
+        rdfs:label "Parameters not applicable" ;
+        atlas:kind "terms" ;
+        sh:order 9000 ;
+    ] ;
     sh:property [  # RINF 1.1.1.3.2.1, 95125 instances in data
         sh:path ( era:etcs era:etcsLevelType ) ;
         atlas:facet "etcs.etcsLevelType" ;

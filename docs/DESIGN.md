@@ -166,7 +166,9 @@ PostGIS is read.
   `atlas:withoutValue` ("No ETCS installed", the RINF code N) stands, in the
   comparison, for its `atlas:withoutMatches` values (N, level 0, NTC). A track
   that only lists level 1, 2 or 3 requires ETCS and is red for such a vehicle;
-  a track without an ETCS level stays unknown.
+  a track without an ETCS level stays unknown. A track that declares ETCS
+  not applicable (`era:notApplicable era:etcs`, indexed as the
+  "notApplicable" facet) counts as level N through `atlas:impliedValue`.
 - RINF has no numeric axle load or mass per metre for a track, only its
   EN 15528 line categories. The axle load (t) and mass per metre (t/m) rules
   compare numbers with that facet through `atlas:termValue`, the limit each

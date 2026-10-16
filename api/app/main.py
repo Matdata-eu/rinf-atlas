@@ -655,7 +655,7 @@ def compatibility_rules(env: str):
         item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
                                       "facets", "applies_to", "when_missing", "none_value", "none_from",
                                       "missing_reason", "without_value", "without_label", "without_matches",
-                                      "term_values", "path_factor")}
+                                      "term_values", "path_factor", "implied")}
         # for explaining the rule: what it compares (facet, RINF path, classes) and its Turtle
         item["section_facets"] = r.get("section_facets") or []
         item["infra"] = r.get("infra") or [{"key": fk, "label": fk, "path": None, "classes": classes} for fk in r["facets"]]
@@ -756,7 +756,11 @@ def compatibility_explain(req: cx.ExplainRequest):
         # a track without a value takes its section's (rule.section_facets), as in the SQL
         sec_f = row.get("section_facets") or {}
         fb = set(rule.get("section_facets") or [])
-        return [v for fk in keys for v in (row["facets"].get(fk) or (sec_f.get(fk, []) if fk in fb else []))]
+        vals = [v for fk in keys for v in (row["facets"].get(fk) or (sec_f.get(fk, []) if fk in fb else []))]
+        if keys != rule["facets"]:
+            return vals
+        # e.g. a track with ETCS not applicable counts as level N
+        return vals + [v for v in cx.implied_values(rule, row["facets"]) if v not in vals]
 
     def results(row: dict, cs: list[cx.Check]) -> list[dict]:
         out = []
