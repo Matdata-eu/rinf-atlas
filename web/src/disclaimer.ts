@@ -16,3 +16,19 @@ export const COMPAT_DISCLAIMER = [
 ].join('');
 
 export const COMPAT_DISCLAIMER_SHORT = 'Indication only, without legal value. See the disclaimer in the vehicle check.';
+
+// Acceptance is kept in this browser per version of the wording: bump the version when the
+// text changes so everyone has to accept the new one.
+const ACCEPT_KEY = 'atlas-compat-disclaimer';
+const VERSION = '2026-10-16';
+let acceptedNow = false; // when storage is blocked, the acceptance lasts for this visit
+
+export function disclaimerAccepted(): boolean {
+  if (acceptedNow) return true;
+  try { return localStorage.getItem(ACCEPT_KEY) === VERSION; } catch { return false; }
+}
+
+export function acceptDisclaimer() {
+  acceptedNow = true;
+  try { localStorage.setItem(ACCEPT_KEY, VERSION); } catch { /* not persisted; accepted for this visit */ }
+}

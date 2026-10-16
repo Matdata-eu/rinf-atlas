@@ -9,7 +9,9 @@ import {
   api, isAbort, type CompatCheck, type CompatColour, type CompatExplain, type CompatResponse, type CompatRule,
   type CompatRules, type Feature, type TermCount, type TermValue,
 } from './api';
-import { COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_SHORT, COMPAT_DISCLAIMER_TITLE } from './disclaimer';
+import {
+  acceptDisclaimer, COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_SHORT, COMPAT_DISCLAIMER_TITLE, disclaimerAccepted,
+} from './disclaimer';
 import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setTipNote, TILE_MODE } from './map';
 import { changed, debounce, fmt, h, store, unitLabel, type SharedVehicle } from './state';
 import * as V from './vehicles';
@@ -67,6 +69,10 @@ const persist = () => V.save(saved.active === SHARED_ID
   ? { ...saved, active: saved.profiles.some((p) => p.id === lastSavedActive) ? lastSavedActive : saved.profiles[0]?.id ?? null }
   : saved);
 let lastSavedActive: string | null = saved.active;
+/** Until the disclaimer is accepted the check stays off; what would have been shown waits here. */
+let accepted = disclaimerAccepted();
+let pending: { vehicle: SharedVehicle | null; show: boolean } | null = null;
+if (!accepted && saved.show) { saved.show = false; pending = { vehicle: null, show: true }; }
 
 // ---------- the link (store.vehicle) ----------
 const canon = (v: V.VehicleProfile['values']) => JSON.stringify(Object.keys(v).sort().map((k) => [k, v[k]]));
@@ -83,6 +89,11 @@ function publish() {
 }
 /** Shows the check for a vehicle from a link: an identical saved profile, else a temporary one. */
 function adopt(v: SharedVehicle | null) {
+  if (!accepted) {
+    pending = v ? { vehicle: v, show: true } : null;
+    if (v) setPanelOpen(true);
+    return;
+  }
   if (!v) {
     if (saved.show) { saved.show = false; setVisible(false); renderPane(); recompute(); }
     return;
@@ -302,11 +313,12 @@ function applyPanel(focus: boolean) {
   if (!open) panel.classList.remove('expanded');
   renderLegend();
   if (!focus || open === wasOpen) return;
-  if (open) (pane.querySelector<HTMLElement>('.compat-show input') ?? panel).focus();
+  if (open) (pane.querySelector<HTMLElement>('.compat-show input, .compat-accept input') ?? panel).focus();
   else if (panel.contains(document.activeElement) || document.activeElement === document.body) panelBtn.focus();
 }
 
 function setShow(on: boolean) {
+  if (on && !accepted) return;
   saved.show = on; persist(); publish();
   setVisible(on);
   panelBtn.classList.toggle('compat-on', on);
@@ -500,7 +512,35 @@ function ruleBlock(r: CompatRule): HTMLElement {
   return root;
 }
 
+function accept() {
+  acceptDisclaimer();
+  accepted = true;
+  const was = pending;
+  pending = null;
+  if (was?.vehicle) adopt(was.vehicle);
+  else if (was?.show) setShow(true);
+  renderPane();
+  pane.querySelector<HTMLElement>('.compat-show input')?.focus();
+}
+
+/** Before acceptance the panel holds only the disclaimer and its Accept button. */
+function renderGate() {
+  const box = h('input', { type: 'checkbox' });
+  const ok = h('button', { class: 'btn btn-primary', type: 'button', disabled: true, onclick: accept }, 'Accept and continue');
+  box.addEventListener('change', () => { ok.disabled = !box.checked; });
+  pane.replaceChildren(
+    h('p', { class: 'muted small compat-intro' }, 'A lightweight check of where a vehicle type can run, from the technical ',
+      'characteristics you fill in and the RINF data of each section of line.'),
+    h('div', { class: 'small compat-disclaimer', role: 'note' },
+      h('p', {}, h('strong', {}, COMPAT_DISCLAIMER_TITLE)), h('p', {}, COMPAT_DISCLAIMER)),
+    h('label', { class: 'toggle compat-accept' }, box,
+      h('span', {}, 'I have read this disclaimer and accept that the result is an indication only.')),
+    h('div', { class: 'compat-bar' }, ok),
+    h('p', { class: 'muted small' }, 'Your acceptance is remembered in this browser.'));
+}
+
 function renderPane() {
+  if (!accepted) { renderGate(); return; }
   const p = active();
   headEls = new Map();
   const show = h('label', { class: 'toggle compat-show' },
@@ -578,7 +618,8 @@ function renderPane() {
   pane.replaceChildren(
     h('p', { class: 'muted small compat-intro' }, 'A lightweight check of where a vehicle type can run, from the technical ',
       'characteristics you fill in and the RINF data of each section of line.'),
-    h('p', { class: 'small compat-disclaimer', role: 'note' }, h('strong', {}, `${COMPAT_DISCLAIMER_TITLE}. `), COMPAT_DISCLAIMER),
+    h('details', { class: 'small compat-disclaimer' }, h('summary', {}, h('strong', {}, COMPAT_DISCLAIMER_TITLE), ' (accepted)'),
+      h('p', {}, COMPAT_DISCLAIMER)),
     show, statusEl,
     h('details', { class: 'compat-help' }, h('summary', { class: 'small' }, 'How sections are coloured'), h('p', { class: 'small' }, RULE_HELP),
       h('p', { class: 'small muted' }, 'Each characteristic is compared with an RINF track parameter using a SHACL constraint ',

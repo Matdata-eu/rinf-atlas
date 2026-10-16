@@ -60,6 +60,8 @@ export function openHelp() {
           ['Sections of line turn ', b('green'), ' when at least one track fits every characteristic you filled in, ',
             b('yellow'), ' when some could not be checked for lack of data, and ', b('red'), ' when no track fits.'],
           ['Profiles are stored in this browser; export and import them as JSON or Turtle.'],
+          ['The first time, you have to accept the disclaimer below; this browser remembers it, and the ',
+            'disclaimer stays available, folded, at the top of the panel.'],
           [b(`${COMPAT_DISCLAIMER_TITLE}. `), COMPAT_DISCLAIMER]),
         section('Datasets and data quality', false,
           ['The ', b('datasets'), ' status button shows each infrastructure manager’s dataset: when it was published and processed, and whether it loaded.'],
