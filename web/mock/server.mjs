@@ -56,7 +56,7 @@ const CLASSES = [
   { class: 'operational-point', class_iri: `${ERA}OperationalPoint`, label: 'Operational point', color: '#e6194b', geometry: 'Point', min_zoom: 0 },
   { class: 'section-of-line', class_iri: `${ERA}SectionOfLine`, label: 'Section of line', color: '#4363d8', geometry: 'LineString' },
   // Running tracks share their section of line's geometry; the map colours a section by its tracks' values.
-  { class: 'running-track', class_iri: `${ERA}RunningTrack`, label: 'Running track', color: '#2ca02c', geometry: 'LineString', min_zoom: 4 },
+  { class: 'running-track', class_iri: `${ERA}RunningTrack`, label: 'Running track', color: '#2ca02c', geometry: 'LineString', min_zoom: 10 },
   { class: 'tunnel', class_iri: `${ERA}Tunnel`, label: 'Tunnel', color: '#9a6324', geometry: 'LineString' },
   { class: 'switch', class_iri: `${ERA}Switch`, label: 'Switch', color: '#3cb44b', geometry: 'Point', min_zoom: 11 },
   { class: 'signal', class_iri: `${ERA}Signal`, label: 'Signal', color: '#f58231', geometry: 'Point', min_zoom: 11 },

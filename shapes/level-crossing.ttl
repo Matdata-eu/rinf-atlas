@@ -19,7 +19,7 @@ shape:level-crossing
     atlas:color "#17becf" ;
     atlas:geometry "point" ;
     atlas:order 80 ;
-    atlas:minZoom 6 ;
+    atlas:minZoom 10 ;
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] .
