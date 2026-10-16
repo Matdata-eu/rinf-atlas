@@ -51,6 +51,7 @@ const QA_COLOR = ['match', ['to-number', ['coalesce', ['get', 'qa'], 0]],
 const hasIssue = (...types: string[]): ExpressionSpecification =>
   ['all', geomIs(...types), ['>=', ['to-number', ['coalesce', ['get', 'qa'], 0]], 1]] as unknown as ExpressionSpecification;
 const QA_LAYERS = ['qa-line', 'qa-circle'];
+const QA_SEVERITY: Record<number, 'violation' | 'warning' | 'info'> = { 3: 'violation', 2: 'warning', 1: 'info' };
 
 function colorExpr(s: AppState): ExpressionSpecification | string {
   const cls = s.meta?.classes ?? [];
@@ -374,7 +375,11 @@ function wireInteraction(container: HTMLElement) {
     picker.replaceChildren();
     const head = document.createElement('div');
     head.className = 'map-picker-head';
-    head.textContent = `${fs.length} features here`;
+    // With the data quality layer on, mark the features that have issues, as the map does.
+    const qaOn = store.get().qa && !!store.get().meta?.quality?.enabled;
+    const sevOf = (f: MapGeoJSONFeature) => qaOn ? QA_SEVERITY[Number(f.properties.qa ?? 0)] : undefined;
+    const issues = fs.filter((f) => sevOf(f)).length;
+    head.textContent = `${fs.length} features here` + (qaOn ? `, ${issues || 'none'} with data issues` : '');
     picker.append(head);
     for (const f of fs) {
       const meta = classMeta(f);
@@ -390,6 +395,15 @@ function wireInteraction(container: HTMLElement) {
       const cls = document.createElement('small');
       cls.textContent = meta?.label ?? String(f.properties.class ?? '');
       b.append(sw, name, cls);
+      const sev = sevOf(f);
+      if (sev) {
+        const dot = document.createElement('i');
+        dot.className = `qa-dot sev-${sev}`;
+        dot.title = `Data quality: worst issue is a ${sev}`;
+        dot.setAttribute('role', 'img');
+        dot.setAttribute('aria-label', `Data quality ${sev}`);
+        b.append(dot);
+      }
       b.addEventListener('click', (e) => {
         closePicker();
         openFeature(f, e.ctrlKey || e.metaKey ? 'describe' : detailTab);
