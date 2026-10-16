@@ -167,6 +167,13 @@ PostGIS is read.
   comparison, for its `atlas:withoutMatches` values (N, level 0, NTC). A track
   that only lists level 1, 2 or 3 requires ETCS and is red for such a vehicle;
   a track without an ETCS level stays unknown.
+- RINF has no numeric axle load or mass per metre for a track, only its
+  EN 15528 line categories. The axle load (t) and mass per metre (t/m) rules
+  compare numbers with that facet through `atlas:termValue`, the limit each
+  category stands for (A 16 t / 5.0 t/m … E5 25 t / 8.8 t/m). A track is
+  green when one of its categories allows both values, red when only listed
+  categories that do not, and unknown when it has none of them (UK RA, HS17).
+  The speed of the load capability is not considered.
 - Every characteristic explains itself ("How is this checked?" in the profile
   editor and next to each line of the per-track detail). The API writes the
   text from the rule's annotations (constraint, unit, whenMissing, noneValue,

@@ -654,12 +654,20 @@ def compatibility_rules(env: str):
                      WHERE env=%s AND key = ANY(%s) AND class = ANY(%s) GROUP BY 1""", [env, r["facets"], classes])
         item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
                                       "facets", "applies_to", "when_missing", "none_value", "none_from",
-                                      "missing_reason", "without_value", "without_label", "without_matches")}
+                                      "missing_reason", "without_value", "without_label", "without_matches",
+                                      "term_values", "path_factor")}
         # for explaining the rule: what it compares (facet, RINF path, classes) and its Turtle
         item["section_facets"] = r.get("section_facets") or []
         item["infra"] = r.get("infra") or [{"key": fk, "label": fk, "path": None, "classes": classes} for fk in r["facets"]]
         item["source"] = r.get("source") or None
-        if r["kind"] == "number":
+        if r["kind"] == "number" and r.get("term_values"):
+            # the numbers the track's concepts stand for (e.g. axle load limits of line categories)
+            tv = r["term_values"]
+            nums = [tv[x["value"]] for x in rows if x["value"] in tv]
+            item["range"] = {"min": min(nums) if nums else None, "max": max(nums) if nums else None,
+                             "count": sum(x["n"] for x in rows if x["value"] in tv)}
+            iris |= set(tv)
+        elif r["kind"] == "number":
             nums = [float(x["value"]) for x in rows if isinstance(x["value"], (int, float)) and not isinstance(x["value"], bool)]
             item["range"] = {"min": min(nums) if nums else None, "max": max(nums) if nums else None,
                              "count": sum(x["n"] for x in rows)}

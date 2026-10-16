@@ -21,6 +21,9 @@ RESULT = {OK: "ok", UNKNOWN: "unknown", FAIL: "fail"}
 
 # jsonpath filter that finds an infrastructure value violating the constraint
 _VIOLATION = {"minInclusive": "<", "maxInclusive": ">", "minExclusive": "<=", "maxExclusive": ">="}
+# the same, as a test on (infrastructure value, vehicle value)
+_VIOLATES = {"minInclusive": lambda i, v: i < v, "maxInclusive": lambda i, v: i > v,
+             "minExclusive": lambda i, v: i <= v, "maxExclusive": lambda i, v: i >= v}
 
 
 class CompatRequest(BaseModel):
@@ -146,8 +149,22 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
 
     A vehicle that has the rule's without_value (e.g. no ETCS installed) is compared with
     the without_matches values instead (e.g. no ETCS, level 0, NTC): a track with only
-    other values requires the system and is not compatible."""
+    other values requires the system and is not compatible.
+
+    A numeric rule with term_values compares the number each concept on the track stands
+    for (e.g. the axle load limit of a line category): the track is compatible when one
+    of its concepts satisfies every filled rule with term_values on the same facets (one
+    category must allow both the axle load and the mass per metre), not compatible when
+    it only has listed concepts that do not, unknown when none of its concepts is listed."""
     by_key = {r["key"]: r for r in rules}
+    # concepts that satisfy every filled term_values rule, per set of compared facets
+    allowed: dict[tuple, set[str]] = {}
+    for r in rules:
+        if r.get("term_values") and not is_empty(profile.get(r["key"])) and r["constraint"] in _VIOLATES:
+            num, bad = _number(profile[r["key"]], r["key"]), _VIOLATES[r["constraint"]]
+            ok = {t for t, lim in r["term_values"].items() if not bad(lim, num)}
+            g = tuple(sorted(r["facets"]))
+            allowed[g] = allowed[g] & ok if g in allowed else ok
     ignored = sorted(k for k in profile if k not in by_key)
     checks: list[Check] = []
     for r in rules:
@@ -169,6 +186,13 @@ def compile_profile(rules: list[dict], profile: dict[str, Any]) -> tuple[list[Ch
         else:
             sys_vals, sys_p = _pooled(nr["facets"], alias, set(nr.get("section_facets") or []))
             missing, missing_p = f"CASE WHEN jsonb_array_length({sys_vals}) = 0 THEN {absent} ELSE {UNKNOWN} END", sys_p
+        if c in _VIOLATION and r.get("term_values"):
+            ok = sorted(allowed[tuple(sorted(r["facets"]))])
+            sql = (f"CASE WHEN jsonb_array_length({own}) = 0 THEN {missing} "
+                   f"WHEN {own} ?| %s::text[] THEN {OK} WHEN {own} ?| %s::text[] THEN {FAIL} ELSE {UNKNOWN} END")
+            checks.append(Check(key, r["applies_to"], sql,
+                                own_p + missing_p + own_p + [ok] + own_p + [sorted(r["term_values"])], bypass))
+            continue
         if c in _VIOLATION:
             num = _number(v, key)
             sql = (f"CASE WHEN NOT jsonb_path_exists({own}, '$[*] ? (@.type() == \"number\")') THEN {missing} "
@@ -271,7 +295,7 @@ PREFIXES = {"era": "http://data.europa.eu/949/", "sh": "http://www.w3.org/ns/sha
 # QUDT unit keys (atlas:unit) as written after a number; mirrors web/src/state.ts
 UNITS = {"M": "m", "KiloM": "km", "MilliM": "mm", "CentiM": "cm", "M2": "m²", "KiloM-PER-HR": "km/h",
          "M-PER-SEC": "m/s", "M-PER-SEC2": "m/s²", "MilliM-PER-M": "mm/m", "V": "V", "KiloV": "kV", "A": "A",
-         "TONNE": "t", "KiloGM": "kg", "DEG": "°", "SEC": "s", "HZ": "Hz", "W": "W", "KiloW": "kW", "PERCENT": "%"}
+         "TONNE": "t", "TONNE-PER-M": "t/m", "KiloGM": "kg", "DEG": "°", "SEC": "s", "HZ": "Hz", "W": "W", "KiloW": "kW", "PERCENT": "%"}
 # numeric constraint -> (words, symbol, the infrastructure values that fail), "infra <symbol> vehicle"
 _COMPARE = {"minInclusive": ("at least", "≥", "lower"), "maxInclusive": ("at most", "≤", "higher"),
             "minExclusive": ("more than", ">", "equal or lower"), "maxExclusive": ("less than", "<", "equal or higher")}
@@ -290,6 +314,10 @@ def _join(items: list[str], last: str = "and") -> str:
     if len(items) < 2:
         return "".join(items)
     return ", ".join(items[:-1]) + f" {last} " + items[-1]
+
+
+def _num(v: float) -> str:
+    return f"{v:g}"
 
 
 def _local_name(iri: str) -> str:
@@ -330,6 +358,17 @@ def explain_rule(rule: dict, by_key: dict[str, dict], track_classes: list[str], 
         say("compare", f"Every value on the {where} must be one of the vehicle's (sh:in): it is compatible when "
                        f"each of its {names} values is one of {own}, and not compatible "
                        f"as soon as one is not.{pooled}")
+    elif c in _COMPARE and rule.get("term_values"):
+        words, sym, _ = _COMPARE[c]
+        in_unit = f" in {unit}" if unit else ""
+        tv = rule["term_values"]
+        named = sorted(((labels.get(t) or _local_name(t), v) for t, v in tv.items()), key=lambda x: (x[1], x[0]))
+        table = _join([f"{n} {_num(v)}" for n, v in named])
+        say("compare", f"Each {names} value on the {where} stands for a number{in_unit}: {table}. The {where} is "
+                       f"compatible when at least one of its values stands for a number {words} {own} "
+                       f"(sh:{c}: {sym}), and that same value also satisfies the other characteristics compared "
+                       f"with {names} this way. It is not compatible when none does, and unknown when none of its "
+                       f"values is in this list.{pooled}")
     elif c in _COMPARE:
         words, sym, bad = _COMPARE[c]
         in_unit = f", in {unit}" if unit else ""

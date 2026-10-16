@@ -558,6 +558,8 @@ const COMPAT_RULES = [
   ['etcsLevel', 'ETCS level on board', [`${ERA}etcsEquipmentOnBoardLevel`], 'hasValue', 'terms', null, ['etcs.etcsLevelType']],
   ['trainDetectionSystemType', 'Train detection systems', [`${ERA}trainDetectionSystemType`], 'in', 'terms', null, ['trainDetectionSystem.trainDetectionSystemType']],
   ['lineCategory', 'Load capability line categories', [`${ERA}compatibleWithLineCategory`], 'hasValue', 'terms', null, ['trackLoadCapability.loadCapabilityLineCategory']],
+  ['axleLoad', 'Axle load', [`${ERA}staticAxleLoadNormalPayload`], 'minInclusive', 'number', 'TONNE', ['trackLoadCapability.loadCapabilityLineCategory']],
+  ['massPerMetre', 'Mass per metre', ['https://rinf-atlas.matdata.eu/ns#massPerMetre'], 'minInclusive', 'number', 'TONNE-PER-M', ['trackLoadCapability.loadCapabilityLineCategory']],
   ['trainLength', 'Train length', [`${ERA}lengthOfVehicle`], 'minInclusive', 'number', 'M', ['maxPermittedTrainLength']],
 ].map(([key, label, path, constraint, kind, unit, facets]) => ({
   key, label, comment: null, path, constraint, kind, datatype: kind === 'number' ? 'http://www.w3.org/2001/XMLSchema#double' : null,
@@ -573,6 +575,10 @@ Object.assign(COMPAT_RULES.find((r) => r.key === 'pantographHead'),
 Object.assign(COMPAT_RULES.find((r) => r.key === 'etcsLevel'), {
   without_value: `${CC}etcs-levels/10`, without_label: 'No ETCS installed',
   without_matches: ['10', '50', '60'].map((c) => `${CC}etcs-levels/${c}`) });
+// EN 15528 limits of the line categories the mock tracks have (C4, D4).
+const LCLC = `${CC}load-capability-line-categories/`;
+Object.assign(COMPAT_RULES.find((r) => r.key === 'axleLoad'), { term_values: { [`${LCLC}60`]: 20, [`${LCLC}90`]: 22.5 }, path_factor: 1000 });
+Object.assign(COMPAT_RULES.find((r) => r.key === 'massPerMetre'), { term_values: { [`${LCLC}60`]: 8, [`${LCLC}90`]: 8 } });
 // The explanation fields of /api/compatibility/rules (infra, source, explanation). The real
 // API generates the text from the rule's annotations (api/app/compat.py explain_rule); this
 // is a shortened version of it for the mock rules.
@@ -664,7 +670,7 @@ const compatRules = () => COMPAT_RULES.map((rule) => {
       ...vals.filter((v) => v.value !== rule.without_value));
   }
   if (rule.kind !== 'number') return { ...rule, values: vals };
-  const nums = vals.map((v) => v.value);
+  const nums = rule.term_values ? vals.map((v) => rule.term_values[v.value]).filter((x) => x != null) : vals.map((v) => v.value);
   return { ...rule, range: { min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null, count: vals.reduce((n, v) => n + v.count, 0) } };
 });
 const compatChecks = (profile) => {
@@ -692,6 +698,13 @@ const checkTrack = (rule, track, v, profile) => (bypassOf(rule, profile) ? 0 : r
 const rawCheck = (rule, track, v, profile) => {
   const vals = trackVals(rule, track);
   if (!vals.length) return missingOf(rule, track, profile).code;
+  if (rule.term_values) {
+    // a category must satisfy every filled rule with term_values on the same facet
+    const sib = COMPAT_RULES.filter((r) => r.term_values && r.facets.join() === rule.facets.join() && profile[r.key] != null && profile[r.key] !== '');
+    const fits = (t) => sib.every((r) => r.term_values[t] >= Number(Array.isArray(profile[r.key]) ? profile[r.key][0] : profile[r.key]));
+    if (vals.some((t) => t in rule.term_values && fits(t))) return 0;
+    return vals.some((t) => t in rule.term_values) ? 2 : 1;
+  }
   if (rule.kind === 'number') {
     const n = Number(Array.isArray(v) ? v[0] : v);
     const bad = { minInclusive: (x) => x < n, maxInclusive: (x) => x > n, minExclusive: (x) => x <= n, maxExclusive: (x) => x >= n }[rule.constraint];

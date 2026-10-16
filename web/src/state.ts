@@ -118,7 +118,7 @@ export const fmt = new Intl.NumberFormat('en');
 /** Short display form of the QUDT unit codes used by the ERA ontology. */
 const UNITS: Record<string, string> = {
   M: 'm', KiloM: 'km', MilliM: 'mm', CentiM: 'cm', M2: 'm²', 'KiloM-PER-HR': 'km/h', 'M-PER-SEC': 'm/s',
-  'M-PER-SEC2': 'm/s²', 'MilliM-PER-M': 'mm/m', V: 'V', KiloV: 'kV', A: 'A', TONNE: 't', KiloGM: 'kg',
+  'M-PER-SEC2': 'm/s²', 'MilliM-PER-M': 'mm/m', V: 'V', KiloV: 'kV', A: 'A', TONNE: 't', 'TONNE-PER-M': 't/m', KiloGM: 'kg',
   DEG: '°', SEC: 's', HZ: 'Hz', W: 'W', KiloW: 'kW', PERCENT: '%',
 };
 export const unitLabel = (u: string) => UNITS[u] ?? u;

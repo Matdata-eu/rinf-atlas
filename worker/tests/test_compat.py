@@ -229,3 +229,41 @@ def test_without_value_needs_matches(tmp_path):
     with pytest.raises(ShapeError, match="withoutValue"):
         _write(tmp_path, 'sh:property [ sh:path ex:g ; atlas:characteristic "g" ; atlas:compareTo "gauge" ; '
                          'atlas:constraint sh:hasValue ; atlas:withoutValue ex:none ] .')
+
+
+def test_repo_axle_load_and_mass_per_metre_rules():
+    rules = {r.key: r for r in load_shapes(ROOT / "shapes").compat.rules}
+    lc = ERA + "concepts/load-capability-line-categories/"
+    al, mm = rules["axleLoad"], rules["massPerMetre"]
+    assert al.kind == mm.kind == "number" and al.constraint == mm.constraint == "minInclusive"
+    assert al.facets == mm.facets == ["trackLoadCapability.loadCapabilityLineCategory"]
+    assert al.term_values[lc + "90"] == 22.5 and mm.term_values[lc + "90"] == 8.0  # D4
+    assert al.term_values[lc + "120"] == 25.0 and mm.term_values[lc + "120"] == 8.8  # E5
+    assert al.path_factor == 1000 and mm.path_factor is None
+
+
+LOAD = [{"key": k, "constraint": "minInclusive", "facets": ["cat"], "applies_to": "track", "kind": "number",
+         "term_values": tv} for k, tv in
+        (("axle", {"http://C2": 20.0, "http://D2": 22.5, "http://C4": 20.0}),
+         ("mass", {"http://C2": 6.4, "http://D2": 6.4, "http://C4": 8.0}))]
+
+
+def test_axle_load_picks_the_categories_that_allow_it():
+    (a,), _ = cx.compile_profile(LOAD, {"axle": 21})
+    assert a.params[-3] == ["http://D2"] and sorted(a.params[-1]) == ["http://C2", "http://C4", "http://D2"]
+    assert a.sql.count("%s") == len(a.params) and a.sql.endswith(f"ELSE {cx.UNKNOWN} END")
+    assert _missing_branch(a) == str(cx.UNKNOWN)
+
+
+def test_one_category_must_allow_both_axle_load_and_mass_per_metre():
+    (a, m), _ = cx.compile_profile(LOAD, {"axle": 20, "mass": 7.0})
+    assert a.params[-3] == m.params[-3] == ["http://C4"]
+    # nothing allows 22.5 t and 8 t/m: every listed category fails
+    (a, m), _ = cx.compile_profile(LOAD, {"axle": 22.5, "mass": 8.0})
+    assert a.params[-3] == [] and m.params[-3] == []
+
+
+def test_term_values_need_a_numeric_constraint(tmp_path):
+    with pytest.raises(ShapeError, match="termValue"):
+        _write(tmp_path, 'sh:property [ sh:path ex:g ; atlas:characteristic "g" ; atlas:compareTo "gauge" ; '
+                         'atlas:constraint sh:hasValue ; atlas:termValue [ atlas:term ex:a ; atlas:value 1 ] ] .')

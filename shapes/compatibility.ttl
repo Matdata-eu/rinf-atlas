@@ -32,6 +32,18 @@
 #                      has no value for that rule either (no contact line), and
 #                      is unknown otherwise (contact line without the parameter)
 #   atlas:missingReason  shown in the per-track explanation for such a track
+#   atlas:termValue    for a numeric rule compared with a facet of concepts:
+#                      [ atlas:term <concept> ; atlas:value <number> ], the
+#                      number each concept stands for (e.g. the axle load limit
+#                      of an EN 15528 line category). The track is compatible
+#                      when at least one of its concepts satisfies the
+#                      constraint (and, for rules on the same facet, the same
+#                      concept satisfies all of them), not compatible when it
+#                      only has listed concepts that do not, and unknown when
+#                      none of its concepts is listed
+#   atlas:pathFactor   the ERA property along sh:path holds the value times this
+#                      factor (e.g. 1000 for an axle load entered in t, kg in
+#                      ERA); used for the Turtle import / export of profiles
 #   atlas:withoutValue an IRI the user can pick besides the real values, meaning
 #                      "the vehicle does not have this system at all" (e.g. no
 #                      ETCS on board), labelled by atlas:withoutLabel. Picking it
@@ -56,6 +68,7 @@ PREFIX sh:    <http://www.w3.org/ns/shacl#>
 PREFIX era:   <http://data.europa.eu/949/>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX lclc:  <http://data.europa.eu/949/concepts/load-capability-line-categories/>
 
 shape:vehicle-compatibility
     a sh:NodeShape ;
@@ -197,6 +210,62 @@ shape:vehicle-compatibility
         atlas:compareTo "trackLoadCapability.loadCapabilityLineCategory" ;
         atlas:constraint sh:hasValue ;
         sh:order 100 ;
+    ] ;
+    # EN 15528 line categories (ERA SKOS load-capability-line-categories) with
+    # their limits: maximum axle load (t) and mass per metre (t/m). A, B1 … E5;
+    # D4xL as D4. The UK route availability (RA) and HS17 categories are not
+    # listed, so a track with only those is unknown. The speed of the load
+    # capability is not taken into account.
+    sh:property [
+        sh:path era:staticAxleLoadNormalPayload ;
+        atlas:characteristic "axleLoad" ;
+        rdfs:label "Axle load" ;
+        rdfs:comment "Highest static axle load of the vehicle, loaded (t); compared with the axle load limit of the EN 15528 line categories of the track." ;
+        atlas:compareTo "trackLoadCapability.loadCapabilityLineCategory" ;
+        atlas:constraint sh:minInclusive ;
+        atlas:termValue
+            [ atlas:term lclc:10 ; atlas:value 16.0 ] ,
+            [ atlas:term lclc:20 ; atlas:value 18.0 ] ,
+            [ atlas:term lclc:30 ; atlas:value 18.0 ] ,
+            [ atlas:term lclc:40 ; atlas:value 20.0 ] ,
+            [ atlas:term lclc:50 ; atlas:value 20.0 ] ,
+            [ atlas:term lclc:60 ; atlas:value 20.0 ] ,
+            [ atlas:term lclc:70 ; atlas:value 22.5 ] ,
+            [ atlas:term lclc:80 ; atlas:value 22.5 ] ,
+            [ atlas:term lclc:90 ; atlas:value 22.5 ] ,
+            [ atlas:term lclc:100 ; atlas:value 22.5 ] ,
+            [ atlas:term lclc:110 ; atlas:value 25.0 ] ,
+            [ atlas:term lclc:120 ; atlas:value 25.0 ] ;
+        sh:datatype xsd:double ;
+        atlas:unit "TONNE" ;
+        # ERA gives the static axle load in kg
+        atlas:pathFactor 1000 ;
+        sh:order 102 ;
+    ] ;
+    sh:property [
+        # ERA has no vehicle type property for the mass per metre
+        sh:path atlas:massPerMetre ;
+        atlas:characteristic "massPerMetre" ;
+        rdfs:label "Mass per metre" ;
+        rdfs:comment "Mass per metre of length of the vehicle, loaded (t/m); compared with the mass per metre limit of the EN 15528 line categories of the track." ;
+        atlas:compareTo "trackLoadCapability.loadCapabilityLineCategory" ;
+        atlas:constraint sh:minInclusive ;
+        atlas:termValue
+            [ atlas:term lclc:10 ; atlas:value 5.0 ] ,
+            [ atlas:term lclc:20 ; atlas:value 5.0 ] ,
+            [ atlas:term lclc:30 ; atlas:value 6.4 ] ,
+            [ atlas:term lclc:40 ; atlas:value 6.4 ] ,
+            [ atlas:term lclc:50 ; atlas:value 7.2 ] ,
+            [ atlas:term lclc:60 ; atlas:value 8.0 ] ,
+            [ atlas:term lclc:70 ; atlas:value 6.4 ] ,
+            [ atlas:term lclc:80 ; atlas:value 7.2 ] ,
+            [ atlas:term lclc:90 ; atlas:value 8.0 ] ,
+            [ atlas:term lclc:100 ; atlas:value 8.0 ] ,
+            [ atlas:term lclc:110 ; atlas:value 8.0 ] ,
+            [ atlas:term lclc:120 ; atlas:value 8.8 ] ;
+        sh:datatype xsd:double ;
+        atlas:unit "TONNE-PER-M" ;
+        sh:order 104 ;
     ] ;
     sh:property [
         sh:path era:lengthOfVehicle ;

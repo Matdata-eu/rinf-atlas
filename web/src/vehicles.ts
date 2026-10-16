@@ -222,7 +222,8 @@ function ttlValue(v: string | boolean | number, rule: CompatRule): string {
   if (typeof v === 'boolean') return String(v);
   if (typeof v === 'number') {
     const dt = rule.datatype ?? `${XSD}decimal`;
-    return `${ttlString(String(dt.endsWith('#integer') ? Math.round(v) : v))}^^${ttlIri(dt)}`;
+    const x = rule.path_factor ? v * rule.path_factor : v;
+    return `${ttlString(String(dt.endsWith('#integer') ? Math.round(x) : x))}^^${ttlIri(dt)}`;
   }
   return /^(https?:|urn:)/.test(v) ? ttlIri(v) : ttlString(v);
 }
@@ -383,7 +384,7 @@ function fromTurtle(text: string, rules: CompatRule[]): VehicleProfile[] {
       for (const p of r.path) nodes = nodes.flatMap((n) => objs(n, p));
       if (!nodes.length) continue;
       if (r.kind === 'number') {
-        const n = Number(nodes[0].v);
+        const n = Number(nodes[0].v) / (r.path_factor || 1);
         if (Number.isFinite(n)) values[r.key] = n;
       } else if (r.kind === 'boolean') values[r.key] = [...new Set(nodes.map((n) => n.v === 'true' || n.v === '1'))];
       else values[r.key] = [...new Set(nodes.map((n) => n.v))];

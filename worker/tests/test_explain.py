@@ -106,7 +106,7 @@ def test_every_repo_rule_is_explained_with_its_source_and_facets():
     by_key = {r["key"]: r for r in rules}
     for r in rules:
         out = cx.explain_rule(r, by_key, cp.track_classes, cp.section_class)
-        assert out["vehicle_path"].startswith("era:")
+        assert out["vehicle_path"].startswith(("era:", "atlas:"))  # atlas: where ERA has no property
         assert {s["topic"] for s in out["steps"]} >= {"compare", "missing", "rollup", "empty"}
         assert [f["key"] for f in r["infra"]] == r["facets"] and all(f["path"] for f in r["infra"])
         # the Turtle is valid and holds the rule
@@ -126,3 +126,9 @@ def test_without_value():
                      without_matches=["http://N", "http://L0"]))
     assert "picks “No ETCS installed”" in t["without"] and "“N” or “L0”" in t["without"]
     assert "requires the system" in t["without"]
+
+
+def test_term_values():
+    t = explain(rule(key="axle", label="Axle load", constraint="minInclusive", kind="number", unit="TONNE",
+                     term_values={"http://x/D4": 22.5, "http://x/C2": 20.0}))
+    assert "C2 20 and D4 22.5" in t["compare"] and "in t" in t["compare"] and "at least one" in t["compare"]

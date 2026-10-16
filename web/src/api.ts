@@ -282,6 +282,10 @@ export interface CompatRule {
   without_label?: string | null;
   /** The track values a vehicle without the system runs on (e.g. no ETCS, level 0, NTC). */
   without_matches?: string[];
+  /** A numeric rule on a facet of concepts: the number each concept stands for (e.g. axle load per line category). */
+  term_values?: Record<string, number>;
+  /** The ERA property along path holds the value times this factor (e.g. 1000: t in the profile, kg in ERA). */
+  path_factor?: number | null;
   /** Facets a track without a value takes from its section of line. */
   section_facets?: string[];
   /** What the rule compares: each facet, the RINF property path it is read from, the classes indexing it. */

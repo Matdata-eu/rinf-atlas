@@ -194,6 +194,7 @@ def cmd_check_shapes(a) -> None:
                              f"  none={r.none_value}" if r.none_value else "",
                              f"  noneFrom={r.none_from}" if r.none_from else "",
                              f"  without={r.without_value}" if r.without_value else "",
+                             f"  termValues={len(r.term_values)}" if r.term_values else "",
                              f"  section={','.join(r.section_facets)}" if r.section_facets else ""])
             print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}{extra}")
 
