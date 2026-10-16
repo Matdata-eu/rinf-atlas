@@ -45,7 +45,15 @@ pytest -q worker/tests api/tests
 # end to end: index the bundled Luxembourg sample and query the stack
 docker compose up -d --build db api web
 bash tests/smoke.sh
+
+# browser tests (Playwright) against that stack, desktop and phone sizes
+(cd web && npx playwright install chromium && npm run test:e2e)
 ```
+
+The browser tests live in `web/e2e/`. A change to what the UI shows or does
+should keep them passing, and a new feature gets a test there. They read the
+expected counts from the API, so they hold when the sample changes;
+`ATLAS_URL` points them at another instance.
 
 ## Guidelines
 

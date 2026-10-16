@@ -226,9 +226,10 @@ The web app links here from its About dialog (the ⓘ button at the top right).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md): the frontend runs against a bundled
 mock API, and `tests/smoke.sh` indexes a small Luxembourg sample
-(`tests/fixtures/`) into a running stack and checks every endpoint. CI runs
-lint, tests, the frontend build and that end-to-end test; pushes to `main` and
-version tags publish the images.
+(`tests/fixtures/`) into a running stack and checks every endpoint, after which
+the Playwright tests in `web/e2e/` drive the UI in a browser at desktop and
+phone sizes. CI runs lint, tests, the frontend build and both end-to-end
+suites; pushes to `main` and version tags publish the images.
 
 ## Licence and data
 
