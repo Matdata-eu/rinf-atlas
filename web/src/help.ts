@@ -66,7 +66,7 @@ export function openHelp() {
         section('Datasets and data quality', false,
           ['The ', b('datasets'), ' status button shows each infrastructure manager’s dataset: when it was published and processed, and whether it loaded.'],
           [b('Show on map'), ' limits the map to one dataset. New datasets are picked up automatically.'],
-          ['The ', b('Data issues'), ' map layer rings elements where ERA’s validation rules found problems. An element’s details list them.']),
+          ['The ', b('Data issues'), ' map layer rings elements where ERA’s validation rules found problems. When a click lands on several elements, the list to choose from marks the ones with problems too. An element’s details list them.']),
         section('Sharing and display', false,
           [b('Share'), ' copies a link to exactly this view: map position, filters, selected element and open tools.'],
           ['The ', b('Map layers'), ' button by the zoom buttons opens a menu of overlays: ', b('OpenRailwayMap'),
