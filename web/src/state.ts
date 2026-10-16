@@ -35,6 +35,8 @@ export interface AppState {
   colorHidden: string[];
   /** Highlight features with data quality issues on the map. */
   qa: boolean;
+  /** Classes drawn at every zoom, below their own min_zoom (e.g. for a coloured map of Europe). */
+  allZoom: string[];
   sideTab: SideTab;
   /** Line profile panel open, and what it shows (null = nothing chosen yet). */
   profileOpen: boolean;
@@ -70,9 +72,16 @@ class Store {
 
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
-  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, layers: [], qa: false, sideTab: 'filters', vehicleOpen: false,
+  view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, layers: [], qa: false, allZoom: [], sideTab: 'filters', vehicleOpen: false,
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, meta: null, theme: null,
 });
+
+/** Show a class at every zoom, or back from its own min_zoom only. */
+export function toggleAllZoom(...classes: string[]) {
+  const cur = store.get().allZoom;
+  const on = classes.some((c) => !cur.includes(c));
+  store.set({ allZoom: on ? [...new Set([...cur, ...classes])] : cur.filter((c) => !classes.includes(c)) });
+}
 
 /** Did any of the given keys change between prev and next? */
 export const changed = (s: AppState, prev: AppState, ...keys: (keyof AppState)[]) => keys.some((k) => s[k] !== prev[k]);

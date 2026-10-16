@@ -454,7 +454,7 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
     theme = themes.get(st.env, color) if color else None
     st.bbox = None
     d = _defs()
-    allowed = [c for c, mz in d["min_zoom"].items() if mz <= z and (not st.classes or c in st.classes)]
+    allowed = [c for c, mz in d["min_zoom"].items() if (mz <= z or c in st.all_zoom) and (not st.classes or c in st.classes)]
     if not allowed:
         return Response(b"", media_type="application/vnd.mapbox-vector-tile")
     st.classes = allowed
@@ -472,7 +472,13 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
         props += ", t.n AS v" if theme["kind"] == "range" else ", t.v AS v"
         vjoin = "LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id"
         vp = [theme["id"]]
-    dedup = ("DISTINCT ON (class, v, geom)" if theme else "DISTINCT ON (class, geom)") if low else ""
+    # Classes overlap at low zoom (a running track usually has its section of line's geometry),
+    # so of features on the same pixels only the one drawn on top (first in the class list) is sent.
+    dedup, order, op = "", "", []
+    if low:
+        dedup = "DISTINCT ON (v, geom)" if theme else "DISTINCT ON (geom)"
+        order = ("ORDER BY v, geom" if theme else "ORDER BY geom") + ", array_position(%s::text[], class)"
+        op = [[c["class"] for c in d["classes"]]]
     # A coarser tile grid at low zoom: fewer vertices and more pixel-duplicates removed.
     extent = 512 if low else 4096
     mvt_geom = f"ST_AsMVTGeom({geom}, bounds.b, {extent}, {extent // 64}, true)"
@@ -490,9 +496,9 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
                 SELECT f.id AS fid, {props}, {mvt_geom} AS geom
                 FROM feature f CROSS JOIN bounds {vjoin}
                 WHERE f.geom3857 && ST_Expand(bounds.b, (ST_XMax(bounds.b) - ST_XMin(bounds.b)) / 64) AND {sql}
-            ) q WHERE geom IS NOT NULL)
+            ) q WHERE geom IS NOT NULL {order})
         SELECT ST_AsMVT(mvt.*, 'features', {extent}, 'geom', 'fid') AS tile FROM mvt
-    """, [z, x, y] + vp + p)
+    """, [z, x, y] + vp + p + op)
     data = rows[0]["tile"] if rows and rows[0]["tile"] else b""
     return Response(bytes(data), media_type="application/vnd.mapbox-vector-tile",
                     headers={"Cache-Control": f"public, max-age={TILE_CACHE_SECONDS}"})
