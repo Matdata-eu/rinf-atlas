@@ -136,6 +136,8 @@ export interface QueryState {
   /** Only compute these facet keys (default: shared + selected classes' facets). */
   facets?: string[];
   bbox?: [number, number, number, number];
+  /** Tiles only: classes drawn at every zoom, ignoring their min_zoom. */
+  all_zoom?: string[];
 }
 
 export interface TermCount { value: TermValue; label?: string; count: number }

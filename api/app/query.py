@@ -32,6 +32,8 @@ class QueryState(BaseModel):
     graphs: list[str] = Field(default_factory=list)
     # Optional: only compute these facets (default: shared + selected classes' facets).
     facets: list[str] | None = None
+    # Tiles only: classes drawn at every zoom, below their own min_zoom.
+    all_zoom: list[str] = Field(default_factory=list)
 
 
 class SearchRequest(QueryState):

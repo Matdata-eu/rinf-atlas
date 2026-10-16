@@ -8,7 +8,7 @@
 // style changes: no tile is fetched again.
 import type { ExpressionSpecification } from 'maplibre-gl';
 import { api, isAbort, MIXED, type FacetMeta, type RangeTheme, type TermsTheme, type Theme } from './api';
-import { changed, debounce, fmt, h, queryState, store, unitLabel, type AppState } from './state';
+import { changed, debounce, fmt, h, queryState, store, toggleAllZoom, unitLabel, type AppState } from './state';
 import { isDark, onThemeChange } from './theme';
 
 type Expr = ExpressionSpecification;
@@ -260,11 +260,17 @@ function notes(t: Theme, s: AppState): HTMLElement[] {
       : `${r}: the value its ${o} parts share; “Mixed” when they differ.`));
   }
   const meta = s.meta?.classes ?? [];
-  const late = t.classes.map((c) => meta.find((m) => m.class === c)).filter((m) => m && m.min_zoom > s.view.zoom);
+  const below = t.classes.map((c) => meta.find((m) => m.class === c)).filter((m) => m && m.min_zoom > s.view.zoom);
+  const late = below.filter((m) => !s.allZoom.includes(m!.class));
   if (late.length) {
     const z = Math.min(...late.map((m) => m!.min_zoom));
     out.push(h('p', { class: 'lg-note muted' }, `${late.map((m) => m!.label).join(', ')}: drawn from zoom ${z}` +
-      (t.rollup.length ? `; ${t.rollup.map(classLabel).join(', ')} carr${t.rollup.length === 1 ? 'ies' : 'y'} the colour until then.` : '.')));
+      (t.rollup.length ? `; ${t.rollup.map(classLabel).join(', ')} carr${t.rollup.length === 1 ? 'ies' : 'y'} the colour until then. ` : '. '),
+      h('button', { type: 'button', class: 'link', onclick: () => toggleAllZoom(...late.map((m) => m!.class)) }, 'Show at every zoom')));
+  } else if (below.length) {
+    out.push(h('p', { class: 'lg-note muted' }, `${below.map((m) => m!.label).join(', ')}: shown at every zoom. `,
+      h('button', { type: 'button', class: 'link', onclick: () => toggleAllZoom(...below.map((m) => m!.class)) },
+        `Only from zoom ${Math.min(...below.map((m) => m!.min_zoom))}`)));
   }
   if (s.classes.length && coloured(t) && !coloured(t)!.some((c) => s.classes.includes(c))) {
     out.push(h('p', { class: 'lg-note warn' }, `None of the coloured classes is selected. Select ${[...t.rollup, ...t.classes].map(classLabel).join(' or ')} in the class list.`));
@@ -462,7 +468,7 @@ export function initThematic(mapWrap: HTMLElement) {
     if (changed(s, prev, 'env', 'meta', 'colorBy', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.colorBy && s.limitToView && changed(s, prev, 'bbox'))) {
       if (s.colorBy) loadSoon(); else if (s.theme) store.set({ theme: null });
     }
-    if (changed(s, prev, 'colorBy', 'theme', 'colorHidden', 'classes') || (s.colorBy && s.view.zoom !== prev.view.zoom)) renderLegend();
+    if (changed(s, prev, 'colorBy', 'theme', 'colorHidden', 'classes', 'allZoom') || (s.colorBy && s.view.zoom !== prev.view.zoom)) renderLegend();
     if (changed(s, prev, 'theme', 'colorHidden')) onStyle?.();
   });
   renderControl();
