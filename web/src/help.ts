@@ -30,7 +30,7 @@ export function openHelp() {
           ['Pick ', b('PROD'), ' or ', b('UAT'), ' in the environment list next to the logo.'],
           ['Type in the ', b('search'), ' box to match labels and codes (operational point names, line numbers, IDs).'],
           ['Click anything on the map to see its details. Pan and zoom as usual; small elements such as signals ',
-            'or switches only appear when you zoom in.']),
+            'or switches only appear when you zoom in; the current zoom shows above the scale bar, bottom left.']),
         section('Filters',  false,
           [b('Classes'), ': tick the kinds of infrastructure to show. The number is how many match the current filters.'],
           ['The filter button next to a class opens filters on that class’s own properties.'],
