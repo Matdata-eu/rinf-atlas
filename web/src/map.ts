@@ -231,6 +231,14 @@ export function initMap(container: HTMLElement) {
   map.on('zoom', zoomLimits);
   zoomLimits();
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+  // The current zoom, by the scale: classes appear from their own zoom (see the class list).
+  const zoomLevel = document.createElement('div');
+  zoomLevel.className = 'maplibregl-ctrl zoom-level';
+  zoomLevel.title = 'Map zoom level (the first number after map= in the link)';
+  const showZoom = () => { zoomLevel.textContent = `Zoom ${map.getZoom().toFixed(1)}`; };
+  map.on('zoom', showZoom);
+  showZoom();
+  map.addControl({ onAdd: () => zoomLevel, onRemove: () => zoomLevel.remove() }, 'bottom-left');
   // Raster basemap failures (offline, blocked hosts) are not fatal; keep the console clean.
   map.on('error', (e) => {
     const src = (e as { sourceId?: string }).sourceId;
