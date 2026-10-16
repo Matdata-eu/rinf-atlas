@@ -15,6 +15,9 @@ export default defineConfig({
     baseURL: process.env.ATLAS_URL || `http://localhost:${process.env.ATLAS_PORT || 8080}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // PW_CHANNEL=chrome uses the installed Google Chrome (as CI does) instead of
+    // Playwright's own Chromium download.
+    ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}),
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } }, testIgnore: /phone/ },
