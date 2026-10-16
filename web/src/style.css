@@ -588,6 +588,9 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
   font: inherit; color: inherit; resize: vertical;
 }
 .compat-note:focus, .compat-number:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.compat-disclaimer { margin: 0 0 10px; padding: 6px 8px; border-left: 3px solid var(--warn); border-radius: 4px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.compat-detail-disclaimer { margin: 6px 0 0; }
 .compat-example { margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 16%, transparent); }
 .compat-filled { font-weight: 400; font-size: 12px; color: var(--muted); }
 .compat-filled.filled { color: var(--accent); }

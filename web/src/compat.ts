@@ -9,6 +9,7 @@ import {
   api, isAbort, type CompatCheck, type CompatColour, type CompatExplain, type CompatResponse, type CompatRule,
   type CompatRules, type Feature, type TermCount, type TermValue,
 } from './api';
+import { COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_SHORT, COMPAT_DISCLAIMER_TITLE } from './disclaimer';
 import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setTipNote, TILE_MODE } from './map';
 import { changed, debounce, fmt, h, store, unitLabel, type SharedVehicle } from './state';
 import * as V from './vehicles';
@@ -577,10 +578,11 @@ function renderPane() {
   pane.replaceChildren(
     h('p', { class: 'muted small compat-intro' }, 'A lightweight check of where a vehicle type can run, from the technical ',
       'characteristics you fill in and the RINF data of each section of line.'),
+    h('p', { class: 'small compat-disclaimer', role: 'note' }, h('strong', {}, `${COMPAT_DISCLAIMER_TITLE}. `), COMPAT_DISCLAIMER),
     show, statusEl,
     h('details', { class: 'compat-help' }, h('summary', { class: 'small' }, 'How sections are coloured'), h('p', { class: 'small' }, RULE_HELP),
       h('p', { class: 'small muted' }, 'Each characteristic is compared with an RINF track parameter using a SHACL constraint ',
-        '(rules in shapes/compatibility.ttl). This is an indication from published data, not a route compatibility check.')),
+        '(rules in shapes/compatibility.ttl, which whoever runs this site may have changed).')),
     h('h2', { class: 'section-title' }, 'Vehicle profile'),
     h('div', { class: 'compat-bar' }, select), profileBar,
     ...editor.filter((x): x is Node => x !== null), io);
@@ -644,7 +646,8 @@ export function compatBlock(f: Feature): HTMLElement | null {
   if (!f.classes.includes(sectionClass())) return null;
   const el = h('section', { class: 'compat-detail', 'aria-label': 'Vehicle compatibility' },
     h('h3', { class: 'section-title' }, 'Vehicle compatibility'),
-    h('div', { class: 'compat-detail-body' }));
+    h('div', { class: 'compat-detail-body' }),
+    h('p', { class: 'muted small compat-detail-disclaimer' }, COMPAT_DISCLAIMER_SHORT));
   const b = { el, feature: f };
   liveBlocks.add(b);
   queueMicrotask(() => refreshBlock(b));

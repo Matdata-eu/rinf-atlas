@@ -1,5 +1,6 @@
 // "Help" dialog: a short user guide, one foldable section per feature. Controls are named by
 // their label, not by where they sit on screen, so the guide survives layout changes.
+import { COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_TITLE } from './disclaimer';
 import { h } from './state';
 
 let dlg: HTMLDialogElement | null = null;
@@ -58,8 +59,8 @@ export function openHelp() {
           ['Open ', b('Vehicle check'), ' and pick or create a vehicle profile (gauge, energy supply, axle load…).'],
           ['Sections of line turn ', b('green'), ' when at least one track fits every characteristic you filled in, ',
             b('yellow'), ' when some could not be checked for lack of data, and ', b('red'), ' when no track fits.'],
-          ['Profiles are stored in this browser; export and import them as JSON or Turtle. ',
-            'This is an indication from published data, not an official route compatibility check.']),
+          ['Profiles are stored in this browser; export and import them as JSON or Turtle.'],
+          [b(`${COMPAT_DISCLAIMER_TITLE}. `), COMPAT_DISCLAIMER]),
         section('Datasets and data quality', false,
           ['The ', b('datasets'), ' status button shows each infrastructure manager’s dataset: when it was published and processed, and whether it loaded.'],
           [b('Show on map'), ' limits the map to one dataset. New datasets are picked up automatically.'],
