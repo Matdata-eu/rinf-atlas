@@ -19,7 +19,7 @@ shape:running-track
     atlas:color "#2ca02c" ;
     atlas:geometry "line" ;
     atlas:order 30 ;
-    atlas:minZoom 10 ;
+    atlas:minZoom 4 ;
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;

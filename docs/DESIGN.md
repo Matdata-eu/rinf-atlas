@@ -77,7 +77,8 @@ the full query state, which Martin's table sources can't express), `web`
 - A filter on a plain facet key constrains every class having that facet; a
   `class/key` filter (used by the per-class facets in the UI) only that class.
 - Tiles below z8 carry only `id, class` and dedupe identical pixels; classes
-  have `atlas:minZoom` (tracks 10, sidings 11, KPs 12).
+  have `atlas:minZoom` (running tracks 4, platform edges and level crossings 6,
+  KPs 8, sidings 11).
 - Map colouring ("Colour by" a facet): the API writes one display value per
   feature into the unlogged `theme_value` cache the first time a facet is
   used (per environment and data version; the worker empties it after every

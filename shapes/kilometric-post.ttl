@@ -19,7 +19,7 @@ shape:kilometric-post
     atlas:color "#7f7f7f" ;
     atlas:geometry "point" ;
     atlas:order 90 ;
-    atlas:minZoom 12 ;
+    atlas:minZoom 8 ;
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
     sh:property [  # RINF 1.2.0.0.0.6, 57627 instances in data
