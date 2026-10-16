@@ -306,7 +306,8 @@ function wireInteraction(container: HTMLElement) {
   tip.hidden = true;
   container.append(tip);
 
-  const pickFeature = (pt: maplibregl.PointLike): MapGeoJSONFeature | undefined => {
+  /** Distinct features under the pointer, the one drawn on top first. */
+  const pickFeatures = (pt: maplibregl.PointLike): MapGeoJSONFeature[] => {
     const [x, y] = Array.isArray(pt) ? pt : [(pt as maplibregl.Point).x, (pt as maplibregl.Point).y];
     const pad = 5;
     const layers = [...DATA_LAYERS, ...overlayLayers.filter((id) => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none')];
@@ -316,11 +317,97 @@ function wireInteraction(container: HTMLElement) {
     // profile can ask for one class first (sections of line while picking sections).
     const rank = (f: MapGeoJSONFeature) => (preferClass && f.properties.class === preferClass ? -100 : 0)
       + DATA_LAYERS.length - DATA_LAYERS.indexOf(overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id);
-    return fs.sort((a, b) => rank(a) - rank(b) || classRank(a.properties.class) - classRank(b.properties.class))[0];
+    fs.sort((a, b) => rank(a) - rank(b) || classRank(a.properties.class) - classRank(b.properties.class));
+    // A feature comes back once per tile (and per layer) it is drawn in.
+    const seen = new Set<string>();
+    return fs.filter((f) => {
+      const k = String(f.properties.iri ?? `${f.properties.class}#${f.properties.id ?? f.id}`);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  /** Features a click can choose between: those drawn like the top one (point, line or area)
+   *  with a label. Tracks share their section of line's geometry, so without a choice
+   *  only the top one could ever be opened. Low-zoom tiles carry no labels: no choice there. */
+  const clickChoices = (fs: MapGeoJSONFeature[]): MapGeoJSONFeature[] => {
+    if (fs.length < 2 || clickHook) return fs.slice(0, 1);
+    const kind = (f: MapGeoJSONFeature) => overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id;
+    const same = fs.filter((f) => kind(f) === kind(fs[0]));
+    if (!same.every((f) => f.properties.label)) return fs.slice(0, 1);
+    return same.sort((a, b) => classRank(a.properties.class) - classRank(b.properties.class)
+      || String(a.properties.label).localeCompare(String(b.properties.label), undefined, { numeric: true }));
+  };
+
+  const picker = document.createElement('div');
+  picker.className = 'map-picker';
+  picker.setAttribute('role', 'menu');
+  picker.hidden = true;
+  container.append(picker);
+  const closePicker = () => { if (!picker.hidden) { picker.hidden = true; picker.replaceChildren(); } };
+  picker.addEventListener('keydown', (e) => {
+    const items = [...picker.querySelectorAll<HTMLButtonElement>('button')];
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === 'Escape') { e.stopPropagation(); closePicker(); map.getCanvas().focus(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+    }
+  });
+  document.addEventListener('pointerdown', (e) => { if (!picker.contains(e.target as Node)) closePicker(); }, true);
+  map.on('movestart', closePicker);
+
+  const classMeta = (f: MapGeoJSONFeature) => store.get().meta?.classes.find((c) => c.class === f.properties.class);
+
+  const openFeature = (f: MapGeoJSONFeature, detailTab: 'describe' | 'properties') => {
+    if (clickHook?.({ iri: f.properties.iri as string | undefined, id: (f.properties.id ?? f.id) as string | number | undefined,
+      class: String(f.properties.class ?? '') })) return;
+    if (f.properties.iri) { store.set({ selected: String(f.properties.iri), detailTab }); return; }
+    // Low-zoom tiles only carry id + class.
+    const id = f.properties.id ?? f.id;
+    if (id == null) return;
+    api.featureById(store.get().env, id as number).then((ft) => store.set({ selected: ft.iri, detailTab }))
+      .catch((err) => console.warn('feature lookup failed', err));
+  };
+
+  const showPicker = (fs: MapGeoJSONFeature[], at: maplibregl.Point, detailTab: 'describe' | 'properties') => {
+    picker.replaceChildren();
+    const head = document.createElement('div');
+    head.className = 'map-picker-head';
+    head.textContent = `${fs.length} features here`;
+    picker.append(head);
+    for (const f of fs) {
+      const meta = classMeta(f);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'menuitem');
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.style.background = meta?.color ?? '#888';
+      const name = document.createElement('span');
+      name.className = 'map-picker-label';
+      name.textContent = String(f.properties.label);
+      const cls = document.createElement('small');
+      cls.textContent = meta?.label ?? String(f.properties.class ?? '');
+      b.append(sw, name, cls);
+      b.addEventListener('click', (e) => {
+        closePicker();
+        openFeature(f, e.ctrlKey || e.metaKey ? 'describe' : detailTab);
+      });
+      picker.append(b);
+    }
+    tip.hidden = true;
+    picker.hidden = false;
+    const x = at.x + 4 + picker.offsetWidth > container.clientWidth ? Math.max(0, at.x - 4 - picker.offsetWidth) : at.x + 4;
+    const y = at.y + 4 + picker.offsetHeight > container.clientHeight ? Math.max(0, at.y - 4 - picker.offsetHeight) : at.y + 4;
+    picker.style.transform = `translate(${x}px, ${y}px)`;
+    picker.querySelector('button')?.focus({ preventScroll: true });
   };
 
   map.on('mousemove', (e) => {
-    const f = pickFeature(e.point);
+    if (!picker.hidden) return;
+    const fs = pickFeatures(e.point);
+    const f = fs[0];
     map.getCanvas().style.cursor = f ? 'pointer' : '';
     if (!f) { tip.hidden = true; return; }
     const meta = store.get().meta?.classes.find((c) => c.class === f.properties.class);
@@ -341,6 +428,13 @@ function wireInteraction(container: HTMLElement) {
       const vt = document.createElement('small');
       vt.textContent = val[1];
       tip.append(document.createElement('br'), vs, vt);
+    }
+    const more = clickChoices(fs).length - 1;
+    if (more > 0) {
+      const m = document.createElement('small');
+      m.className = 'tip-note';
+      m.textContent = `+${more} more here, click to choose`;
+      tip.append(document.createElement('br'), m);
     }
     const note = tipNote?.(f);
     if (note) {
@@ -364,17 +458,11 @@ function wireInteraction(container: HTMLElement) {
   map.on('mouseleave', 'profile-line', () => profileHoverCb?.(null));
 
   map.on('click', (e) => {
-    const f = pickFeature(e.point);
-    if (!f) return;
-    if (clickHook?.({ iri: f.properties.iri as string | undefined, id: (f.properties.id ?? f.id) as string | number | undefined,
-      class: String(f.properties.class ?? '') })) return;
+    const fs = clickChoices(pickFeatures(e.point));
+    if (!fs.length) return;
     const detailTab = e.originalEvent.ctrlKey || e.originalEvent.metaKey ? 'describe' : 'properties';
-    if (f.properties.iri) { store.set({ selected: String(f.properties.iri), detailTab }); return; }
-    // Low-zoom tiles only carry id + class.
-    const id = f.properties.id ?? f.id;
-    if (id == null) return;
-    api.featureById(store.get().env, id as number).then((ft) => store.set({ selected: ft.iri, detailTab }))
-      .catch((err) => console.warn('feature lookup failed', err));
+    if (fs.length > 1) showPicker(fs, e.point, detailTab);
+    else openFeature(fs[0], detailTab);
   });
 }
 
