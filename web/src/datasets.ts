@@ -40,6 +40,7 @@ const rulesCache = new Map<string, QualityRule[] | 'loading' | string>();
 let sortDesc = false;
 let needle = '';
 let showRemoved = false;
+let aboutOpen = false;
 
 export async function openDatasets() {
   const env = store.get().env;
@@ -69,19 +70,19 @@ function summary(list: Dataset[]): HTMLElement {
   const by = (st: DatasetStatus) => list.filter((d) => d.status === st).length;
   const live = list.filter((d) => d.status !== 'removed');
   const feats = live.reduce((n, d) => n + (d.features ?? 0), 0);
+  const busy = by('loading') + by('pending');
   const m = store.get().meta?.datasets;
-  const parts: (string | HTMLElement)[] = [
-    h('strong', {}, `${by('loaded')} of ${live.length}`), ' datasets processed',
-    by('failed') ? h('span', { class: 'pill failed' }, `${by('failed')} failed`) : '',
-    by('loading') + by('pending') ? h('span', { class: 'pill pending' }, `${by('loading') + by('pending')} in progress`) : '',
-    ` · ${fmt.format(feats)} features indexed`,
-  ];
-  return h('div', { class: 'dlg-summary' },
-    h('p', {}, ...parts),
-    h('p', { class: 'muted small' },
-      `Last dataset processed ${when(m?.last_ingest ?? null)} · last check for new datasets ${when(m?.last_check ?? null)}. `,
-      'The backend checks ERA’s dataset explorer regularly and processes new or changed datasets automatically.'),
-    qualitySummary(list));
+  const stat = (label: string, ...value: (string | HTMLElement | null)[]) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
+  return h('div', { class: 'ds-overview' },
+    h('dl', { class: 'ds-stats' },
+      stat('Datasets processed', h('strong', {}, `${by('loaded')} of ${live.length}`),
+        by('failed') ? h('span', { class: 'pill failed' }, `${by('failed')} failed`) : null,
+        busy ? h('span', { class: 'pill pending' }, `${busy} in progress`) : null),
+      stat('Features indexed', h('strong', {}, fmt.format(feats))),
+      stat('Last processed', when(m?.last_ingest ?? null)),
+      stat('Last checked', when(m?.last_check ?? null))),
+    qualitySummary(list),
+    about());
 }
 
 const issueCount = (q?: DatasetQuality) => (q?.violations ?? 0) + (q?.warnings ?? 0) + (q?.infos ?? 0);
@@ -94,34 +95,46 @@ function qualitySummary(list: Dataset[]): HTMLElement | null {
   const live = list.filter((d) => d.status !== 'removed');
   const sum = (k: 'violations' | 'warnings' | 'infos') => live.reduce((n, d) => n + (d.quality?.[k] ?? 0), 0);
   const validated = live.filter((d) => d.quality?.status === 'ok' || d.quality?.status === 'partial').length;
-  return h('div', { class: 'qa-summary small' },
-    h('p', {},
-      h('strong', {}, 'Data quality: '),
-      h('span', { class: 'pill sev-violation' }, `${fmt.format(sum('violations'))} violations`), ' ',
-      h('span', { class: 'pill sev-warning' }, `${fmt.format(sum('warnings'))} warnings`), ' ',
-      sum('infos') ? h('span', { class: 'pill sev-info' }, `${fmt.format(sum('infos'))} info`) : '',
-      ` in ${validated} of ${live.length} datasets, checked against `,
-      qm.shapes ? shapesLink(qm.shapes) : 'the SHACL shapes ERA publishes',
-      qm.shapes_loaded_at ? ` (loaded ${when(qm.shapes_loaded_at)})` : '', '.',
-      qm.too_large ? ` ${qm.too_large} dataset${qm.too_large === 1 ? ' is' : 's are'} too large to validate` : '',
-      qm.too_large && qm.max_triples ? ` (limit ${fmt.format(qm.max_triples)} triples).` : qm.too_large ? '.' : ''),
-    qm.shapes_error ? h('p', { class: 'error' }, `The configured shapes could not be loaded: ${qm.shapes_error}`) : null,
-    h('p', { class: 'muted' },
-      'Each report is a standard SHACL validation report. ',
-      qm.shapes_graph ? h('a', { href: api.qualityShapesUrl(env), download: '' }, 'Download the shapes') : null,
-      qm.shacl_report_url ? h('span', {}, ' and explore a report together with them in ',
-        h('a', { href: qm.shacl_report_url, target: '_blank', rel: 'noopener' }, 'shacl-report ↗'),
-        ' (drop both files on the page), or open the built-in viewer with “Report”.') : '.'));
+  const tooLarge = qm.too_large
+    ? h('span', { title: qm.max_triples ? `Limit ${fmt.format(qm.max_triples)} triples` : '' }, ` · ${qm.too_large} too large to validate`) : null;
+  return h('div', { class: 'ds-quality small' },
+    h('div', { class: 'ds-quality-counts' },
+      h('strong', {}, 'Data quality'),
+      h('span', { class: 'pill sev-violation' }, `${fmt.format(sum('violations'))} violations`),
+      h('span', { class: 'pill sev-warning' }, `${fmt.format(sum('warnings'))} warnings`),
+      sum('infos') ? h('span', { class: 'pill sev-info' }, `${fmt.format(sum('infos'))} info`) : null,
+      h('span', { class: 'muted' }, `in ${validated} of ${live.length} datasets`, tooLarge)),
+    h('div', { class: 'ds-quality-links' },
+      h('span', { class: 'muted' }, 'Shapes: '),
+      qm.shapes ? shapesLink(qm.shapes, qm.shapes_loaded_at) : h('span', {}, 'ERA SHACL shapes'),
+      qm.shapes_graph ? h('a', { href: api.qualityShapesUrl(env), download: '', title: 'Download the shapes as Turtle' }, 'Download') : null,
+      qm.shacl_report_url ? h('a', { href: qm.shacl_report_url, target: '_blank', rel: 'noopener', title: 'Explore a report together with the shapes' }, 'shacl-report ↗') : null),
+    qm.shapes_error ? h('p', { class: 'error' }, `The configured shapes could not be loaded: ${qm.shapes_error}`) : null);
+}
+
+/** The background that used to sit above the table, folded away until asked for. */
+function about(): HTMLElement {
+  const qm = store.get().meta?.quality;
+  const el = h('details', { class: 'ds-about small', open: aboutOpen },
+    h('summary', {}, 'How this works'),
+    h('p', {}, 'The backend checks ERA’s dataset explorer regularly and processes new or changed datasets automatically.'),
+    qm?.enabled ? h('p', {},
+      'Each dataset is checked against the SHACL shapes ERA publishes. Every report is a standard SHACL validation report: ',
+      'open it in the built-in viewer with “Report”, or download it (“.ttl”) together with the shapes',
+      qm.shacl_report_url ? ' and drop both files on shacl-report.' : '.',
+      qm.too_large && qm.max_triples ? ` Datasets above ${fmt.format(qm.max_triples)} triples are not validated.` : '') : null);
+  el.addEventListener('toggle', () => { aboutOpen = el.open; }); // survives re-renders while filtering
+  return el;
 }
 
 /** The shapes a validation used, linked to their source (GitLab file at a tag, or the shapes graph). */
-function shapesLink(s: ShapesSource): HTMLElement {
+function shapesLink(s: ShapesSource, loadedAt?: string | null): HTMLElement {
   const text = s.kind === 'tag' ? `ERA ontology ${s.tag}` : `ERA's shapes graph${s.version ? ` v${s.version}` : ''}`;
-  const title = [s.label, s.url ?? s.graph, s.version ? `owl:versionInfo ${s.version}` : '', s.modified ? `modified ${s.modified}` : '']
-    .filter(Boolean).join('\n');
+  const title = [s.label, s.url ?? s.graph, s.version ? `owl:versionInfo ${s.version}` : '', s.modified ? `modified ${s.modified}` : '',
+    loadedAt ? `loaded ${when(loadedAt)}` : ''].filter(Boolean).join('\n');
   return s.url?.startsWith('http')
-    ? h('a', { href: s.url, target: '_blank', rel: 'noopener', title }, `${text} shapes`)
-    : h('span', { title }, `${text} shapes`);
+    ? h('a', { href: s.url, target: '_blank', rel: 'noopener', title }, text)
+    : h('span', { title }, text);
 }
 
 const shapesKey = (s?: ShapesSource | null) => (s ? `${s.kind}|${s.tag ?? ''}|${s.version ?? ''}|${s.graph}` : '');
