@@ -1,7 +1,7 @@
 // Left panel: class list, facets, active filter chips.
 import { api, isAbort, type FacetMeta, type FacetResult, type FacetsResponse, type FilterValue, type RangeFilter, type TermCount, type TermValue } from './api';
 import { datasetLabel } from './datasets';
-import { changed, debounce, fmt, h, isFilterEmpty, queryState, store, unitLabel, type AppState } from './state';
+import { changed, debounce, fmt, h, isFilterEmpty, queryState, store, toggleAllZoom, unitLabel, type AppState } from './state';
 import { PALETTE_ICON, setColorBy } from './thematic';
 
 const TOP_N = 10;
@@ -127,11 +127,14 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   let r = rows.get(c.class);
   if (r) return r;
   const box = h('input', { type: 'checkbox', 'data-class': c.class, onchange: () => toggleClass(c.class) });
-  const hint = h('small', { class: 'muted zoom-hint', title: `Drawn on the map from zoom ${c.min_zoom}` }, ' zoom in to see');
+  // Inside the label: a click on the hint must not tick the class.
+  const hint = h('button', { type: 'button', class: 'link zoom-hint', onclick: (e: Event) => {
+    e.preventDefault(); e.stopPropagation(); toggleAllZoom(c.class);
+  } });
   const nomap = h('div', { class: 'muted nomap-hint', hidden: true });
   const count = h('span', { class: 'count' });
   const label = h('label', { class: 'check' }, box, h('span', { class: 'swatch', style: `background:${c.color}` }),
-    h('span', { class: 'lbl' }, c.label, hint), count);
+    h('span', { class: 'lbl' }, c.label, ' ', hint), count);
   const badge = h('span', { class: 'filter-badge' });
   const hasFacets = classFacets(store.get(), c.class).length > 0;
   const btn = hasFacets ? h('button', {
@@ -162,6 +165,10 @@ function renderClasses() {
     // Features without geometry are counted but never drawn; say so when they are a noticeable share.
     const u = data?.unlocated_by_class?.[c.class] ?? 0;
     r.hint.hidden = s.view.zoom >= (c.min_zoom ?? 0) || (n > 0 && u === n);
+    const forced = s.allZoom.includes(c.class);
+    r.hint.textContent = forced ? 'at every zoom' : 'zoom in to see';
+    r.hint.title = forced ? `Drawn at every zoom; click to draw it from zoom ${c.min_zoom} only again`
+      : `Drawn on the map from zoom ${c.min_zoom}; click to draw it at every zoom`;
     r.nomap.hidden = !(u > 0 && u >= n * NOMAP_SHARE);
     r.nomap.textContent = u === n ? 'No location in RINF, not on the map' : `${fmt.format(u)} without location, not on the map`;
     r.nomap.title = 'Listed in the results, but the infrastructure manager published no coordinates for them';
@@ -351,7 +358,7 @@ export function initFacets() {
     if (changed(s, prev, 'env')) { data = null; blocks.clear(); rows.clear(); labelCache.clear(); openClasses.clear(); }
     if (changed(s, prev, 'meta')) rows.clear(); // class colours, labels and facet lists may differ
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'colorBy')) render(); // instant feedback, counts follow
-    else if (s.view.zoom !== prev.view.zoom) renderClasses(); // min_zoom hints
+    else if (s.view.zoom !== prev.view.zoom || changed(s, prev, 'allZoom')) renderClasses(); // min_zoom hints
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) loadSoon();
   });
   limitView.checked = store.get().limitToView;

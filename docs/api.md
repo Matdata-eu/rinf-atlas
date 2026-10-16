@@ -136,7 +136,8 @@ operational points that no chain of sections connects answers 404.
   (across classes, the one first in the class list, which the map draws on
   top), which keeps a Europe-wide tile small; resolve a click with
   `/api/feature?env=&id=`. Classes are left out of tiles below their
-  `min_zoom` (from the shapes, see `/api/meta`). Lines are simplified below
+  `min_zoom` (from the shapes, see `/api/meta`), except those listed in the
+  state's `all_zoom` (the UI's "show at every zoom"). Lines are simplified below
   zoom 10. Tiles are sent with `Cache-Control: public, max-age=300`.
 - Describe responses are cached in the API for 10 minutes.
 - Vehicle compatibility: a profile maps characteristic keys (`/api/compatibility/rules`)
