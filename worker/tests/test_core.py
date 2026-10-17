@@ -5,7 +5,7 @@ import pyoxigraph as ox
 import pytest
 from atlas.extract import normalize_wkt
 from atlas.mirror import skolemize
-from atlas.shapes import ShapeError, load_shapes
+from atlas.shapes import ShapeError, load_shapes, position_rules
 
 SHAPES = Path(__file__).resolve().parents[2] / "shapes"
 
@@ -107,3 +107,12 @@ def test_link_values_are_iris_only():
     from atlas.extract import _val
     assert _val(ox.NamedNode("http://ex/op"), "link") == "http://ex/op"
     assert _val(ox.Literal("x"), "link") is None
+
+
+def test_shape_files_and_position_rules_for_the_app():
+    s = load_shapes(SHAPES)
+    assert "atlas.ttl" in s.files and s.files["track.ttl"].startswith("# Track")
+    assert s.class_files["track"] == "track.ttl"
+    assert position_rules(next(c for c in s.classes if c.key == "track"))["geometry_from"] == ["era:isPartOf|^era:hasPart"]
+    sol = position_rules(next(c for c in s.classes if c.key == "section-of-line"))
+    assert sol["line_between"] == ["era:opStart", "era:opEnd"] and sol["geometry_from"] == []

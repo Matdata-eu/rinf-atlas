@@ -1,5 +1,6 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
 import { api, ApiError, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
+import { openShapes } from './shapes';
 import { compatBlock } from './compat';
 import type { GraphHandle } from './graph';
 import { fitGeometry, flyTo, setSelectionGeometry } from './map';
@@ -180,7 +181,35 @@ function renderProperties(body: HTMLElement) {
       }, `Line profile ${v.label ?? v.value}`)) : []),
       h('button', { class: 'btn', onclick: () => store.set({ detailTab: 'describe' }) }, 'Describe live')),
   );
+  if (f.position) body.append(positionSection(f));
   if (f.quality && store.get().meta?.quality?.enabled) body.append(qualitySection(f, f.quality));
+}
+
+/** Where the map position comes from: the element's own coordinates, or inferred from related
+ *  elements by the rules in the class's facet shape. */
+function positionSection(f: Feature): HTMLElement {
+  const pos = f.position!;
+  const open = (iri: string) => store.set({ selected: iri, detailTab: 'properties' });
+  const linkList = (rules: string[]) => h('ul', {}, ...pos.links.filter((l) => rules.includes(l.rule)).map((l) =>
+    h('li', {}, h('button', { class: 'link', title: l.iri, onclick: () => open(l.iri) }, l.label || shortIri(l.iri)),
+      h('span', { class: 'muted' }, ` (${classInfo(l.class)?.label ?? l.class})`))));
+  const r = pos.rules;
+  const text = pos.source === 'path' || (!pos.source && f.geometry)
+    ? [h('p', {}, 'Drawn at its own coordinates in RINF.')]
+    : pos.source === 'from'
+      ? [h('p', {}, 'RINF gives no coordinates for this element, so it is drawn at the position of what it belongs to:'),
+        linkList(['from']), pos.more_links ? h('p', { class: 'muted small' }, 'And more.') : null]
+      : pos.source === 'line'
+        ? [h('p', {}, 'RINF gives no geometry for this element, so it is drawn as a straight line between:'), linkList(['lineA', 'lineB'])]
+        : [h('p', {}, 'RINF gives no coordinates for this element and none could be inferred from related elements, so it is not on the map.')];
+  const rule = pos.source === 'from' && r?.geometry_from.length ? ['atlas:geometryFrom', r.geometry_from.join(' , ')]
+    : pos.source === 'line' && r?.line_between ? ['atlas:lineBetween', `( ${r.line_between.join(' ')} )`] : null;
+  return h('section', { class: 'pos-section', 'aria-label': 'Position' },
+    h('h3', {}, 'Position'),
+    ...text,
+    rule ? h('p', { class: 'muted small' }, 'Rule: ', h('code', {}, `${rule[0]} ${rule[1]}`)) : null,
+    pos.shape_file ? h('p', { class: 'muted small' }, 'Set by this site’s facet shape ',
+      h('button', { class: 'link', onclick: () => openShapes(pos.shape_file!) }, pos.shape_file), '.') : null);
 }
 
 const SEV_TEXT = { violation: 'Violation', warning: 'Warning', info: 'Info' } as const;

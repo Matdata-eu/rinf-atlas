@@ -890,3 +890,19 @@ body.profile-open .compat-legend { bottom: calc(var(--profile-h) + 32px); }
   body.profile-open .compat-legend { bottom: calc(52% + 10px); }
   body.profile-open .vehicle-panel { max-height: none; }
 }
+
+/* "Facet shapes" dialog and the element's "Position" block */
+.shapes-dialog { width: min(760px, calc(100vw - 32px)); }
+.shapes-body { display: flex; flex-direction: column; min-height: 0; }
+.shapes-pick { display: flex; gap: 8px; align-items: center; margin: 6px 0 8px; }
+.shapes-pick select { flex: 1; min-width: 0; margin: 0; }
+.shape-ttl {
+  margin: 0; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+  font: 12px/1.45 var(--mono); overflow: auto; white-space: pre; min-height: 120px; max-height: 60dvh;
+}
+.pos-section { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pos-section h3 { margin: 0 0 6px; font-size: 14px; }
+.pos-section p { margin: 4px 0; }
+.pos-section ul { margin: 4px 0; padding-left: 18px; }
+.pos-section code { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.shapes-pick .btn { text-decoration: none; }

@@ -2,6 +2,7 @@
 // Implements every endpoint of docs/api.md with deterministic fake data
 // for Belgium and the Netherlands (a few national lines with running tracks
 // for the line profile). Listens on PORT (default 8000).
+import fs from 'node:fs';
 import http from 'node:http';
 import { URL } from 'node:url';
 
@@ -9,6 +10,10 @@ const PORT = Number(process.env.PORT || 8000);
 const ERA = 'http://data.europa.eu/949/';
 const FI = `${ERA}functionalInfrastructure/`;
 const COUNTRY = 'http://publications.europa.eu/resource/authority/country/';
+
+// The repository's own facet shapes, served by /api/shapes.
+const SHAPES_DIR = new URL('../../shapes/', import.meta.url);
+const shapeFiles = () => { try { return fs.readdirSync(SHAPES_DIR).filter((n) => n.endsWith('.ttl')).sort(); } catch { return []; } };
 
 // ---------- deterministic RNG ----------
 let seed = 42;
@@ -1188,7 +1193,28 @@ const server = http.createServer(async (req, res) => {
         note: status === 'skipped' ? 'not validated: too large (18,400,000 triples > limit 15,000,000)' : null,
         reason: status === 'skipped' ? 'too_large' : null, shapes: status ? SHAPES_SRC[env] : null,
         results: status === 'ok' ? (f.qaResults || []).map(({ sev, ...r }) => r) : [], truncated: false, report: status === 'ok', html: status === 'ok' };
-      return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, facet_kinds, geometry: f.geometry, quality });
+      const source = f.parent ? 'from' : f.geometry ? 'path' : null;
+      const position = { source, shape_file: shapeFiles().includes(`${f.class}.ttl`) ? `${f.class}.ttl` : null,
+        rules: { geometry_path: ['((gsp:hasGeometry/gsp:asWKT)|(era:netReference/gsp:hasGeometry/gsp:asWKT))'],
+          line_between: f.class === 'section-of-line' ? ['era:opStart', 'era:opEnd'] : null,
+          geometry_from: f.class === 'operational-point' ? ['era:primaryLocation'] : f.class === 'section-of-line' ? [] : ['era:isPartOf|^era:hasPart'] },
+        links: f.parent ? [{ rule: 'from', iri: f.parent.iri, label: f.parent.label, class: f.parent.class }] : [], more_links: false };
+      return send(res, 200, { iri: f.iri, label: f.label, classes: [f.class], graph_iri: f.graph, facets: facetsOut, facet_kinds,
+        geometry: f.geometry, geometry_source: source, position, quality });
+    }
+    if (p === '/api/shapes') {
+      return send(res, 200, shapeFiles().map((name) => {
+        const key = name.replace(/\.ttl$/, '');
+        const c = CLASSES.find((x) => x.class === key);
+        return { name, size: fs.statSync(new URL(name, SHAPES_DIR)).size, classes: c ? [{ class: c.class, label: c.label }] : [] };
+      }));
+    }
+    if (p === '/api/shapes/file') {
+      const name = url.searchParams.get('name') || '';
+      if (!shapeFiles().includes(name)) return send(res, 404, { detail: 'no such shape file' });
+      res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8',
+        ...(url.searchParams.get('download') ? { 'content-disposition': `attachment; filename="${name}"` } : {}) });
+      return res.end(fs.readFileSync(new URL(name, SHAPES_DIR), 'utf8'));
     }
     if (p === '/api/lines') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
