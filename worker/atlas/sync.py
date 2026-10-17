@@ -12,7 +12,7 @@ import psycopg
 from . import era, mirror, quality
 from .config import Env, Settings
 from .extract import derive_geometry, extract_graph, refresh_facet_cache, update_term_labels
-from .shapes import ShapeSet
+from .shapes import ShapeSet, position_rules
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +24,15 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bo
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_def")
         cur.execute("DELETE FROM class_def")
+        cur.execute("DELETE FROM shape_file")
+        for name, text in shapes.files.items():
+            cur.execute("INSERT INTO shape_file (name, turtle) VALUES (%s,%s)", (name, text))
         for c in shapes.classes:
-            cur.execute("""INSERT INTO class_def (class, class_iri, label, color, geometry, position, min_zoom)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-                        (c.key, c.class_iri, c.label, c.color, c.geometry, c.order, c.min_zoom))
+            cur.execute("""INSERT INTO class_def (class, class_iri, label, color, geometry, position, min_zoom,
+                                                  shape_file, position_rules)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                        (c.key, c.class_iri, c.label, c.color, c.geometry, c.order, c.min_zoom,
+                         shapes.class_files.get(c.key), json.dumps(position_rules(c))))
             for f in c.facets:
                 cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",

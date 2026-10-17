@@ -588,12 +588,29 @@ def feature(env: str, iri: str | None = None, id: int | None = None):
     return {"iri": r["iri"], "label": r["label"], "classes": [x["class"] for x in rows],
             "class_iri": r["class_iri"], "graph_iri": r["graph_iri"], "provider": r["provider"],
             "dataset": r["dataset"], "geometry_source": r["geom_source"],
+            "position": _feature_position(env, r["iri"], r["class"], r["geom_source"], d),
             "facets": facets_out, "facet_labels": {k: facet_labels.get(k, k) for k in r["facets"] if k != "quality"},
             "facet_kinds": {k: d["kinds"].get(k, "terms") for k in r["facets"] if k != "quality"},
             "geometry": r["geometry"], "quality": _feature_quality(env, r["iri"], r["graph_iri"])}
 
 
 FEATURE_RESULTS = 200
+POSITION_LINKS = 20
+
+
+def _feature_position(env: str, iri: str, cls: str, source: str | None, d: dict) -> dict:
+    """How the feature got its position: its class's rules from the shapes, and for a borrowed
+    position (`from`) or a straight line (`line`) the indexed features it came from."""
+    c = next((x for x in d["classes"] if x["class"] == cls), None) or {}
+    links = []
+    if source in ("from", "line"):
+        rules = ["from"] if source == "from" else ["lineA", "lineB"]
+        links = _q("""SELECT DISTINCT ON (l.rule, l.target) l.rule, l.target AS iri, t.label, t.class
+                      FROM feature_link l JOIN feature t ON t.env=l.env AND t.iri=l.target AND t.geom IS NOT NULL
+                      WHERE l.env=%s AND l.iri=%s AND l.class=%s AND l.rule = ANY(%s)
+                      ORDER BY l.rule, l.target, t.class LIMIT %s""", [env, iri, cls, rules, POSITION_LINKS + 1])
+    return {"source": source, "rules": c.get("position_rules"), "shape_file": c.get("shape_file"),
+            "links": links[:POSITION_LINKS], "more_links": len(links) > POSITION_LINKS}
 
 
 def _feature_quality(env: str, iri: str, graph: str) -> dict:
@@ -892,6 +909,30 @@ def quality_shapes(env: str):
     # The file starts with comments naming the source (graph or GitLab tag) and version.
     return Response(gzip.decompress(bytes(rows[0]["turtle_gz"])), media_type="text/turtle; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/shapes")
+def shapes():
+    """The facet shapes this instance was configured with (shapes/), and the classes each file defines."""
+    d = _defs()
+    by_file: dict[str, list[dict]] = defaultdict(list)
+    for c in d["classes"]:
+        if c.get("shape_file"):
+            by_file[c["shape_file"]].append({"class": c["class"], "label": c["label"]})
+    return [{"name": r["name"], "size": r["size"], "classes": by_file.get(r["name"], [])}
+            for r in _q("SELECT name, length(turtle) AS size FROM shape_file ORDER BY name")]
+
+
+@app.get("/api/shapes/file")
+def shape_file(name: str, download: bool = False):
+    """One facet shape file, as written in shapes/ (Turtle)."""
+    rows = _q("SELECT turtle FROM shape_file WHERE name=%s", [name])
+    if not rows:
+        raise HTTPException(404, "no such shape file")
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{name.rsplit("/", 1)[-1]}"'
+    return Response(rows[0]["turtle"], media_type="text/turtle; charset=utf-8", headers=headers)
 
 
 # --- line profile ------------------------------------------------------------

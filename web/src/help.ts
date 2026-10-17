@@ -1,6 +1,7 @@
 // "Help" dialog: a short user guide, one foldable section per feature. Controls are named by
 // their label, not by where they sit on screen, so the guide survives layout changes.
 import { COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_TITLE } from './disclaimer';
+import { openShapes } from './shapes';
 import { h } from './state';
 
 let dlg: HTMLDialogElement | null = null;
@@ -50,6 +51,16 @@ export function openHelp() {
             b('Back'), ' and ', b('Forward'), ' (or ', k('Alt'), '+', k('←'), ' / ', k('→'), ') to retrace your steps.'],
           [b('Graph'), ': the same data as a network. Double-click a node to expand it.'],
           [k('Ctrl'), '+click (', k('⌘'), '+click on a Mac) on the map opens an element straight in Describe.']),
+        section('Element position', false,
+          ['Many elements have no coordinates of their own in RINF, for example tracks, platform edges, signals and switches. ',
+            'They are drawn at the position of the operational point or section of line they belong to, so several of them can sit on the same spot.'],
+          ['A section of line without a geometry is drawn as a straight line between its start and end operational points, not along the real track.'],
+          ['Elements whose position cannot be worked out either are listed in the results but not drawn on the map.'],
+          ['An element’s details say under ', b('Position'), ' whether it has its own coordinates or which elements its position was taken from.'],
+          ['Exactly how a position is inferred is not fixed by RINF: whoever runs this site defines it in the SHACL ',
+            h('button', { class: 'link', type: 'button', onclick: () => { dlg?.close(); openShapes(); } }, 'facet shapes'),
+            ' it is configured with (', h('code', {}, 'atlas:geometryPath'), ', ', h('code', {}, 'atlas:geometryFrom'), ' and ',
+            h('code', {}, 'atlas:lineBetween'), '). The same shapes decide the classes and filters.']),
         section('Line profile', false,
           ['Open ', b('Line profile'), ' and choose ', b('National line'), ', ', b('Sections'), ' (click sections of line on the map) or ',
             b('From → to'), ' (shortest route between two operational points).'],

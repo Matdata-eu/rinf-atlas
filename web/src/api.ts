@@ -209,7 +209,26 @@ export interface Feature {
   facet_kinds?: Record<string, string>;
   geometry: GeoJSON.Geometry | null;
   quality?: FeatureQuality;
+  /** How the map position was found: `path` (the element's own coordinates in RINF), `from`
+   *  (copied from the elements it belongs to), `line` (straight line between two elements), or null. */
+  geometry_source?: GeometrySource | null;
+  position?: FeaturePosition;
 }
+
+export type GeometrySource = 'path' | 'from' | 'line';
+/** The class's position rules from its facet shape (compact SPARQL paths, tried in this order). */
+export interface PositionRules { geometry_path: string[]; line_between: [string, string] | null; geometry_from: string[] }
+export interface FeaturePosition {
+  source: GeometrySource | null;
+  rules: PositionRules | null;
+  /** shapes/ file the class is defined in. */
+  shape_file: string | null;
+  /** The indexed elements a `from` or `line` position came from (`rule`: from | lineA | lineB). */
+  links: { rule: string; iri: string; label: string | null; class: string }[];
+  more_links: boolean;
+}
+/** A file in the instance's shapes/ folder and the classes it defines. */
+export interface ShapeFile { name: string; size: number; classes: { class: string; label: string }[] }
 
 // ---------- line profile ----------
 /** What the profile shows: a national line, sections picked on the map, or a route between operational points. */
@@ -394,6 +413,10 @@ export const api = {
   qualityReportUrl: (env: string, graph: string, format: 'ttl' | 'html', download = false) =>
     `${BASE}/quality/report?${qs({ env, graph, format, ...(download ? { download: 'true' } : {}) })}`,
   qualityShapesUrl: (env: string) => `${BASE}/quality/shapes?${qs({ env })}`,
+  /** The facet shapes this instance runs with (shapes/). */
+  shapes: () => request<ShapeFile[]>('/shapes'),
+  shapeFileUrl: (name: string, download = false) =>
+    `${BASE}/shapes/file?${qs({ name, ...(download ? { download: 'true' } : {}) })}`,
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
   exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl') => {
     const { facets: _facets, ...rest } = st;

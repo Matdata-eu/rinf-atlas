@@ -171,6 +171,16 @@ CREATE TABLE IF NOT EXISTS class_def (
     position   int  NOT NULL DEFAULT 100
 );
 ALTER TABLE class_def ADD COLUMN IF NOT EXISTS min_zoom int NOT NULL DEFAULT 0;
+-- The shapes/ file the class is defined in, and how its position is found
+-- (atlas:geometryPath / lineBetween / geometryFrom as compact SPARQL paths).
+ALTER TABLE class_def ADD COLUMN IF NOT EXISTS shape_file text;
+ALTER TABLE class_def ADD COLUMN IF NOT EXISTS position_rules jsonb;
+
+-- The shapes/ files as written, so the app can show the implementer's shapes.
+CREATE TABLE IF NOT EXISTS shape_file (
+    name   text PRIMARY KEY,           -- path relative to shapes/
+    turtle text NOT NULL
+);
 
 -- Vehicle compatibility rules compiled from shapes/compatibility.ttl (one row,
 -- JSON of atlas.shapes.CompatSet), written by the worker with facet_def.
