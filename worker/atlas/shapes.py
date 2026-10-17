@@ -132,6 +132,10 @@ class ShapeSet:
     classes: list[ClassShape]
     shared: list[Facet]
     compat: CompatSet | None = None  # not part of the digest: rules need no reindex
+    # The shape files as written (name relative to the shapes folder -> Turtle) and the
+    # file each class shape is in, so the app can show them. Not part of the digest either.
+    files: dict[str, str] = field(default_factory=dict)
+    class_files: dict[str, str] = field(default_factory=dict)
 
     def digest(self) -> str:
         blob = json.dumps([INDEX_VERSION] + [asdict(c) for c in self.classes] + [asdict(f) for f in self.shared],
@@ -213,11 +217,19 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
     files = sorted(shapes_dir.glob("**/*.ttl"))
     if not files:
         raise ShapeError(f"no shapes found in {shapes_dir}")
+    texts: dict[str, str] = {}
+    class_files: dict[str, str] = {}
     for f in files:
+        name = f.relative_to(shapes_dir).as_posix()
+        texts[name] = f.read_text(encoding="utf-8")
         try:
             st.load(path=str(f), format=ox.RdfFormat.TURTLE)
+            one = ox.Store()
+            one.load(path=str(f), format=ox.RdfFormat.TURTLE)
         except SyntaxError as e:
             raise ShapeError(f"{f.name}: {e}") from e
+        for q in one.quads_for_pattern(None, ox.NamedNode(ATLAS + "key"), None):
+            class_files.setdefault(q.object.value, name)
     r = _Reader(st)
 
     classes: list[ClassShape] = []
@@ -293,7 +305,7 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             classes.append(cs)
     classes.sort(key=lambda c: (c.order, c.key))
     shared.sort(key=lambda f: (f.order, f.key))
-    out = ShapeSet(classes=classes, shared=shared)
+    out = ShapeSet(classes=classes, shared=shared, files=texts, class_files=class_files)
     out.compat = _load_compat(st, r, out)
     if out.compat:
         _index_compat_facets(out)
@@ -305,6 +317,13 @@ def compact_iri(iri: str) -> str:
         if iri.startswith(ns) and all(c.isalnum() or c in "-_." for c in iri[len(ns):]) and iri[len(ns):]:
             return f"{p}:{iri[len(ns):]}"
     return f"<{iri}>"
+
+
+def position_rules(cs: ClassShape) -> dict:
+    """How a class gets its position on the map, as compact SPARQL paths (tried in this order)."""
+    return {"geometry_path": [compact_path(p) for p in cs.geometry_paths],
+            "line_between": [compact_path(p) for p in cs.line_between] if cs.line_between else None,
+            "geometry_from": [compact_path(p) for p in cs.geometry_from]}
 
 
 def compact_path(path: str) -> str:
