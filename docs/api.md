@@ -76,7 +76,7 @@ the API queues them and serves the files.
 | GET  | `/api/exports/{id}` | | `{id, env, status:"queued"\|"running"\|"done"\|"failed"\|"cancelled"\|"expired", format, profile, shape, values, headers, parts, gzip, state, total, done, bytes, filename, warning, error, created_at, started_at, finished_at, expires_at, download, recipe}`. `done`/`total` is the progress; `download` is set once `done`; `warning` names datasets that changed while the export ran; `404` for an unknown id |
 | GET  | `/api/exports/{id}/download` | | The file (`Content-Disposition` with `filename`, e.g. `rinf-atlas-prod-full-20261018-1820.csv`; `.gz` when gzipped). `409` while not done, `410` after the retention period (`ATLAS_EXPORT_RETENTION_HOURS`, 24 h) |
 | GET  | `/api/exports/{id}/recipe` | | Plain text: how the file was made (selection, datasets read with their fingerprints, the SPARQL patterns of the resolution, how to check an element against ERA) |
-| DELETE | `/api/exports/{id}` | | `204`: cancels a queued or running job (the worker stops at its next batch) or deletes a finished file |
+| DELETE | `/api/exports/{id}` | | `204`: cancels a queued or running job (the worker stops at its next batch) or expires a finished one; the worker deletes the file within a minute |
 
 ## Line profile
 

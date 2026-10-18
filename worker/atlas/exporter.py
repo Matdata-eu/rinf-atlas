@@ -629,19 +629,22 @@ def claim(conn: psycopg.Connection, n: int) -> list[dict]:
 
 
 def sweep(conn: psycopg.Connection, cfg: Settings) -> int:
-    """Removes expired files (done + past expires_at) and stale failed/cancelled rows' files."""
+    """Expires done exports past their retention, deletes the files of expired, failed and
+    cancelled rows (the API cannot: it mounts the folder read-only) and forgets old rows."""
     n = 0
     with conn.cursor() as cur:
-        cur.execute("""UPDATE export SET status='expired', path=NULL WHERE status='done' AND expires_at < now()
-                       RETURNING id, path""")
+        cur.execute("UPDATE export SET status='expired' WHERE status='done' AND expires_at < now()")
+        cur.execute("""SELECT id, path FROM export WHERE status IN ('expired','failed','cancelled') AND path IS NOT NULL
+                       FOR UPDATE SKIP LOCKED""")
         rows = cur.fetchall()
-        cur.execute("""DELETE FROM export WHERE status IN ('failed','cancelled','expired')
-                       AND coalesce(finished_at, created_at) < now() - interval '7 days'""")
-    conn.commit()
-    for eid, path in rows:
-        if path:
+        for eid, path in rows:
             (cfg.export_dir / path).unlink(missing_ok=True)
             n += 1
+        if rows:
+            cur.execute("UPDATE export SET path=NULL WHERE id = ANY(%s)", ([r[0] for r in rows],))
+        cur.execute("""DELETE FROM export WHERE status IN ('failed','cancelled','expired') AND path IS NULL
+                       AND coalesce(finished_at, created_at) < now() - interval '7 days'""")
+    conn.commit()
     for f in cfg.export_dir.glob("*.part"):
         if time.time() - f.stat().st_mtime > 86400:
             f.unlink(missing_ok=True)
@@ -680,7 +683,7 @@ class ExportService:
                     with self._lock:
                         self.running += 1
                     self.pool.submit(self._run, row)
-                if time.time() - last_sweep > 600:
+                if time.time() - last_sweep > 60:
                     sweep(conn, self.cfg)
                     last_sweep = time.time()
             except Exception:

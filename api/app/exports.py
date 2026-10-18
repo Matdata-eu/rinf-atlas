@@ -241,16 +241,12 @@ def recipe(eid: str):
 
 @router.delete("/api/exports/{eid}", status_code=204, tags=["Exports"])
 def cancel(eid: str):
-    """Cancels a queued or running export (the worker stops at its next batch), or forgets a finished one."""
+    """Cancels a queued or running export (the worker stops at its next batch), or expires a finished
+    one; the worker deletes the file (this service mounts the exports folder read-only)."""
     r = _row(eid)
     with core.pool.connection() as c:
         if r["status"] in ("queued", "claimed", "running"):
             c.execute("UPDATE export SET status='cancelled', finished_at=now() WHERE id=%s AND status IN ('queued','claimed','running')", [eid])
         else:
-            rows = c.execute("SELECT path FROM export WHERE id=%s", [eid]).fetchall()
-            c.execute("UPDATE export SET status='expired', path=NULL, expires_at=now() WHERE id=%s", [eid])
-            for row in rows:
-                if row["path"]:
-                    (EXPORT_DIR / row["path"]).unlink(missing_ok=True)
+            c.execute("UPDATE export SET status='expired', expires_at=now() WHERE id=%s", [eid])
     return Response(status_code=204)
-
