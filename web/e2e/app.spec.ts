@@ -61,5 +61,5 @@ test('datasets dialog lists the loaded sample', async ({ page, errors: _ }) => {
   await page.locator('#status button').click();
   const dlg = page.getByRole('dialog', { name: 'Datasets' });
   await expect(dlg).toContainText('0082');
-  await expect(dlg).toContainText(/loaded/i);
+  await expect(dlg).toContainText(/processed/i);
 });

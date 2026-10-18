@@ -1,0 +1,38 @@
+<http://data.europa.eu/949/Bridge> <http://www.w3.org/2000/01/rdf-schema#label> "Bridge"@en .
+<http://data.europa.eu/949/Bridge> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/HABD> <http://www.w3.org/2000/01/rdf-schema#label> "Hot Axle Box Detector"@en .
+<http://data.europa.eu/949/HABD> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/InfrastructureElement> <http://www.w3.org/2000/01/rdf-schema#label> "Infrastructure element"@en .
+<http://data.europa.eu/949/InfrastructureElement> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/Feature> .
+<http://data.europa.eu/949/KilometricPost> <http://www.w3.org/2000/01/rdf-schema#label> "Kilometric Post"@en .
+<http://data.europa.eu/949/KilometricPost> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/LevelCrossing> <http://www.w3.org/2000/01/rdf-schema#label> "Level crossing"@en .
+<http://data.europa.eu/949/LevelCrossing> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/NationalRailwayLine> <http://www.w3.org/2000/01/rdf-schema#label> "(deprecated) National railway line"@en .
+<http://data.europa.eu/949/NationalRailwayLine> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/OperationalPoint> <http://www.w3.org/2000/01/rdf-schema#label> "Operational Point"@en .
+<http://data.europa.eu/949/OperationalPoint> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/PlatformEdge> <http://www.w3.org/2000/01/rdf-schema#label> "Platform edge"@en .
+<http://data.europa.eu/949/PlatformEdge> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/PrimaryLocation> <http://www.w3.org/2000/01/rdf-schema#label> "Primary Location"@en .
+<http://data.europa.eu/949/PrimaryLocation> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/RadioBlockCenter> <http://www.w3.org/2000/01/rdf-schema#label> "Radio Block Center"@en .
+<http://data.europa.eu/949/RadioBlockCenter> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/RunningTrack> <http://www.w3.org/2000/01/rdf-schema#label> "Running track"@en .
+<http://data.europa.eu/949/RunningTrack> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/Track> .
+<http://data.europa.eu/949/SectionOfLine> <http://www.w3.org/2000/01/rdf-schema#label> "Section Of Line"@en .
+<http://data.europa.eu/949/SectionOfLine> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/Siding> <http://www.w3.org/2000/01/rdf-schema#label> "Siding"@en .
+<http://data.europa.eu/949/Siding> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/Track> .
+<http://data.europa.eu/949/Signal> <http://www.w3.org/2000/01/rdf-schema#label> "Signal"@en .
+<http://data.europa.eu/949/Signal> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/SpecialArea> <http://www.w3.org/2000/01/rdf-schema#label> "Special area"@en .
+<http://data.europa.eu/949/SpecialArea> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/SpecialTunnelArea> <http://www.w3.org/2000/01/rdf-schema#label> "Special tunnel area"@en .
+<http://data.europa.eu/949/SpecialTunnelArea> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/SpecialArea> .
+<http://data.europa.eu/949/Switch> <http://www.w3.org/2000/01/rdf-schema#label> "Switch"@en .
+<http://data.europa.eu/949/Switch> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/Track> <http://www.w3.org/2000/01/rdf-schema#label> "Track"@en .
+<http://data.europa.eu/949/Track> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .
+<http://data.europa.eu/949/Tunnel> <http://www.w3.org/2000/01/rdf-schema#label> "Tunnel"@en .
+<http://data.europa.eu/949/Tunnel> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://data.europa.eu/949/InfrastructureElement> .

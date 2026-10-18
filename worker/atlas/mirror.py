@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import threading
 from pathlib import Path
 
 import pyoxigraph as ox
@@ -15,14 +16,16 @@ import pyoxigraph as ox
 log = logging.getLogger(__name__)
 
 _stores: dict[str, ox.Store] = {}
+_lock = threading.Lock()   # export threads open stores too; RocksDB allows one handle per path
 
 
 def store(root: Path, env: str) -> ox.Store:
-    if env not in _stores:
-        path = root / env
-        path.mkdir(parents=True, exist_ok=True)
-        _stores[env] = ox.Store(str(path))
-    return _stores[env]
+    with _lock:
+        if env not in _stores:
+            path = root / env
+            path.mkdir(parents=True, exist_ok=True)
+            _stores[env] = ox.Store(str(path))
+        return _stores[env]
 
 
 def close_all() -> None:
