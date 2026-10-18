@@ -67,3 +67,22 @@ test('limit to map view counts only what is in view', async ({ page, errors: _ }
   await expect.poll(() => resultCount(page)).toBe(0);
   await expect(page).toHaveURL(/[#&]v=1/);
 });
+
+test('typing in a facet filter keeps the focus', async ({ page, errors: _ }) => {
+  // The sample has one country; pad the list so the facet shows its filter box.
+  await page.route('**/api/facets', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const extra = ['AUT', 'BEL', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FRA', 'ITA', 'NLD', 'POL']
+      .map((c) => ({ value: `http://publications.europa.eu/resource/authority/country/${c}`, label: c, count: 1 }));
+    body.facets.country.values.push(...extra);
+    await route.fulfill({ response: res, json: body });
+  });
+  await openApp(page);
+  const filter = page.getByRole('searchbox', { name: 'Filter Country' });
+  await filter.click();
+  await page.keyboard.type('bel', { delay: 50 });
+  await expect(filter).toBeFocused();
+  await expect(filter).toHaveValue('bel');
+  await expect(page.locator('#facets [data-facet="country"] .terms label')).toHaveText([/BEL/]);
+});
