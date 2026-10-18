@@ -26,6 +26,9 @@ test('vehicle check colours sections by compatibility', async ({ page, errors: _
   const panel = page.locator('#vehicle-panel');
   await expect(panel).toBeVisible();
   await expect(page).toHaveURL(/[#&]vp=1/);
+  // The check is gated behind a disclaimer, accepted once per browser.
+  await panel.getByRole('checkbox', { name: /I have read this disclaimer/ }).check();
+  await panel.getByRole('button', { name: 'Accept and continue' }).click();
 
   const legend = page.getByRole('region', { name: 'Vehicle compatibility legend' });
   const counts = async () => (await legend.locator('.compat-rows .count').allInnerTexts()).map(Number);
