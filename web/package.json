@@ -19,7 +19,7 @@
     "vis-network": "^10.1.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.64.0",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.5",
     "typescript": "~7.0.2",
