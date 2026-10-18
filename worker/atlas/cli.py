@@ -13,6 +13,14 @@
   atlas shapes-tags [--env E] [--limit N]
                                  list the tags of ERA's ontology repository that
                                  `quality.shapes_tag` can pin the shapes to
+  atlas export --env E --format F [--class K]... [--profile P] [--out FILE]
+                                 export the indexed features of an environment (or
+                                 some classes) from the mirror, like the UI does
+  atlas export-jobs [--once]     run the exports queued by the API (the poll loop
+                                 does this by itself while it runs)
+  atlas generate-export-profile [--env E] [--out shapes/export/full.ttl]
+                                 write the "Full RINF" export profile from ERA's
+                                 SHACL shapes and ontology in the mirror
 
 While `atlas run` is active it owns the mirror, so sync / reindex / validate from a
 second process are queued as jobs (pass --now to run in-process instead).
@@ -20,6 +28,7 @@ second process are queued as jobs (pass --now to run in-process instead).
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import signal
 import sys
@@ -28,10 +37,11 @@ from pathlib import Path
 
 import pyoxigraph as ox
 
-from . import db, era_shapes, mirror, quality
+from . import db, era_shapes, exporter, mirror, quality
 from .config import settings
 from .extract import refresh_facet_cache
 from .generate import generate
+from .profiles import generate_profile, load_profiles
 from .shapes import ShapeError, load_shapes
 from .sync import publish_defs, reindex_env, stale_envs, sync_env
 
@@ -52,6 +62,16 @@ def _conn():
     conn = db.connect(cfg.database_url)
     db.migrate(conn, _sql_path())
     return conn
+
+
+def _publish(conn, cfg, shapes) -> None:
+    """class_def / facet_def from the facet shapes, export_def from the export profiles."""
+    publish_defs(conn, shapes, cfg.quality.enabled)
+    try:
+        exporter.publish_profiles(conn, load_profiles(cfg.shapes_dir))
+    except ShapeError as e:
+        conn.rollback()
+        log.error("export profiles are invalid, keeping the published ones: %s", e)
 
 
 def _envs(arg: str | None):
@@ -82,7 +102,7 @@ def cmd_sync(a) -> None:
     if not a.now and _loop_running(conn):
         return _enqueue(conn, "resync" if a.force else "sync", a.env)
     shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes, cfg.quality.enabled)
+    _publish(conn, cfg, shapes)
     for env in _envs(a.env):
         sync_env(cfg, conn, shapes, env, force=a.force)
 
@@ -92,7 +112,7 @@ def cmd_reindex(a) -> None:
     if not a.now and _loop_running(conn):
         return _enqueue(conn, "reindex", a.env)
     shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes, cfg.quality.enabled)
+    _publish(conn, cfg, shapes)
     for env in _envs(a.env):
         reindex_env(cfg, conn, shapes, env)
 
@@ -127,7 +147,7 @@ def cmd_load_file(a) -> None:
     cfg, conn = settings(), _conn()
     from .extract import derive_geometry, extract_graph
     shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes, cfg.quality.enabled)
+    _publish(conn, cfg, shapes)
     store = mirror.store(cfg.mirror_dir, a.env)
     env = cfg.env(a.env)
     mirror.replace_graph(store, a.graph, Path(a.file))
@@ -175,9 +195,91 @@ def cmd_shapes_tags(a) -> None:
         print(f"no tag (ERA's mirrored shapes graph {q.shapes_graph}): {', '.join(configured[''])}")
 
 
+def cmd_export_jobs(a) -> None:
+    cfg, conn = settings(), _conn()
+    if a.once:
+        n = exporter.run_queued(cfg, conn)
+        print(f"ran {n} export(s)")
+        return
+    svc = exporter.ExportService(cfg)
+    svc.start()
+    signal.signal(signal.SIGTERM, lambda *_: _set_stop())
+    signal.signal(signal.SIGINT, lambda *_: _set_stop())
+    while not _stop:
+        time.sleep(1)
+    svc.stop()
+
+
+def cmd_export(a) -> None:
+    """One export from the command line, in this process (no queue): writes the file and prints its path."""
+    import secrets
+    cfg, conn = settings(), _conn()
+    cfg.env(a.env)
+    sql, params = "f.env = %s", [a.env]
+    if a.cls:
+        sql += " AND f.class = ANY(%s)"
+        params.append(a.cls)
+    if a.graph:
+        sql += " AND f.graph_iri = ANY(%s)"
+        params.append(a.graph)
+    req = {"env": a.env, "format": a.format, "sql": sql, "params": params, "profile": a.profile,
+           "values": a.values, "headers": a.headers, "shape": a.shape, "gzip": a.gzip,
+           "follow": ["http://data.europa.eu/949/hasPart"] if a.parts else [],
+           "state": {"env": a.env, "classes": a.cls or [], "graphs": a.graph or []}}
+    exporter.Request.parse(req)
+    eid = "cli-" + secrets.token_urlsafe(6)
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO export (id, env, request, status) VALUES (%s,%s,%s,'claimed')",
+                    (eid, a.env, json.dumps(req)))
+    conn.commit()
+    exporter.run_export(cfg, conn, {"id": eid, "request": req}, load_profiles(cfg.shapes_dir))
+    with conn.cursor() as cur:
+        cur.execute("SELECT status, path, total, bytes, error, warning FROM export WHERE id=%s", (eid,))
+        status, path, total, size, error, warning = cur.fetchone()
+    if status != "done":
+        sys.exit(f"export failed: {error}")
+    src = cfg.export_dir / path
+    if a.out:
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        src.replace(a.out)
+        src = Path(a.out)
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM export WHERE id=%s", (eid,))
+        conn.commit()
+    print(f"{src}: {total} entities, {size} bytes" + (f"\nwarning: {warning}" if warning else ""))
+
+
+def cmd_generate_export_profile(a) -> None:
+    cfg = settings()
+    envs = _envs(a.env) if a.env else list(cfg.envs.values())
+    for env in envs:
+        store = mirror.store(cfg.mirror_dir, env.key)
+        q = env.quality or cfg.quality
+        shapes_graph = q.shapes_graph
+        if q.shapes_tag:
+            shapes_graph = era_shapes.tag_graph(q.shapes_tag)
+        if not mirror.has_graph(store, shapes_graph):
+            log.warning("%s: ERA's shapes graph %s is not mirrored yet, skipped", env.key, shapes_graph)
+            continue
+        onto = [g for g in env.vocab_graphs if mirror.has_graph(store, g)]
+        version = era_shapes._describe(store, shapes_graph)[0]
+        text = generate_profile(store, shapes_graph, onto or None, version=version)
+        out = Path(a.out) if a.out else cfg.shapes_dir / "export" / "full.ttl"
+        if out.exists() and not a.force:
+            sys.exit(f"{out} exists; pass --force to overwrite it")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+        print(f"wrote {out} from {env.key} ({shapes_graph})")
+        return
+    sys.exit("no environment has ERA's shapes graph in its mirror")
+
+
 def cmd_check_shapes(a) -> None:
     shapes = load_shapes(settings().shapes_dir)
     print(f"shapes digest {shapes.digest()}")
+    for p in load_profiles(settings().shapes_dir):
+        print(f"export profile {p.key!r} ({p.label}): {len(p.classes)} classes, "
+              f"{sum(len(c.leaves()) for c in p.classes.values())} columns")
     for f in shapes.shared:
         print(f"  * {f.key:32} {f.kind:8} {f.path}")
     for c in shapes.classes:
@@ -208,6 +310,8 @@ def cmd_run(a) -> None:
     conn.commit()
     signal.signal(signal.SIGTERM, lambda *_: _set_stop())
     signal.signal(signal.SIGINT, lambda *_: _set_stop())
+    exports = exporter.ExportService(cfg)
+    exports.start()
     next_poll = 0.0
     while not _stop:
         try:
@@ -217,7 +321,7 @@ def cmd_run(a) -> None:
             _sleep(60)
             continue
         try:
-            publish_defs(conn, shapes, cfg.quality.enabled)
+            _publish(conn, cfg, shapes)
             for env in stale_envs(conn, shapes):
                 if env in cfg.envs:
                     log.info("%s: shapes changed, reindexing from the mirror", env)
@@ -253,6 +357,7 @@ def cmd_run(a) -> None:
             log.exception("worker iteration failed")
         _sleep(20)
     log.info("stopping")
+    exports.stop()
 
 
 def _take_jobs(conn):
@@ -321,6 +426,27 @@ def main(argv=None) -> None:
     s = sub.add_parser("check-shapes")
     s.add_argument("-v", "--verbose", action="store_true")
     s.set_defaults(fn=cmd_check_shapes)
+    s = sub.add_parser("export", help="export indexed features from the mirror to a file")
+    s.add_argument("--env", required=True)
+    s.add_argument("--format", required=True, choices=sorted(exporter.FORMATS))
+    s.add_argument("--class", dest="cls", action="append", help="class key (repeatable); default: every class")
+    s.add_argument("--graph", action="append", help="provider graph IRI (repeatable); default: every dataset")
+    s.add_argument("--profile", help="export profile key for tables (default: full)")
+    s.add_argument("--values", default="label", choices=["label", "iri", "both"])
+    s.add_argument("--headers", default="label", choices=["label", "rinf", "path"])
+    s.add_argument("--shape", default="wide", choices=["wide", "long"])
+    s.add_argument("--parts", action="store_true", help="also resolve the parts (era:hasPart) of each element")
+    s.add_argument("--gzip", action="store_true")
+    s.add_argument("--out", help="write here instead of the exports folder")
+    s.set_defaults(fn=cmd_export)
+    s = sub.add_parser("export-jobs", help="run the exports queued by the API")
+    s.add_argument("--once", action="store_true", help="run what is queued now, then exit")
+    s.set_defaults(fn=cmd_export_jobs)
+    s = sub.add_parser("generate-export-profile", help="write the Full RINF export profile from ERA's shapes")
+    s.add_argument("--env")
+    s.add_argument("--out")
+    s.add_argument("--force", action="store_true")
+    s.set_defaults(fn=cmd_generate_export_profile)
     a = ap.parse_args(argv)
     try:
         a.fn(a)

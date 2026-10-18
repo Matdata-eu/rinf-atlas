@@ -10,5 +10,6 @@ web/dist/
 .pytest_cache/
 tests/fixtures/*.nt
 !tests/fixtures/gc-op.nt
+!tests/fixtures/era-classes.nt
 site/privacy.html
 config/layers.yaml

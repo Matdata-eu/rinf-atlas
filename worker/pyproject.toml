@@ -9,6 +9,7 @@ dependencies = [
     "psycopg[binary]==3.3.6",
     "httpx==0.28.1",
     "PyYAML==6.0.3",
+    "XlsxWriter==3.2.9",
 ]
 
 [project.scripts]

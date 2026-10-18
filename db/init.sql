@@ -196,6 +196,35 @@ CREATE TABLE IF NOT EXISTS index_state (
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Export profiles compiled from shapes/export/*.ttl (JSON of atlas.profiles.Profile),
+-- written by the worker so the API and UI can offer their columns.
+CREATE TABLE IF NOT EXISTS export_def (
+    key   text  PRIMARY KEY,
+    def   jsonb NOT NULL
+);
+
+-- Export jobs (docs/export.md): the API queues a row, the worker resolves the
+-- matching features from its mirror, writes the file and serves progress here.
+CREATE TABLE IF NOT EXISTS export (
+    id          text        PRIMARY KEY,       -- random token, also the download path
+    env         text        NOT NULL,
+    request     jsonb       NOT NULL,          -- atlas.exporter.Request (selection SQL, format, profile, options)
+    status      text        NOT NULL DEFAULT 'queued',  -- queued|claimed|running|done|failed|cancelled|expired
+    total       int,
+    done        int         NOT NULL DEFAULT 0,
+    bytes       bigint,
+    filename    text,                          -- suggested download name
+    path        text,                          -- file name under the exports volume
+    warning     text,                          -- e.g. a dataset changed while exporting
+    error       text,
+    datasets    jsonb,                         -- datasets read, with their fingerprints (the recipe)
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    started_at  timestamptz,
+    finished_at timestamptz,
+    expires_at  timestamptz
+);
+CREATE INDEX IF NOT EXISTS export_status_idx ON export (status, created_at);
+
 -- Work requested from the CLI while the poll loop owns the mirror.
 CREATE TABLE IF NOT EXISTS job (
     id          bigserial PRIMARY KEY,
