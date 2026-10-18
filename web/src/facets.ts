@@ -309,7 +309,11 @@ function renderTerms(f: FacetMeta, b: Block, r: FacetResult | undefined) {
       renderFacets();
     } }, isExpanded ? 'Show less' : `Show ${shown.length - TOP_N} more`));
   }
-  b.body.replaceChildren(...parts);
+  // Detaching the filter input would blur it after every keystroke, so keep it and swap only what follows.
+  if (parts[0] === b.filter && b.body.firstChild === b.filter) {
+    while (b.filter.nextSibling) b.filter.nextSibling.remove();
+    b.body.append(...parts.slice(1));
+  } else b.body.replaceChildren(...parts);
 }
 
 function renderChips() {
