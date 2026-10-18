@@ -30,8 +30,8 @@ router = APIRouter()
 
 EXPORT_DIR = Path(os.environ.get("ATLAS_EXPORTS", "/data/exports"))
 # 0 = no limit on the number of elements per export.
-MAX_ENTITIES = int(os.environ.get("ATLAS_EXPORT_MAX_ENTITIES", "0"))
-QUEUE_LIMIT = int(os.environ.get("ATLAS_EXPORT_QUEUE", "20"))
+MAX_ENTITIES = int(os.environ.get("ATLAS_EXPORT_MAX_ENTITIES") or 0)
+QUEUE_LIMIT = int(os.environ.get("ATLAS_EXPORT_QUEUE") or 20)
 
 FORMATS = [
     {"key": "ttl", "label": "Turtle", "kind": "rdf", "ext": "ttl",

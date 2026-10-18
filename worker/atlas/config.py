@@ -133,8 +133,8 @@ def settings() -> Settings:
         quality=quality,
         shapes_cache=Path(os.environ.get("ATLAS_SHAPES_CACHE", "/data/shapes-cache")),
         export_dir=Path(os.environ.get("ATLAS_EXPORTS", "/data/exports")),
-        export_workers=int(os.environ.get("ATLAS_EXPORT_WORKERS", "2")),
-        export_retention_hours=float(os.environ.get("ATLAS_EXPORT_RETENTION_HOURS", "24")),
+        export_workers=int(os.environ.get("ATLAS_EXPORT_WORKERS") or 2),
+        export_retention_hours=float(os.environ.get("ATLAS_EXPORT_RETENTION_HOURS") or 24),
     )
 
 

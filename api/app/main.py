@@ -39,7 +39,7 @@ TERMS_LIMIT = int(os.environ.get("ATLAS_TERMS_LIMIT", "200"))
 LOW_DETAIL_ZOOM = int(os.environ.get("ATLAS_LOW_DETAIL_ZOOM", "8"))
 TILE_CACHE_SECONDS = int(os.environ.get("ATLAS_TILE_CACHE_SECONDS", "300"))
 # Export jobs (api/app/exports.py): 0 = no limit on the elements per export.
-EXPORT_MAX_ENTITIES = int(os.environ.get("ATLAS_EXPORT_MAX_ENTITIES", "0"))
+EXPORT_MAX_ENTITIES = int(os.environ.get("ATLAS_EXPORT_MAX_ENTITIES") or 0)
 # A shacl-report instance (https://github.com/Matdata-eu/shacl-report) the UI links to for
 # exploring a downloaded report; empty hides the link.
 SHACL_REPORT_URL = os.environ.get("ATLAS_SHACL_REPORT_URL", "https://shacl-report.matdata.eu/").strip() or None
