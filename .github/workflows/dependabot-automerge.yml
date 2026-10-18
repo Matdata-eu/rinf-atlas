@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
       # Majors stay open for a manual look. The merge waits for the required CI checks.
       - if: steps.meta.outputs.update-type != 'version-update:semver-major'
         run: gh pr merge --auto --squash "$PR_URL"
