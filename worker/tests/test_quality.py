@@ -175,6 +175,35 @@ def test_run_fingerprint_follows_exclusions():
     assert quality.run_fingerprint(cfg(["x"]), None) is None
     a, b = quality.run_fingerprint(cfg(["x", "y"]), "abc"), quality.run_fingerprint(cfg(["y", "x"]), "abc")
     assert a == b and a != "abc" and a != quality.run_fingerprint(cfg(["x"]), "abc")
+    # the vocabularies the checks ran with count too
+    assert quality.run_fingerprint(cfg([]), "abc", "") == "abc"
+    v1, v2 = quality.run_fingerprint(cfg([]), "abc", "g1 |1"), quality.run_fingerprint(cfg([]), "abc", "g1 |2")
+    assert v1 != "abc" and v1 != v2
+
+
+def test_derived_datatypes_as_the_mirror_stores_them():
+    """Oxigraph stores xsd:unsignedInt as xsd:integer and xsd:dateTimeStamp as xsd:dateTime:
+    a correct value must not become a sh:datatype violation."""
+    ttl = """
+@prefix ex: <http://ex/> . @prefix sh: <http://www.w3.org/ns/shacl#> . @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+ex:S a sh:NodeShape ; sh:targetClass ex:T ; sh:property ex:U, ex:D .
+ex:U a sh:PropertyShape ; sh:path ex:u ; sh:datatype xsd:unsignedInt .
+ex:D a sh:PropertyShape ; sh:path ex:d ; sh:datatype xsd:dateTimeStamp .
+"""
+    data = """
+@prefix ex: <http://ex/> . @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+ex:ok a ex:T ; ex:u "0"^^xsd:unsignedInt ; ex:d "2026-08-02T22:00:00+00:00"^^xsd:dateTimeStamp .
+ex:neg a ex:T ; ex:u "-1"^^xsd:integer ; ex:d "2026-08-02T22:00:00"^^xsd:dateTime .
+ex:str a ex:T ; ex:u "5" ; ex:d "2026-08-02T22:00:00Z" .
+"""
+    st = ox.Store()
+    st.load(ttl.encode(), format=ox.RdfFormat.TURTLE, to_graph=ox.NamedNode(SHAPES))
+    st.load(data.encode(), format=ox.RdfFormat.TURTLE, to_graph=ox.NamedNode(G))
+    assert {q.object.datatype.value.rsplit("#")[1] for q in st.quads_for_pattern(ox.NamedNode("http://ex/ok"), None, None)
+            if isinstance(q.object, ox.Literal)} == {"integer", "dateTime"}
+    res = {(r.focus, r.shape.rsplit("/", 1)[-1]) for r in shacl.validate_graph(st, G, SHAPES, []).results}
+    assert res == {("<http://ex/neg>", "U"), ("<http://ex/neg>", "D"), ("<http://ex/str>", "U"),
+                   ("<http://ex/str>", "D")}
 
 
 def test_report_is_a_standard_validation_report(tmp_path):
