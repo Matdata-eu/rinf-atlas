@@ -216,13 +216,24 @@ def build_html(cfg: Settings, env: Env, turtle: bytes, shapes_ttl: bytes) -> byt
         return out.read_bytes() if out.exists() else None
 
 
-def run_fingerprint(q: Quality, shapes_fp: str | None) -> str | None:
+def vocab_fingerprint(conn: psycopg.Connection, env: Env, shapes_graph: str) -> str:
+    """The vocabulary graphs the checks see next to a provider graph (ontology, SKOS, border
+    points, NUTS...), as loaded: adding one, or ERA changing one, validates every graph again."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT graph_iri, fingerprint FROM dataset WHERE env=%s AND kind='vocab' AND status='loaded'",
+                    (env.key,))
+        loaded = dict(cur.fetchall())
+    return "\n".join(sorted(f"{g} {loaded[g]}" for g in env.vocab_graphs if g in loaded and g != shapes_graph))
+
+
+def run_fingerprint(q: Quality, shapes_fp: str | None, vocab_fp: str = "") -> str | None:
     """What a graph was validated with: the shapes, plus the rules left out by configuration
-    (so changing `quality.exclude_shapes` validates every graph again)."""
+    (so changing `quality.exclude_shapes` validates every graph again) and the vocabularies."""
     excl = sorted(q.exclude_shapes)
-    if shapes_fp is None or not excl:
+    if shapes_fp is None or not (excl or vocab_fp):
         return shapes_fp
-    return hashlib.sha256((shapes_fp + "\n" + "\n".join(excl)).encode()).hexdigest()
+    extra = "\n".join(excl) + (f"\nvocab:\n{vocab_fp}" if vocab_fp else "")
+    return hashlib.sha256((shapes_fp + "\n" + extra).encode()).hexdigest()
 
 
 def too_large_note(triples: int, limit: int) -> str:
@@ -244,7 +255,7 @@ def validate_dataset(cfg: Settings, conn: psycopg.Connection, store: ox.Store, e
                      reason="no_shapes")
         apply_flags(conn, env.key, graph)
         return "skipped"
-    fp = fp or run_fingerprint(q, shapes_fingerprint(store, src.graph))
+    fp = fp or run_fingerprint(q, shapes_fingerprint(store, src.graph), vocab_fingerprint(conn, env, src.graph))
     with conn.cursor() as cur:
         cur.execute("SELECT triples FROM dataset WHERE env=%s AND graph_iri=%s", (env.key, graph))
         row = cur.fetchone()
@@ -312,7 +323,7 @@ def validate_pending(cfg: Settings, conn: psycopg.Connection, store: ox.Store, e
         return 0
     fp = shapes_fingerprint(store, src.graph)
     publish_shapes(conn, store, env.key, src, fp, q)
-    fp = run_fingerprint(q, fp)
+    fp = run_fingerprint(q, fp, vocab_fingerprint(conn, env, src.graph))
     with conn.cursor() as cur:
         cur.execute("""SELECT graph_iri FROM dataset WHERE env=%s AND kind='provider' AND status='loaded'
                          AND (%s OR qa_shapes IS DISTINCT FROM %s

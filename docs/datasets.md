@@ -17,9 +17,14 @@ it in a GraphDB repository per environment, with one named graph per IM:
 - Provider graphs: `http://data.europa.eu/949/graph/{IM code}`, for example
   `…/graph/0088` for Infrabel. Which graphs count as provider data is set by
   `provider_graph_pattern` in `config/environments.yaml`.
-- Vocabulary graphs: the ERA ontology, the SKOS concept schemes and the
-  country list (`…/graph/rinf/ontology`, `…/rinf/skos`, `…/rinf/countries`).
-  They provide labels and are used to generate the facet shapes.
+- Vocabulary graphs: the ERA ontology, the SKOS concept schemes, the
+  country list, the reference border points, the NUTS regions and the EU
+  legislation (`…/graph/rinf/ontology`, `…/rinf/skos`, `…/rinf/countries`,
+  `…/rinf/borders` or `…/borders`, `…/nuts`, `…/lex`). They provide labels,
+  are used to generate the facet shapes, and are part of the data the SHACL
+  shapes are checked against (as on ERA's side): an operational point's
+  reference border point or NUTS region is only valid when it is found there.
+  A change to them validates every provider graph again.
 
 ## The update cycle
 
