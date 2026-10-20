@@ -6,6 +6,7 @@ re-indexing after a shape change never query ERA.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import logging
 import re
 from pathlib import Path
@@ -36,7 +37,7 @@ def has_graph(s: ox.Store, graph: str) -> bool:
 def replace_graph(s: ox.Store, graph: str, ntriples: Path) -> None:
     g = ox.NamedNode(graph)
     if s.contains_named_graph(g):
-        s.remove_graph(g)
+        clear_graph(s, g)
     src = prepare(ntriples, graph, drop_long=False)
     try:
         try:
@@ -44,7 +45,7 @@ def replace_graph(s: ox.Store, graph: str, ntriples: Path) -> None:
         except MemoryError:
             # A literal larger than Oxigraph's 16 MB parser buffer (seen: digital
             # schematic overviews as huge WKT strings). Drop such triples and retry.
-            s.remove_graph(g)
+            clear_graph(s, g)
             if src != ntriples:
                 src.unlink(missing_ok=True)
             src = prepare(ntriples, graph, drop_long=True)
@@ -97,10 +98,31 @@ skolemize = lambda ntriples, graph: prepare(ntriples, graph, drop_long=False)  #
 _OBJ_BNODE = re.compile(r"\s(_:([A-Za-z0-9_\-.]+))\s*\.\s*$")
 
 
+DELETE_BATCH = 100_000
+
+
+def clear_graph(s: ox.Store, g: ox.NamedNode, batch: int = DELETE_BATCH) -> None:
+    """Delete a named graph quad by quad.
+
+    Store.remove_graph() is a single transaction that Oxigraph holds in memory
+    and in RocksDB's write-ahead log: a 1 GB provider graph needs several GB, and
+    a store whose log outgrew the memory limit cannot even be reopened. Small
+    transactions keep memory flat. Quads are read in batches from a fresh
+    iterator so a long-lived snapshot does not pin the deleted data.
+    """
+    while True:
+        quads = list(itertools.islice(s.quads_for_pattern(None, None, None, g), batch))
+        if not quads:
+            break
+        for q in quads:
+            s.remove(q)
+    s.remove_graph(g)  # the now empty graph name
+
+
 def remove_graph(s: ox.Store, graph: str) -> None:
     g = ox.NamedNode(graph)
     if s.contains_named_graph(g):
-        s.remove_graph(g)
+        clear_graph(s, g)
         s.flush()
 
 

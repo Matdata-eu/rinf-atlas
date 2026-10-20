@@ -41,11 +41,15 @@ the worker runs one cycle per enabled environment:
 3. **Fingerprint each graph** as *dataset id | publication date | triple
    count* (the count comes from `GET {repo}/size?context=…`). A graph whose
    fingerprint matches the last successful load is skipped, so a cycle with
-   no new uploads costs a few small requests.
+   no new uploads costs a few small requests. While the dataset explorer is
+   down, the previous dataset id and date are kept and only the triple count
+   is compared, so an outage does not re-download every graph.
 4. **Download changed graphs** as one streaming N-Triples export
    (`GET {repo}/statements?context=…`), to a temporary file.
 5. **Replace the graph in the local mirror**, an embedded Oxigraph store per
-   environment on the `mirror` volume. Blank nodes are rewritten to stable
+   environment on the `mirror` volume. The old graph is deleted in batches of
+   small transactions: one transaction for a 1 GB graph needs several GB of
+   memory and write-ahead log, enough to OOM the worker (issue #58). Blank nodes are rewritten to stable
    IRIs first, and triples above 1 MB (seen: schematic overviews embedded as
    huge WKT literals) are dropped if the parser cannot handle them.
 6. **Re-index that graph**: for every class in `shapes/`, SPARQL on the mirror

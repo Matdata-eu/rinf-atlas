@@ -52,7 +52,11 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bo
     conn.commit()
 
 
-def _fingerprint(pub: era.Published | None, size: int) -> str:
+def _fingerprint(pub: era.Published | None, size: int, previous: str | None = None) -> str:
+    """dataset id|publication date|triples. Without explorer data (`previous` given: the explorer is down),
+    keep the dataset part of the previous fingerprint so only a size change counts as a change."""
+    if previous is not None:
+        return f"{previous.rsplit('|', 1)[0]}|{size}" if previous.count("|") >= 2 else f"||{size}"
     return f"{pub.dataset_id if pub else ''}|{pub.published.isoformat() if pub and pub.published else ''}|{size}"
 
 
@@ -69,28 +73,32 @@ def _download_into_mirror(cfg: Settings, env: Env, store, graph: str) -> None:
         tmp.unlink(missing_ok=True)
 
 
-def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force) -> tuple[int, int]:
+def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force,
+                explorer_ok: bool = True) -> tuple[int, int]:
     """Refresh one provider graph if its fingerprint changed. Returns (new, changed)."""
     code = g.rstrip("/").rsplit("/", 1)[-1]
     pub = published.get(code)
     size = era.graph_size(env, g)
-    fp = _fingerprint(pub, size)
+    old = known.get(g)
+    fp = _fingerprint(pub, size, (old[0] or "") if old and not explorer_ok else None)
     with conn.cursor() as cur:
-        cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, provider, country, modified, triples,
-                                            dataset_id, file_name)
-                       VALUES (%s,%s,'provider',%s,%s,%s,%s,%s,%s,%s)
-                       ON CONFLICT (env, graph_iri) DO UPDATE SET title=EXCLUDED.title, provider=EXCLUDED.provider,
-                         country=EXCLUDED.country, modified=EXCLUDED.modified, triples=EXCLUDED.triples,
-                         dataset_id=EXCLUDED.dataset_id, file_name=EXCLUDED.file_name""",
-                    (env.key, g, (pub.file_name if pub else None) or code, pub.provider if pub else None,
-                     pub.country if pub else None, pub.published if pub else None, size,
-                     pub.dataset_id if pub else None, pub.file_name if pub else None))
+        if not explorer_ok and old:  # keep the explorer metadata we already have
+            cur.execute("UPDATE dataset SET triples=%s WHERE env=%s AND graph_iri=%s", (size, env.key, g))
+        else:
+            cur.execute("""INSERT INTO dataset (env, graph_iri, kind, title, provider, country, modified, triples,
+                                                dataset_id, file_name)
+                           VALUES (%s,%s,'provider',%s,%s,%s,%s,%s,%s,%s)
+                           ON CONFLICT (env, graph_iri) DO UPDATE SET title=EXCLUDED.title, provider=EXCLUDED.provider,
+                             country=EXCLUDED.country, modified=EXCLUDED.modified, triples=EXCLUDED.triples,
+                             dataset_id=EXCLUDED.dataset_id, file_name=EXCLUDED.file_name""",
+                        (env.key, g, (pub.file_name if pub else None) or code, pub.provider if pub else None,
+                         pub.country if pub else None, pub.published if pub else None, size,
+                         pub.dataset_id if pub else None, pub.file_name if pub else None))
         if pub and pub.provider:
             cur.execute("""INSERT INTO term (env, iri, label) VALUES (%s,%s,%s)
                            ON CONFLICT (env, iri) DO UPDATE SET label=EXCLUDED.label""",
                         (env.key, IM_ROLE.format(code=code), pub.provider))
     conn.commit()
-    old = known.get(g)
     if not force and old and old[0] == fp and old[1] == "loaded" and mirror.has_graph(store, g):
         return 0, 0
     is_new = old is None or old[1] in ("pending", "removed")
@@ -115,11 +123,12 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
     conn.commit()
 
     graphs = era.list_graphs(env)
+    explorer_ok = True
     try:
         published = era.published_datasets(env)
-    except Exception as e:  # explorer down: graphs alone still tell us what changed
-        log.warning("%s dataset explorer unavailable: %s", env.key, e)
-        published = {}
+    except Exception as e:  # explorer down: graph sizes alone still tell us what changed
+        log.warning("%s dataset explorer unavailable, comparing graph sizes only: %s", env.key, e)
+        published, explorer_ok = {}, False
 
     with conn.cursor() as cur:
         cur.execute("SELECT graph_iri, fingerprint, status, kind FROM dataset WHERE env=%s", (env.key,))
@@ -153,7 +162,7 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
     new = changed = removed = failed = 0
     for g in provider:
         try:
-            n, c = _sync_graph(cfg, conn, shapes, env, store, g, published, known, force)
+            n, c = _sync_graph(cfg, conn, shapes, env, store, g, published, known, force, explorer_ok)
             new += n
             changed += c
         except Exception as e:

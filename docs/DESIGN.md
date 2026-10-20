@@ -43,10 +43,15 @@ the full query state, which Martin's table sources can't express), `web`
 (nginx serving the Vite build, proxying `/api/` to `api:8000`).
 
 - Change detection: fingerprint = explorer dataset id | datePublished |
-  triple count. Graphs without an explorer entry still sync by triple count.
+  triple count. Graphs without an explorer entry still sync by triple count;
+  while the explorer is down the previous dataset id and date are kept.
 - Worker keeps a local Oxigraph mirror per env (`/data/mirror/{env}`, about
   270 bytes per triple on disk). Facet extraction runs SPARQL on the mirror
   with the provider graph as default graph. A shape change only re-extracts.
+  Replacing a graph deletes the old one quad by quad (`mirror.clear_graph`),
+  never with `Store.remove_graph()` alone: that is one transaction, held in
+  memory and the RocksDB WAL, and a WAL too big to replay keeps the store
+  from opening (#58).
 - Oxigraph's parallel `bulk_load` loses blank-node identity across chunks,
   which broke `owl:unionOf` domains in the ontology; files with blank nodes
   are skolemized to `urn:atlas:bnode:...` IRIs before loading.
