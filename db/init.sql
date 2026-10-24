@@ -175,6 +175,8 @@ ALTER TABLE class_def ADD COLUMN IF NOT EXISTS min_zoom int NOT NULL DEFAULT 0;
 -- (atlas:geometryPath / lineBetween / geometryFrom as compact SPARQL paths).
 ALTER TABLE class_def ADD COLUMN IF NOT EXISTS shape_file text;
 ALTER TABLE class_def ADD COLUMN IF NOT EXISTS position_rules jsonb;
+-- Map draw order within points, lines and areas (atlas:drawOrder): higher on top.
+ALTER TABLE class_def ADD COLUMN IF NOT EXISTS draw_order int;
 
 -- The shapes/ files as written, so the app can show the implementer's shapes.
 CREATE TABLE IF NOT EXISTS shape_file (

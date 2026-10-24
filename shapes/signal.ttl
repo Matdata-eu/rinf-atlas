@@ -20,8 +20,9 @@ shape:signal
     atlas:geometry "point" ;
     atlas:order 75 ;
     atlas:minZoom 11 ;
+    atlas:drawOrder 62 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;
     sh:property [  # RINF 1.1.1.3.14.1, 2190 instances in data
         sh:path era:signalId ;

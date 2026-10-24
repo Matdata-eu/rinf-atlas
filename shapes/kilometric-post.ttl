@@ -20,8 +20,9 @@ shape:kilometric-post
     atlas:geometry "point" ;
     atlas:order 90 ;
     atlas:minZoom 12 ;
+    atlas:drawOrder 40 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     sh:property [  # RINF 1.2.0.0.0.6, 57627 instances in data
         sh:path era:kilometer ;
         atlas:facet "kilometer" ;

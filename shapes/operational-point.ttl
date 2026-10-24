@@ -20,8 +20,9 @@ shape:operational-point
     atlas:geometry "point" ;
     atlas:order 10 ;
     atlas:minZoom 0 ;
+    atlas:drawOrder 20 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom era:primaryLocation ;
     sh:property [  # RINF 1.1.0.0.1.2, 1618 instances in data
         sh:path era:operatingLanguage ;

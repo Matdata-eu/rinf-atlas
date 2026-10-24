@@ -20,8 +20,9 @@ shape:siding
     atlas:geometry "line" ;
     atlas:order 40 ;
     atlas:minZoom 11 ;
+    atlas:drawOrder 24 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;
     sh:property [  # RINF 1.1.1.1.2.1, 81680 instances in data
         sh:path era:tenClassification ;

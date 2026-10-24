@@ -20,8 +20,9 @@ shape:track
     atlas:geometry "line" ;
     atlas:order 45 ;
     atlas:minZoom 10 ;
+    atlas:drawOrder 22 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;
     sh:property [  # RINF 1.1.1.0.0.1, 16590 instances in data
         sh:path era:trackId ;

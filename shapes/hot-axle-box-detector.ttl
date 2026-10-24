@@ -20,6 +20,7 @@ shape:hot-axle-box-detector
     atlas:geometry "point" ;
     atlas:order 100 ;
     atlas:minZoom 9 ;
+    atlas:drawOrder 52 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:inversePath era:tracksideHabd ] .

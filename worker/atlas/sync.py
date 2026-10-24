@@ -29,9 +29,9 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bo
             cur.execute("INSERT INTO shape_file (name, turtle) VALUES (%s,%s)", (name, text))
         for c in shapes.classes:
             cur.execute("""INSERT INTO class_def (class, class_iri, label, color, geometry, position, min_zoom,
-                                                  shape_file, position_rules)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                        (c.key, c.class_iri, c.label, c.color, c.geometry, c.order, c.min_zoom,
+                                                  draw_order, shape_file, position_rules)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                        (c.key, c.class_iri, c.label, c.color, c.geometry, c.order, c.min_zoom, c.draw_order,
                          shapes.class_files.get(c.key), json.dumps(position_rules(c))))
             for f in c.facets:
                 cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
