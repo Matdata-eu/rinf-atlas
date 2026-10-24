@@ -635,23 +635,24 @@ def style(request: Request, state: str | None = None, env: str | None = None):
     as the style URL of a vector tile connection)."""
     tj = _tilejson(request, state, env)
     classes = tj.pop("_classes")
-    layers = []
-    for c in classes:
+    lines, points = [], []
+    # Like the app: lines under points, and within each the higher atlas:drawOrder on top.
+    for c in sorted(classes, key=lambda c: c["draw_order"] if c.get("draw_order") is not None else -c["position"]):
         color, kind, mz = c["color"] or "#888888", (c["geometry"] or "any").lower(), c["min_zoom"] or 0
         is_class = ["==", "class", c["class"]]
         if kind in ("line", "any", "linestring", "polygon"):
-            layers.append({"id": f"{c['class']}-line", "type": "line", "source": "atlas", "source-layer": "features",
-                           "minzoom": mz, "filter": ["all", is_class, ["!=", "$type", "Point"]],
-                           "paint": {"line-color": color, "line-width": 2}})
+            lines.append({"id": f"{c['class']}-line", "type": "line", "source": "atlas", "source-layer": "features",
+                          "minzoom": mz, "filter": ["all", is_class, ["!=", "$type", "Point"]],
+                          "paint": {"line-color": color, "line-width": 2}})
         if kind in ("point", "any"):
-            layers.append({"id": f"{c['class']}-point", "type": "circle", "source": "atlas", "source-layer": "features",
+            points.append({"id": f"{c['class']}-point", "type": "circle", "source": "atlas", "source-layer": "features",
                            "minzoom": mz, "filter": ["all", is_class, ["==", "$type", "Point"]],
                            "paint": {"circle-color": color, "circle-radius": 4,
                                      "circle-stroke-color": "#ffffff", "circle-stroke-width": 1}})
     return _json({"version": 8, "name": tj["name"],
                   "sources": {"atlas": {"type": "vector", "tiles": tj["tiles"], "minzoom": 0,
                                         "maxzoom": TILE_MAXZOOM, "bounds": tj["bounds"], "attribution": tj["attribution"]}},
-                  "layers": layers})
+                  "layers": lines + points})
 
 
 def install(app) -> None:

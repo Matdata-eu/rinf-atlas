@@ -1130,7 +1130,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/layers') return send(res, 200, MOCK_LAYERS);
     if (p === '/api/meta') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });
-      const classes = CLASSES.map((c) => ({ min_zoom: 0, ...c, count: features.filter((f) => f.class === c.class).length }));
+      const classes = CLASSES.map((c, i) => ({ min_zoom: 0, draw_order: -i, ...c, count: features.filter((f) => f.class === c.class).length }));
       const qa = ['BEL', 'NLD'].map((c) => qaCounts(`${ERA}graph/rinf/${c}`));
       const quality = { enabled: true, validated: 2, violations: qa.reduce((a, q) => a + q.violations, 0), warnings: qa.reduce((a, q) => a + q.warnings, 0),
         infos: qa.reduce((a, q) => a + q.infos, 0), too_large: 1, checked_at: '2026-10-13T03:40:00Z', shapes_graph: SHAPES_SRC[env].graph,

@@ -133,8 +133,9 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   } });
   const nomap = h('div', { class: 'muted nomap-hint', hidden: true });
   const count = h('span', { class: 'count' });
+  // The name gives way (ellipsis) before the zoom hint does; the full name is in its title.
   const label = h('label', { class: 'check' }, box, h('span', { class: 'swatch', style: `background:${c.color}` }),
-    h('span', { class: 'lbl' }, c.label, ' ', hint), count);
+    h('span', { class: 'lbl class-lbl' }, h('span', { class: 'class-name', title: c.label }, c.label), hint), count);
   const badge = h('span', { class: 'filter-badge' });
   const hasFacets = classFacets(store.get(), c.class).length > 0;
   const btn = hasFacets ? h('button', {
@@ -158,7 +159,8 @@ function renderClasses() {
   const shown = (s.meta?.classes ?? []).filter((c) => c.count > 0 || s.classes.includes(c.class));
   const els = shown.map((c) => {
     const r = rowFor(c);
-    const n = counts[c.class] ?? c.count;
+    // by_class leaves out classes with no match (e.g. none in view): those count 0, not the total.
+    const n = data ? counts[c.class] ?? 0 : c.count;
     r.label.classList.toggle('zero', n === 0);
     r.box.checked = s.classes.includes(c.class);
     r.count.textContent = fmt.format(n);

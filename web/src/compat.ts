@@ -12,7 +12,7 @@ import {
 import {
   acceptDisclaimer, COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_SHORT, COMPAT_DISCLAIMER_TITLE, disclaimerAccepted,
 } from './disclaimer';
-import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setTipNote, TILE_MODE } from './map';
+import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setPreferredClass, setTipNote, TILE_MODE } from './map';
 import { changed, debounce, fmt, h, store, unitLabel, type SharedVehicle } from './state';
 import * as V from './vehicles';
 import { explainButton } from './compat-explain';
@@ -222,6 +222,8 @@ function updateSource() {
 }
 
 function setVisible(on: boolean) {
+  // While the check is shown, a map click opens the section of line (with its check) under it.
+  setPreferredClass(on ? sectionClass() : null);
   if (!mapRef) return;
   for (const id of LAYERS) if (mapRef.getLayer(id)) mapRef.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
 }

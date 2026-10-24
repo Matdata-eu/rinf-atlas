@@ -105,8 +105,8 @@ instances were left out) and are meant to be edited:
 shape:operational-point a sh:NodeShape ;
     atlas:key "operational-point" ;
     sh:targetClass era:OperationalPoint ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT )
-                                              ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT )
+                                              ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     sh:property [
         sh:path era:opType ;            # any SHACL path: sequence, inverse, alternative, *, +, ?
         atlas:facet "opType" ;

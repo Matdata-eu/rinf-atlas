@@ -20,8 +20,9 @@ shape:platform-edge
     atlas:geometry "any" ;
     atlas:order 60 ;
     atlas:minZoom 10 ;
+    atlas:drawOrder 30 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;
     sh:property [  # RINF 1.1.1.1.2.1, 29830 instances in data
         sh:path era:tenClassification ;
