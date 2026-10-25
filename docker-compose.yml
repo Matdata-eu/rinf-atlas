@@ -79,6 +79,10 @@ services:
     restart: unless-stopped
     ports:
       - "${ATLAS_PORT:-8080}:80"
+    environment:
+      # Search engines index the instance only when it has a public address (docs/seo.md).
+      ATLAS_PUBLIC_URL: ${ATLAS_PUBLIC_URL:-}
+      ATLAS_INDEXING: ${ATLAS_INDEXING:-}
     volumes:
       # Optional pages for this instance; site/privacy.html adds a "Privacy" link (docs/privacy.md).
       - ./site:/usr/share/nginx/html/site:ro
