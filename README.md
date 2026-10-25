@@ -199,6 +199,11 @@ from `config/layers.example.yaml`); they appear in the **Map layers** menu.
 Keys go in `.env` and stay on the server: the API proxies those tiles.
 [docs/layers.md](docs/layers.md) explains how and the trade-offs.
 
+Search engines are asked not to index an instance until `ATLAS_PUBLIC_URL` is
+set; then it gets a canonical address, link previews, `robots.txt` and a
+sitemap. [docs/seo.md](docs/seo.md) lists what the app does and the steps
+that remain for a public instance (domain, redirects, Search Console).
+
 ## Layout
 
 | Path | |
@@ -216,6 +221,7 @@ Keys go in `.env` and stay on the server: the API proxies those tiles.
 | `docs/DESIGN.md` | design notes |
 | `docs/privacy.md` | adding a privacy statement; what the app processes |
 | `docs/layers.md` | adding your own map layers, with API keys |
+| `docs/seo.md` | search engines and link previews; steps for a public instance |
 
 ## Feedback
 

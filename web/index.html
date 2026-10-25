@@ -4,7 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Faceted map search over the EU Register of Infrastructure (ERA RINF)" />
+    <meta name="description" content="Search and map the EU Register of Railway Infrastructure (ERA RINF): operational points, sections of line, tracks, tunnels, bridges, signals and more, filtered by any of their parameters." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="RINF Atlas" />
+    <meta property="og:title" content="RINF Atlas: map search over the EU railway infrastructure register" />
+    <meta property="og:description" content="Search and map the EU Register of Railway Infrastructure (ERA RINF): operational points, sections of line, tracks, tunnels, bridges, signals and more, filtered by any of their parameters." />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="RINF Atlas map of railway lines and infrastructure elements" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Filled in when the web container starts, from ATLAS_PUBLIC_URL and ATLAS_INDEXING
+         (web/docker-entrypoint.d/40-atlas-seo.sh, docs/seo.md): canonical link, absolute
+         og:url and og:image, JSON-LD, or a noindex robots tag. -->
+    <!-- atlas:seo -->
+    <!-- /atlas:seo -->
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -17,6 +30,20 @@
     </script>
   </head>
   <body>
+    <h1 class="sr-only">RINF Atlas: map search over the EU Register of Railway Infrastructure</h1>
+    <noscript>
+      <div class="noscript">
+        <p><b>RINF Atlas needs JavaScript</b> to show its map.</p>
+        <p>RINF Atlas is a fast map and faceted search over the
+          <a href="https://www.era.europa.eu/domains/registers/rinf_en">Register of Infrastructure (RINF)</a>
+          of the European Union Agency for Railways: operational points, sections of line, running and
+          siding tracks, tunnels, bridges, switches, signals, level crossings, platform edges and the
+          other infrastructure elements that infrastructure managers publish. Filter them by country,
+          infrastructure manager or any of their parameters, follow the parameters along a line, check
+          where a vehicle type can run, and export the results.</p>
+        <p>It is open source: <a href="https://github.com/Matdata-eu/rinf-atlas">github.com/Matdata-eu/rinf-atlas</a>.</p>
+      </div>
+    </noscript>
     <header class="topbar">
       <div class="brand"><span class="logo" aria-hidden="true"></span><span><b>RINF</b> Atlas</span></div>
       <label class="env">

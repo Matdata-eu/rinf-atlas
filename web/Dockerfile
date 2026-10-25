@@ -15,4 +15,10 @@ RUN npm run build
 FROM nginx:1.31-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+# Search engine settings from ATLAS_PUBLIC_URL / ATLAS_INDEXING at start (docs/seo.md);
+# until then, and if the script cannot run, the instance asks not to be indexed.
+COPY docker-entrypoint.d/40-atlas-seo.sh /docker-entrypoint.d/
+RUN chmod +x /docker-entrypoint.d/40-atlas-seo.sh \
+ && mkdir -p /etc/nginx/atlas \
+ && echo 'add_header X-Robots-Tag "noindex, nofollow" always;' > /etc/nginx/atlas/robots.conf
 EXPOSE 80
