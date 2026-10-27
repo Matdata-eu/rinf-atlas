@@ -248,6 +248,17 @@ fi
 flagged=$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"]}' \
   | json "sum(v['count'] for v in d['facets']['quality']['values'])")
 echo "features with a quality value: $flagged"; [ "$flagged" -gt 0 ] || fail "quality facet has no values"
+# The flags of a validation also rewrite the facet's counts: a worker stopped before its next
+# full facet cache refresh must not leave the (unfiltered, precomputed) facet empty.
+"${compose[@]}" run --rm --no-deps -T worker python -c "
+import os, psycopg
+from atlas import quality
+conn = psycopg.connect(os.environ['DATABASE_URL'])
+conn.execute(\"DELETE FROM facet_cache WHERE key = 'quality'\")
+quality.apply_flags(conn, 'prod', '$GRAPH')"
+again=$(post facets '{"env":"prod","classes":[],"filters":{},"facets":["quality"]}' \
+  | json "sum(v['count'] for v in d['facets']['quality']['values'])")
+[ "$again" -eq "$flagged" ] || fail "quality facet counts $again after applying the flags, expected $flagged"
 bad=$(post search "$(python3 -c "import json; sh='http://www.w3.org/ns/shacl#'; print(json.dumps({'env':'prod','classes':[],'filters':{'quality':[sh+'Violation',sh+'Warning']},'limit':1}))")")
 echo "$bad" | json "d['items'][0]['qa']" | grep -qE '^[23]$' || fail "search item of the quality filter lacks qa >= 2"
 fid=$(echo "$bad" | json "d['items'][0]['id']")

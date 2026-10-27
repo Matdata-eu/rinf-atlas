@@ -90,6 +90,26 @@ test('typing in a facet filter keeps the focus', async ({ page, errors: _ }) => 
   await expect(page.locator('#facets [data-facet="country"] .terms label')).toHaveText([/BEL/]);
 });
 
+test('the data quality facet lists the severities the data issues layer shows', async ({ page, errors: _ }) => {
+  // The unfiltered facet comes from the worker's precomputed counts; it once stayed empty
+  // ("No values") while the layer, which reads the features themselves, showed them.
+  await openApp(page);
+  const block = page.locator('#facets [data-facet="quality"]');
+  await expect(block.locator('.terms label').first()).toBeVisible();
+  await expect(block).not.toContainText('No values');
+  const shown = Object.fromEntries(await block.locator('.terms label').evaluateAll((ls) =>
+    ls.map((l) => [l.getAttribute('title'), Number(l.querySelector('.count')!.textContent!.replace(/\D/g, ''))])));
+  expect(Object.keys(shown)).toContain('http://www.w3.org/ns/shacl#Warning');
+  // The same counts as a query that reads the features (a dataset selection is never precomputed).
+  const ds = await (await page.request.get('/api/datasets?env=prod')).json() as { graph_iri: string; status: string }[];
+  const graphs = ds.filter((d) => d.status === 'loaded').map((d) => d.graph_iri);
+  const live = await (await page.request.post('/api/facets',
+    { data: { env: 'prod', classes: [], filters: {}, graphs, facets: ['quality'] } })).json();
+  const counted = Object.fromEntries((live.facets.quality.values as { value: string; count: number }[])
+    .map((v) => [v.value, v.count]));
+  expect(shown).toEqual(counted);
+});
+
 test('picking a data quality value turns on the data issues layer', async ({ page, errors: _ }) => {
   await openApp(page);
   const toggle = page.locator('#qa-toggle');
