@@ -781,6 +781,12 @@ body.profile-open .map-msg { bottom: calc(var(--profile-h) + 36px); }
 .profile-act { font-size: 16px; padding: 5px 6px; display: inline-flex; }
 .profile-act svg { display: block; }
 .profile-close { font-size: 22px; }
+/* Full screen: the panel covers the whole window; the detail panel of a clicked section opens beside it (over it on phones). */
+.profile.maximized { position: fixed; inset: 0; height: auto; z-index: 12; border: 0; border-radius: 0; box-shadow: none; }
+.profile.maximized .sheet-handle { display: none; }
+.profile.maximized .profile-head { padding-top: 8px; }
+body.profile-max.detail-open .profile.maximized { right: var(--detail-w); border-right: 1px solid var(--border); }
+body.profile-max .detail { position: fixed; top: 0; right: 0; bottom: 0; width: var(--detail-w); z-index: 12; }
 .profile-form { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 0 14px 4px; flex: none; }
 .profile-input { height: 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 0 8px; width: 230px; min-width: 0; }
 .profile-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
@@ -850,6 +856,9 @@ body.profile-open .map-msg { bottom: calc(var(--profile-h) + 36px); }
     box-shadow: 0 -4px 16px rgb(0 0 0 / 15%); transition: height 0.2s ease;
   }
   .profile.expanded { height: 86%; }
+  .profile.maximized { height: auto; transition: none; }
+  body.profile-max.detail-open .profile.maximized { right: 0; border-right: 0; }
+  body.profile-max .detail { width: auto; left: 0; z-index: 13; }
   body.profile-open .maplibregl-ctrl-bottom-left, body.profile-open .maplibregl-ctrl-bottom-right { bottom: 52%; }
   body.profile-open .map-msg { bottom: calc(52% + 12px); }
   .profile-head { padding: 0 6px 2px 12px; }

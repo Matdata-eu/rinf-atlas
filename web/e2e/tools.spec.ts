@@ -14,6 +14,15 @@ test('line profile shows a national line with its sections', async ({ page, erro
   await expect(panel).toContainText('Maximum permitted speed');
   await expect(page).toHaveURL(/[#&]lp=line,/);
 
+  // Full screen covers the window; Escape brings the panel back.
+  const vp = page.viewportSize()!;
+  await panel.getByRole('button', { name: 'Full screen' }).click();
+  await expect(panel).toHaveClass(/maximized/);
+  expect(await panel.boundingBox()).toMatchObject({ x: 0, y: 0, width: vp.width, height: vp.height });
+  await panel.getByRole('button', { name: 'Exit full screen' }).press('Escape');
+  await expect(panel).not.toHaveClass(/maximized/);
+  expect((await panel.boundingBox())!.height).toBeLessThan(vp.height / 2 + 1);
+
   // The link reopens the same profile.
   await page.reload();
   await expect(page.locator('#profile .profile-summary')).toContainText(`${line.sections} section`);
