@@ -20,8 +20,9 @@ shape:section-of-line
     atlas:geometry "line" ;
     atlas:order 20 ;
     atlas:minZoom 0 ;
+    atlas:drawOrder 10 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:lineBetween ( era:opStart era:opEnd ) ;
     sh:property [  # RINF 1.1.0.0.0.2, 63747 instances in data
         sh:path ( era:nationalLine era:lineId ) ;

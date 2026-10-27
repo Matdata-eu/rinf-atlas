@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 maplibregl.setWorkerUrl(workerUrl);
-import { api, isAbort } from './api';
+import { api, isAbort, type ClassMeta } from './api';
 import { changed, debounce, queryState, store, type AppState, type MapView } from './state';
 import { hasPrivacy, PRIVACY_URL } from './privacy';
 import { isDark, onThemeChange } from './theme';
@@ -59,11 +59,16 @@ function colorExpr(s: AppState): ExpressionSpecification | string {
   return ['match', ['get', 'class'], ...cls.flatMap((c) => [c.class, c.color]), '#888'] as unknown as ExpressionSpecification;
 }
 
-/** Draw order: classes earlier in the class list (operational points first) are drawn on top. */
+/** Draw order of a class (higher on top) from its shape's atlas:drawOrder; without one,
+ *  classes earlier in the class list are drawn on top. */
+function drawOrder(c: ClassMeta, i: number): number {
+  return c.draw_order ?? -1000 - i;
+}
+
 function sortKeyExpr(s: AppState): ExpressionSpecification | number {
   const cls = s.meta?.classes ?? [];
   if (!cls.length) return 0;
-  return ['match', ['get', 'class'], ...cls.flatMap((c, i) => [c.class, cls.length - i]), 0] as unknown as ExpressionSpecification;
+  return ['match', ['get', 'class'], ...cls.flatMap((c, i) => [c.class, drawOrder(c, i)]), -2000] as unknown as ExpressionSpecification;
 }
 
 const LINE_W = [4, 1.2, 10, 2.5, 15, 5];
@@ -122,6 +127,13 @@ function applyStyle(s: AppState = store.get()) {
 function classRank(c: unknown): number {
   const i = (store.get().meta?.classes ?? []).findIndex((m) => m.class === c);
   return i < 0 ? 999 : i;
+}
+
+/** Draw order of a class on the map (higher = drawn on top). */
+function drawRank(c: unknown): number {
+  const cls = store.get().meta?.classes ?? [];
+  const i = cls.findIndex((m) => m.class === c);
+  return i < 0 ? -2000 : drawOrder(cls[i], i);
 }
 
 /** The query state of the map tiles: the app's query plus the classes forced on at every zoom. */
@@ -328,11 +340,12 @@ function wireInteraction(container: HTMLElement) {
     const layers = [...DATA_LAYERS, ...overlayLayers.filter((id) => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none')];
     const fs = map.queryRenderedFeatures([[x - pad, y - pad], [x + pad, y + pad]], { layers });
     // Prefer points over lines over polygons (points are drawn on top), then the class
-    // drawn on top (earlier in the class list). Overlay lines rank like data lines. The line
-    // profile can ask for one class first (sections of line while picking sections).
-    const rank = (f: MapGeoJSONFeature) => (preferClass && f.properties.class === preferClass ? -100 : 0)
+    // drawn on top (its draw order). Overlay lines rank like data lines. The line profile
+    // (sections of line while picking sections) and the vehicle check can ask for one class first.
+    const prefer = preferClass ?? softPrefer;
+    const rank = (f: MapGeoJSONFeature) => (prefer && f.properties.class === prefer ? -100 : 0)
       + DATA_LAYERS.length - DATA_LAYERS.indexOf(overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id);
-    fs.sort((a, b) => rank(a) - rank(b) || classRank(a.properties.class) - classRank(b.properties.class));
+    fs.sort((a, b) => rank(a) - rank(b) || drawRank(b.properties.class) - drawRank(a.properties.class));
     // A feature comes back once per tile (and per layer) it is drawn in.
     const seen = new Set<string>();
     return fs.filter((f) => {
@@ -346,7 +359,7 @@ function wireInteraction(container: HTMLElement) {
    *  with a label. Tracks share their section of line's geometry, so without a choice
    *  only the top one could ever be opened. Low-zoom tiles carry no labels: no choice there. */
   const clickChoices = (fs: MapGeoJSONFeature[]): MapGeoJSONFeature[] => {
-    if (fs.length < 2 || clickHook) return fs.slice(0, 1);
+    if (fs.length < 2 || clickHook || (softPrefer && fs[0].properties.class === softPrefer)) return fs.slice(0, 1);
     const kind = (f: MapGeoJSONFeature) => overlayLayers.includes(f.layer.id) ? 'rinf-line' : f.layer.id;
     const same = fs.filter((f) => kind(f) === kind(fs[0]));
     if (!same.every((f) => f.properties.label)) return fs.slice(0, 1);
@@ -506,6 +519,10 @@ export function setClickHook(fn: ((f: ClickedFeature) => boolean) | null, prefer
   clickHook = fn;
   preferClass = fn ? prefer : null;
 }
+let softPrefer: string | null = null;
+/** A class picked before any other under the pointer, opened straight away without the
+ *  "features here" menu (sections of line while the vehicle check is on). */
+export function setPreferredClass(cls: string | null) { softPrefer = cls; }
 export function onProfileHover(fn: (i: number | null) => void) { profileHoverCb = fn; }
 
 /** Sections (with property `i` = index in the strip) and operational points of the line profile. */

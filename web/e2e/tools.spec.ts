@@ -43,8 +43,8 @@ test('vehicle check colours sections by compatibility', async ({ page, errors: _
 
   // A standard-gauge one is not red everywhere, and every section is counted once.
   await profiles.selectOption({ index: 0 });
-  await expect.poll(async () => (await counts()).reduce((a, b) => a + b, 0)).toBe(sections);
-  expect((await counts())[2]).toBeLessThan(sections);
+  await expect.poll(async () => (await counts())[2]).toBeLessThan(sections);
+  expect((await counts()).reduce((a, b) => a + b, 0)).toBe(sections);
 
   await legend.getByRole('button', { name: 'Turn the vehicle check off' }).click();
   await expect(legend).toBeHidden();

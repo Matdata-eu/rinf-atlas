@@ -20,6 +20,7 @@ shape:special-area
     atlas:geometry "any" ;
     atlas:order 110 ;
     atlas:minZoom 7 ;
+    atlas:drawOrder 5 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] .
