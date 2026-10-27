@@ -161,6 +161,8 @@ ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS path text;
 ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS unit text;
 -- atlas:colorBy: suggested in the map's "Colour by" picker, lower ranks first.
 ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS color_by int;
+-- atlas:colorClasses: fixed colour classes of a range facet, [{up_to, label}] low to high.
+ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS color_classes jsonb;
 
 CREATE TABLE IF NOT EXISTS class_def (
     class      text PRIMARY KEY,       -- shape key

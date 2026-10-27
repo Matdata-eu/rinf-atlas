@@ -92,7 +92,11 @@ the full query state, which Martin's table sources can't express), `web`
   Palette slots and range breaks are per environment, not per query, so a
   filter never repaints a value; colours are chosen in the browser from
   colour-blind-checked palettes with light and dark steps. Suggested facets
-  come from `atlas:colorBy` in the shapes.
+  come from `atlas:colorBy` in the shapes. A range facet gets five classes from
+  its quantiles, unless the shapes fix the bands with `atlas:colorClasses`
+  (inclusive upper bounds and names, up to eight, as for the maximum speed).
+  The bands are part of the theme's version, not of the index digest: editing
+  them needs no reindex.
 - Line profile (`/api/profile`): `link` facets (`atlas:kind "link"`) keep the
   IRIs of a section's `opStart`/`opEnd`; a section's tracks come from the
   "part of" links. Link facets are stored in `feature.facets` like other

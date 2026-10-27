@@ -74,6 +74,9 @@ theme=$(post theme "{\"env\":\"prod\",\"classes\":[],\"filters\":{},\"key\":\"$s
 echo "theme: $(echo "$theme" | json "(d['kind'], d['rollup'], len(d['bins']), d['total'])")"
 echo "$theme" | json "d['kind']=='range' and 'section-of-line' in d['rollup'] and sum(b['count'] for b in d['bins']) > 0" | grep -q True \
   || fail "colouring by $speed gave no classes or no roll-up to sections of line"
+# The speed shapes give fixed bands (atlas:colorClasses): eight named classes, every one listed.
+echo "$theme" | json "d['upper'] and len(d['bins'])==8 and d['bins'][6]['label']=='High-speed rail' and d['bins'][7]['min']==300" \
+  | grep -q True || fail "colouring by $speed did not use the fixed speed bands"
 energy=$(post theme '{"env":"prod","classes":[],"filters":{},"key":"running-track/contactLineSystem.energySupplySystem"}' \
   | json "sum(v['count'] for v in d['values'])")
 [ "$energy" -gt 0 ] || fail "colouring by energy supply system found no values"

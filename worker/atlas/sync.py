@@ -34,13 +34,17 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bo
                         (c.key, c.class_iri, c.label, c.color, c.geometry, c.order, c.min_zoom, c.draw_order,
                          shapes.class_files.get(c.key), json.dumps(position_rules(c))))
             for f in c.facets:
-                cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
-                               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                            (f.key, c.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by))
+                cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by,
+                                                      color_classes)
+                               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                            (f.key, c.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by,
+                             json.dumps(f.color_classes) if f.color_classes else None))
         for f in shapes.shared:
-            cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by)
-                           VALUES (%s,'*',%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                        (f.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by))
+            cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit, color_by,
+                                                  color_classes)
+                           VALUES (%s,'*',%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                        (f.key, f.label, f.kind, f.datatype, f.order, f.path, f.unit, f.color_by,
+                         json.dumps(f.color_classes) if f.color_classes else None))
         if quality_enabled:
             # Built-in shared facet filled by the data quality layer (worker/atlas/quality.py).
             cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit)

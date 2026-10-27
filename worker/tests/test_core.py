@@ -45,6 +45,34 @@ def test_repo_shapes_compile():
     assert speed.color_by == 1 and speed.kind == "range"
 
 
+def test_color_classes_give_fixed_bands_of_a_range_facet(tmp_path):
+    shape = """
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ex: <http://ex/>
+ex:s a sh:NodeShape ; atlas:key "k" ; sh:targetClass ex:C ;
+  sh:property [ sh:path ex:p ; atlas:facet "p" ; atlas:kind "{kind}" ; atlas:colorClasses ( {classes} ) ] .
+"""
+    ok = '[ atlas:upTo 40 ; rdfs:label "Slow" ] [ atlas:upTo 160 ] [ rdfs:label "Fast" ]'
+    (tmp_path / "x.ttl").write_text(shape.format(kind="range", classes=ok))
+    s = load_shapes(tmp_path)
+    assert s.classes[0].facets[0].color_classes == [
+        {"up_to": 40.0, "label": "Slow"}, {"up_to": 160.0, "label": None}, {"up_to": None, "label": "Fast"}]
+    # Display only: changing the bands needs no reindex.
+    (tmp_path / "x.ttl").write_text(shape.format(kind="range", classes='[ atlas:upTo 50 ] [ ]'))
+    assert load_shapes(tmp_path).digest() == s.digest()
+    for kind, classes in (("terms", ok), ("range", '[ atlas:upTo 40 ]'),  # one class only
+                          ("range", '[ atlas:upTo 40 ] [ atlas:upTo 30 ] [ ]'),  # not increasing
+                          ("range", '[ atlas:upTo 40 ] [ atlas:upTo 80 ]'),  # last one bounded
+                          ("range", '[ ] [ atlas:upTo 80 ] [ ]'),
+                          ("range", '[ atlas:upTo "fast" ] [ ]'),
+                          ("range", " ".join(f"[ atlas:upTo {i} ]" for i in range(8)) + " [ ]")):  # nine
+        (tmp_path / "x.ttl").write_text(shape.format(kind=kind, classes=classes))
+        with pytest.raises(ShapeError):
+            load_shapes(tmp_path)
+
+
 def test_color_by_must_be_an_integer_on_a_facet(tmp_path):
     shape = """
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>

@@ -73,3 +73,26 @@ test('map colours by a facet show a legend', async ({ page, errors: _ }) => {
   await page.locator('#colorby-clear').click();
   await expect(page).not.toHaveURL(/[#&]col=/);
 });
+
+test('speed colours use the fixed speed bands from the shapes', async ({ page, errors: _ }) => {
+  await openApp(page, 'c=running-track&col=running-track/maximumPermittedSpeed');
+  const legend = page.locator('#legend');
+  await expect(legend).toBeVisible();
+  if (await legend.locator('.lg-toggle[aria-expanded="false"]').count()) await legend.locator('.lg-toggle').click();
+  const rows = legend.locator('.lg-list .lg-row[data-key^="bin:"] .lbl');
+  // Eight bands from atlas:colorClasses, listed even when empty, so high speed always has its own colours.
+  await expect(rows).toHaveText([
+    '≤ 40 km/h · Very very low speed', '41 – 80 km/h · Very low speed', '81 – 120 km/h · Low speed',
+    '121 – 160 km/h · Conventional main line', '161 – 200 km/h · Enhanced conventional', '201 – 250 km/h · Fast line',
+    '251 – 300 km/h · High-speed rail', '> 300 km/h · Very high-speed rail',
+  ]);
+  // The upper bound is inclusive: the sample's 80 km/h tracks are counted with 41 – 80.
+  const theme = await (await page.request.post('/api/theme', {
+    data: { env: 'prod', classes: ['running-track'], filters: {}, key: 'running-track/maximumPermittedSpeed' },
+  })).json();
+  const counts = legend.locator('.lg-list .lg-row[data-key^="bin:"] .count');
+  await expect(counts).toHaveText((theme.bins as { count: number }[]).map((b) => b.count.toLocaleString('en')));
+  const swatches = await legend.locator('.lg-list .lg-row[data-key^="bin:"] .lg-swatch').evaluateAll(
+    (els) => els.map((e) => getComputedStyle(e).getPropertyValue('--sw').trim()));
+  expect(new Set(swatches).size).toBe(8);
+});

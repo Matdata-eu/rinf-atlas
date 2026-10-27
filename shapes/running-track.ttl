@@ -83,6 +83,17 @@ shape:running-track
         atlas:kind "range" ;
         sh:datatype xsd:integer ;
         atlas:unit "KiloM-PER-HR" ;
+        # Map colours (issue #65): fixed speed bands, so high-speed lines stand out.
+        atlas:colorClasses (
+            [ atlas:upTo 40 ; rdfs:label "Very very low speed" ]
+            [ atlas:upTo 80 ; rdfs:label "Very low speed" ]
+            [ atlas:upTo 120 ; rdfs:label "Low speed" ]
+            [ atlas:upTo 160 ; rdfs:label "Conventional main line" ]
+            [ atlas:upTo 200 ; rdfs:label "Enhanced conventional" ]
+            [ atlas:upTo 250 ; rdfs:label "Fast line" ]
+            [ atlas:upTo 300 ; rdfs:label "High-speed rail" ]
+            [ rdfs:label "Very high-speed rail" ]
+        ) ;
         sh:order 80 ;
     ] ;
     sh:property [  # RINF 1.1.1.1.2.6, 118457 instances in data

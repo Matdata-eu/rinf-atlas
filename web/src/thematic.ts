@@ -7,7 +7,7 @@
 // filtering never repaints a value. Hiding legend entries and highlighting one are pure
 // style changes: no tile is fetched again.
 import type { ExpressionSpecification } from 'maplibre-gl';
-import { api, isAbort, MIXED, type FacetMeta, type RangeTheme, type TermsTheme, type Theme } from './api';
+import { api, isAbort, MIXED, type FacetMeta, type RangeBin, type RangeTheme, type TermsTheme, type Theme } from './api';
 import { changed, debounce, fmt, h, queryState, store, toggleAllZoom, unitLabel, type AppState } from './state';
 import { isDark, onThemeChange } from './theme';
 
@@ -31,9 +31,14 @@ const NEUTRAL = {
 };
 const neutral = () => (isDark() ? NEUTRAL.dark : NEUTRAL.light);
 const SEQ_PICK: Record<number, number[]> = { 1: [2], 2: [1, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4] };
+// Six to eight classes (atlas:colorClasses in the shapes): the same hue in eight even lightness steps.
+const SEQ8_LIGHT = ['#86b6ef', '#65a2ea', '#438de6', '#2b79d7', '#2366ba', '#1a549e', '#114383', '#0c3366'];
+const SEQ8_DARK = ['#184f95', '#2062b4', '#2976d2', '#418ce6', '#66a2ea', '#89b8f0', '#accdf5', '#cde2fb'];
+const SEQ8_PICK: Record<number, number[]> = { 6: [0, 2, 3, 5, 6, 7], 7: [0, 2, 3, 4, 5, 6, 7], 8: [0, 1, 2, 3, 4, 5, 6, 7] };
 
 export function slotColor(slot: number): string { return (isDark() ? CAT_DARK : CAT_LIGHT)[slot % 8]; }
 export function binColors(n: number): string[] {
+  if (n > 5) return SEQ8_PICK[Math.min(n, 8)].map((i) => (isDark() ? SEQ8_DARK : SEQ8_LIGHT)[i]);
   const ramp = isDark() ? SEQ_DARK : SEQ_LIGHT;
   return (SEQ_PICK[Math.min(Math.max(n, 1), 5)] ?? SEQ_PICK[5]).map((i) => ramp[i]);
 }
@@ -68,6 +73,7 @@ function inColoured(t: Theme): Expr {
 
 function binIndex(t: RangeTheme): Expr {
   if (!t.breaks.length) return ['literal', 0] as unknown as Expr;
+  if (t.upper) return ['case', ...t.breaks.flatMap((b, i) => [['<=', vNum, b], i]), t.breaks.length] as unknown as Expr;
   return ['step', vNum, 0, ...t.breaks.flatMap((b, i) => [b, i + 1])] as unknown as Expr;
 }
 
@@ -78,6 +84,7 @@ function valueColor(t: Theme): Expr | string {
   if (t.kind === 'range') {
     const cs = binColors(t.bins.length);
     if (!t.breaks.length) return cs[0];
+    if (t.upper) return ['case', ...t.breaks.flatMap((b, i) => [['<=', vNum, b], cs[i]]), cs[t.breaks.length]] as unknown as Expr;
     return ['step', vNum, cs[0], ...t.breaks.flatMap((b, i) => [b, cs[Math.min(i + 1, cs.length - 1)]])] as unknown as Expr;
   }
   const pairs = t.values.filter((v) => v.slot != null).flatMap((v) => [v.value, slotColor(v.slot!)]);
@@ -129,9 +136,23 @@ const numFmt = new Intl.NumberFormat('en', { maximumFractionDigits: 3 });
 function unitOf(t: Theme) { return t.unit ? ` ${unitLabel(t.unit)}` : ''; }
 function classLabel(c: string) { return store.get().meta?.classes.find((x) => x.class === c)?.label ?? c; }
 
+/** Bin of a value: classes hold [min, max), fixed classes from the shapes (min, max]. */
+const binOf = (t: RangeTheme, n: number) => t.breaks.filter((b) => (t.upper ? n > b : n >= b)).length;
+
+/** Value range of a fixed class: "≤ 40", "41 – 80" (integers) or "> 40 – 80", "> 300". */
+function upperRange(t: RangeTheme, b: RangeBin): string {
+  const u = unitOf(t);
+  if (b.min == null) return b.max == null ? '' : `≤ ${numFmt.format(b.max)}${u}`;
+  if (b.max == null) return `> ${numFmt.format(b.min)}${u}`;
+  const int = t.datatype != null && /#(integer|int|long|short|nonNegativeInteger|positiveInteger)$/.test(t.datatype);
+  return int ? `${numFmt.format(b.min + 1)} – ${numFmt.format(b.max)}${u}` : `> ${numFmt.format(b.min)} – ${numFmt.format(b.max)}${u}`;
+}
+
 export function binLabel(t: RangeTheme, i: number): string {
   const b = t.bins[i];
   if (!b) return '';
+  if (t.upper) return b.label ? `${upperRange(t, b)} · ${b.label}` : upperRange(t, b);
+  if (b.min == null || b.max == null) return '';
   if (t.discrete || b.min === b.max) return `${numFmt.format(b.min)}${unitOf(t)}`;
   return `${numFmt.format(b.min)} – ${numFmt.format(b.max)}${unitOf(t)}`;
 }
@@ -149,9 +170,10 @@ export function describeValue(props: Record<string, unknown>): [string, string] 
   }
   if (t.kind === 'range') {
     const n = Number(v);
-    const i = t.breaks.filter((b) => n >= b).length;
+    const i = Math.min(binOf(t, n), t.bins.length - 1);
     const rolled = t.rollup.includes(String(props.class)) ? ' (highest of its parts)' : '';
-    return [binColors(t.bins.length)[Math.min(i, t.bins.length - 1)] ?? neutral().other, `${t.label}: ${numFmt.format(n)}${unitOf(t)}${rolled}`];
+    const name = t.upper && t.bins[i]?.label ? ` (${t.bins[i].label})` : '';
+    return [binColors(t.bins.length)[i] ?? neutral().other, `${t.label}: ${numFmt.format(n)}${unitOf(t)}${name}${rolled}`];
   }
   if (v === MIXED) return [neutral().mixed, `${t.label}: mixed (several values)`];
   const tv = t.values.find((x) => x.value === String(v));
@@ -218,7 +240,9 @@ function entries(t: Theme): { main: Entry[]; others: Entry[]; extra: Entry[] } {
     const cs = binColors(t.bins.length);
     t.bins.forEach((b, i) => main.push({
       key: `bin:${i}`, label: binLabel(t, i), color: cs[i], count: b.count, line: 'strong',
-      title: t.discrete ? undefined : `from ${numFmt.format(b.min)} up to ${i === t.bins.length - 1 ? 'and including' : 'but not including'} ${numFmt.format(b.max)}${unitOf(t)}`,
+      title: t.upper ? `${b.label ? `${b.label}: ` : ''}${upperRange(t, b)}`
+        : t.discrete || b.min == null || b.max == null ? undefined
+        : `from ${numFmt.format(b.min)} up to ${i === t.bins.length - 1 ? 'and including' : 'but not including'} ${numFmt.format(b.max)}${unitOf(t)}`,
     }));
   } else {
     for (const v of t.values) {

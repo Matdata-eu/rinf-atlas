@@ -53,6 +53,12 @@
 #   atlas:colorBy       integer; suggest the facet in the map's "Colour by"
 #                       picker, lower numbers first (every terms, boolean and
 #                       range facet can colour the map; these are listed first)
+#   atlas:colorClasses  range facets only: fixed map colour classes instead of
+#                       ones computed from the data, an RDF list low to high of
+#                       [ atlas:upTo 40 ; rdfs:label "Very low speed" ] (upTo is
+#                       the class's inclusive upper bound) ending with one
+#                       class without atlas:upTo for every higher value; 2 to 8
+#                       classes, rdfs:label optional
 #
 # Vehicle compatibility rules (shapes/compatibility.ttl): a sh:NodeShape with
 #   atlas:compatibility true   marks the rule shape (at most one; no atlas:key)
