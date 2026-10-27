@@ -90,3 +90,21 @@ test('class names give way to the zoom hint, and the side panel resizes', async 
   await handle.dblclick();
   await expect.poll(async () => (await side.boundingBox())!.width).toBe(w0);
 });
+
+test('a class without locations says so in a tooltip on its count, on one line', async ({ page, errors: _ }) => {
+  await openApp(page);
+  // The sample's one kilometric post has no geometry.
+  const row = page.locator('#class-list li.class-row').filter({ has: page.locator('input[data-class="kilometric-post"]') });
+  const mark = row.locator('.nomap-hint');
+  await expect(mark).toBeVisible();
+  await expect(mark).toHaveAttribute('aria-label', /No location in RINF, not on the map/);
+  const line = (await row.locator('.class-line').boundingBox())!;
+  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(line.height + 1);
+  const tip = () => mark.evaluate((e) => getComputedStyle(e, '::after').visibility);
+  expect(await tip()).toBe('hidden');
+  await mark.hover();
+  await expect.poll(tip).toBe('visible');
+  // A click on it does not tick the class.
+  await mark.click();
+  await expect(row.locator('input[type=checkbox]')).not.toBeChecked();
+});
