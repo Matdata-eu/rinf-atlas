@@ -230,7 +230,7 @@ def reindex_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: 
             continue
         try:
             extract_graph(conn, store, env.key, g, shapes)
-            quality.apply_flags(conn, env.key, g)  # the facets were rewritten; validation results still hold
+            quality.apply_flags(conn, env.key, g, counts=False)  # the facets were rewritten; validation results still hold
             _set_status(conn, env.key, g, "loaded")
         except Exception as e:
             conn.rollback()

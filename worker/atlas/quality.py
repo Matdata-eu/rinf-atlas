@@ -127,8 +127,13 @@ def remove(conn: psycopg.Connection, env: str, graph: str) -> None:
     conn.commit()
 
 
-def apply_flags(conn: psycopg.Connection, env: str, graph: str) -> None:
-    """Write the severities found on each feature of a graph to its `quality` facet."""
+def apply_flags(conn: psycopg.Connection, env: str, graph: str, counts: bool = True) -> None:
+    """Write the severities found on each feature of a graph to its `quality` facet.
+
+    With `counts`, the facet's precomputed counts (facet_cache, which the API answers an
+    unfiltered state from) are rewritten in the same transaction. Otherwise they lag until the
+    next refresh_facet_cache: a worker stopped after a validation but before that refresh left
+    the facet empty while the map's issues layer, which reads the features, showed the values."""
     with conn.cursor() as cur:
         cur.execute("SELECT qa_status FROM dataset WHERE env=%s AND graph_iri=%s", (env, graph))
         row = cur.fetchone()
@@ -149,7 +154,22 @@ def apply_flags(conn: psycopg.Connection, env: str, graph: str) -> None:
                 WHERE f.id = f2.id AND f2.env=%(env)s AND f2.graph_iri=%(g)s
             """, {"env": env, "g": graph, "v": SEVERITY_IRI[3], "w": SEVERITY_IRI[2], "i": SEVERITY_IRI[1],
                   "ok": NO_ISSUES})
+        if counts:
+            refresh_counts(cur, env)
     conn.commit()
+
+
+def refresh_counts(cur: psycopg.Cursor, env: str) -> None:
+    """Recount the `quality` facet in facet_cache (like extract.refresh_facet_cache, for one key)."""
+    cur.execute("DELETE FROM facet_cache WHERE env=%s AND key=%s", (env, FACET))
+    cur.execute(f"""INSERT INTO facet_cache (env, class, key, value, n)
+                    SELECT f.env, f.class, %s, v.value, count(*)
+                    FROM feature f CROSS JOIN LATERAL jsonb_array_elements(f.facets -> '{FACET}') v
+                    WHERE f.env = %s AND f.facets ? '{FACET}'
+                    GROUP BY 1, 2, 4""", (FACET, env))
+    # A new data version: the API drops its cached facet counts and map colourings.
+    cur.execute("""INSERT INTO index_state (env) VALUES (%s) ON CONFLICT (env)
+                   DO UPDATE SET updated_at = now()""", (env,))
 
 
 def _summary_status(run: shacl.Run) -> str:
