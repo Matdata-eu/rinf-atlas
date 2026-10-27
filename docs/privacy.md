@@ -40,8 +40,13 @@ backups, hosting provider).
 **In the visitor's browser**
 
 - No cookies, analytics, trackers or third-party fonts and scripts.
-- `localStorage` key `atlas-theme`, only when the visitor picks a light or
-  dark theme. It never leaves the browser.
+- `localStorage`, which never leaves the browser:
+  - `atlas-theme`, only when the visitor picks a light or dark theme;
+  - `atlas-profile-rows`, the line profile rows the visitor chose;
+  - `atlas-vehicle-profiles`, the vehicle profiles of the Vehicle check
+    (with the illustrative examples);
+  - `atlas-compat-disclaimer`, that the visitor accepted the Vehicle check
+    disclaimer.
 - The map position, filters and selection live in the URL fragment (`#…`) for
   shareable links. Browsers do not send the fragment to any server.
 
@@ -75,6 +80,8 @@ backups, hosting provider).
 - "Describe live" and the graph view ask the `api` to query ERA's SPARQL
   endpoint for the selected element. The request comes from your server and
   carries only the element's IRI, not the visitor's IP address.
+- A **Turtle** export of the results does the same for the IRIs of the
+  matching elements.
 
 The RINF data itself describes railway infrastructure published by the
 infrastructure managers through ERA.

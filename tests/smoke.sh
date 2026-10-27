@@ -289,6 +289,7 @@ dq "['note']" | grep -q "too large ([0-9,]* triples > limit 1,000)" || fail "too
 [ "$(dq "['status']")" = ok ] || fail "dataset not validated again under the default limit"
 
 curl -fsS "$BASE/" | grep -q "<title>RINF Atlas</title>" || fail "web UI not served"
+curl -fsS "$BASE/robots.txt" | grep -q "^User-agent:" || fail "robots.txt not generated"
 # MapLibre's module worker must be served as JavaScript or the map stays blank.
 worker=$(curl -fsS "$BASE/" | grep -o 'assets/index-[^"]*\.js' | head -1)
 wpath=$(curl -fsS "$BASE/$worker" | grep -o 'assets/maplibre-gl-worker-[A-Za-z0-9_-]*\.mjs' | head -1)

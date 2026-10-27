@@ -1,7 +1,7 @@
 {
   "name": "RINF Atlas",
   "short_name": "RINF Atlas",
-  "description": "Faceted map search over the EU Register of Infrastructure (ERA RINF)",
+  "description": "Search and map the EU Register of Railway Infrastructure (ERA RINF)",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#10273F",

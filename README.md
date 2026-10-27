@@ -14,15 +14,32 @@ server and is hosted on a best-effort basis, so expect occasional downtime.
 
 Documentation: [how datasets are updated](docs/datasets.md),
 [architecture](docs/architecture.md), [HTTP API](docs/api.md),
-[shareable links](docs/urls.md), [design notes](docs/DESIGN.md).
+[shareable links](docs/urls.md), [design notes](docs/DESIGN.md),
+[extra map layers](docs/layers.md), [privacy statement](docs/privacy.md).
 
 ![RINF Atlas: operational points and sections of line in Belgium](docs/screenshots/overview.png)
 
-A **line profile** lays a national line, a series of sections of line picked on
-the map, or the route between two operational points out as a strip along the
-distance, with one row per parameter of their tracks (maximum speed,
-electrification, gauge, ETCS level, gauging, line category...; rows are
-configurable), linked to the map and downloadable as CSV.
+What you can do with it:
+
+- **Search and filter** every class at once, with facets defined in SHACL
+  (below), and see the matches on one map; limit to the map view or to one
+  dataset.
+- **Colour the map** by any facet (maximum speed, electrification, ...) with a
+  legend whose entries can be hidden.
+- **Line profile**: lay a national line, a series of sections of line picked
+  on the map, or the route between two operational points out as a strip along
+  the distance, with one row per parameter of their tracks (maximum speed,
+  electrification, gauge, ETCS level, gauging, line category...; rows are
+  configurable), linked to the map and downloadable as CSV.
+- **Vehicle check**: fill in a vehicle profile and see which sections of line
+  it is compatible with, with an explanation per track.
+- **Data quality**: every dataset is validated against ERA's SHACL shapes;
+  features with issues can be shown on the map.
+- **Export** the results as CSV, Excel or Turtle, or open them in a desktop
+  GIS ([Use in QGIS](#use-in-qgis)).
+- **Describe live** and a graph view of any element, straight from ERA.
+- **Share** any view as a link ([docs/urls.md](docs/urls.md)). The **?** button
+  opens an in-app guide.
 
 Search and the map never query ERA live: a worker mirrors the RINF named
 graphs and indexes them into PostGIS. Only "describe" (and the graph
@@ -47,7 +64,8 @@ docker compose logs -f worker
 ```
 
 Or build from source with `docker compose up -d --build`. Set `ATLAS_VERSION`
-in `.env` to pin a release (for example `0.1.0`) instead of `latest`.
+in `.env` to pin a release (for example `1.3.1`, or `1.3` for its latest
+patch) instead of `latest`.
 
 Open `http://<host>:8080`. The first sync downloads every provider graph of
 PROD and UAT (about 40 M and 27 M triples; the largest are DB InfraGO and
@@ -155,7 +173,8 @@ demo:
 - **Vector tiles:** Layer › Add Layer › Add Vector Tile Layer › New Generic
   Connection, the tiles URL as URL (max zoom 14) and the style URL as Style
   URL for the map's class colours. Fast for a whole country, but tiles carry
-  only `id, iri, class, label` (and below zoom 8 only `id, class`).
+  only `id, iri, class, label, qa` (and below zoom 8 only `id, class, qa`;
+  `qa` is the worst data quality severity).
 
 Details and limits: [docs/api.md](docs/api.md#gis-access-ogc-api--features-vector-tiles).
 
@@ -163,7 +182,8 @@ Details and limits: [docs/api.md](docs/api.md#gis-access-ogc-api--features-vecto
 
 Run inside the worker container (`docker compose exec worker atlas ...`).
 While the poll loop runs it owns the mirror, so these are queued and picked
-up by the loop:
+up by the loop (`--now` runs `sync`, `reindex`, `generate-shapes` or
+`validate` in the calling process instead):
 
 | Command | What it does |
 |---|---|
@@ -179,14 +199,37 @@ up by the loop:
 
 `config/environments.yaml` lists the environments (SPARQL repository,
 dataset explorer API, vocabulary graphs) and the provider-graph pattern.
-`.env` sets the port, database password, `ATLAS_ENVS` (subset of
-environments) and `ATLAS_ONLY_GRAPHS` (subset of graphs). Behind a TLS
-proxy, set `ATLAS_PUBLIC_URL` (e.g. `https://rinf-atlas.example.org`) so the
-OGC API links use it. The `quality:` block of `environments.yaml` (and
-`ATLAS_QUALITY*` in `.env`) tunes or turns off the data quality validation,
-per environment if needed: which SHACL shapes (ERA's published graph, or a
-pinned tag of ERA's ontology repository such as `v3.3.4`) and the largest
-dataset to validate (15M triples by default).
+The `quality:` block there (and `ATLAS_QUALITY*` in `.env`) tunes or turns
+off the data quality validation, per environment if needed: which SHACL
+shapes (ERA's published graph, or a pinned tag of ERA's ontology repository
+such as `v3.3.4`) and the largest dataset to validate (15M triples by
+default).
+
+`.env` (start from `.env.example`) sets:
+
+| Variable | Default | |
+|---|---|---|
+| `ATLAS_PORT` | `8080` | host port of the web UI |
+| `POSTGRES_PASSWORD` | `atlas` | database password; change it |
+| `PG_SHARED_BUFFERS` | `1GB` | PostgreSQL `shared_buffers` |
+| `ATLAS_ENVS` | all | environments to index and serve (`prod,uat`) |
+| `ATLAS_ONLY_GRAPHS` | all | graphs to index (IM codes like `0088,0084` or graph IRIs) |
+| `ATLAS_POLL_MINUTES` | `30` | how often the worker checks for new datasets |
+| `ATLAS_PUBLIC_URL` | from the request | public address behind a TLS proxy (e.g. `https://rinf-atlas.example.org`), used in the OGC API and TileJSON links |
+| `ATLAS_TTL_EXPORT_MAX` | `20000` | most entities in one Turtle export (fetched live from ERA) |
+| `ATLAS_QUALITY` | `1` | `0` turns data quality validation off |
+| `ATLAS_QUALITY_MAX_TRIPLES`, `ATLAS_QUALITY_MINUTES`, `ATLAS_QUALITY_SHAPES_TAG` | `environments.yaml` | size limit, time budget per dataset and pinned shapes tag; one value or `prod=…,uat=…` ([docs/datasets.md](docs/datasets.md#data-quality)) |
+| `ATLAS_SHACL_REPORT_URL` | `https://shacl-report.matdata.eu/` | shacl-report instance the UI links to (empty = no link) |
+| `ATLAS_LAYER_*` | | keys of the extra map layers ([docs/layers.md](docs/layers.md)) |
+| `ATLAS_IMAGE`, `ATLAS_VERSION` | `ghcr.io/matdata-eu/rinf-atlas`, `latest` | published images to run |
+
+The `api` container also reads `.env` itself, so these API tuning knobs can
+be set there too: `ATLAS_TERMS_LIMIT` (200 values per terms facet),
+`ATLAS_TILE_CACHE_SECONDS` (300), `ATLAS_TILE_MAXZOOM` (14),
+`ATLAS_LOW_DETAIL_ZOOM` (8), `ATLAS_PROFILE_MAX_SECTIONS` (3000),
+`ATLAS_DB_POOL` (10), `ATLAS_FACET_THREADS` (4) and the OGC API limits
+`ATLAS_OGC_DEFAULT_LIMIT`, `ATLAS_OGC_MAX_LIMIT`, `ATLAS_OGC_MAX_OFFSET`,
+`ATLAS_OGC_TIMEOUT_MS` ([docs/api.md](docs/api.md#gis-access-ogc-api--features-vector-tiles)).
 
 To publish a privacy statement for your instance, put a page at
 `site/privacy.html` (start from `site/privacy.example.html`); the app then
@@ -199,6 +242,11 @@ from `config/layers.example.yaml`); they appear in the **Map layers** menu.
 Keys go in `.env` and stay on the server: the API proxies those tiles.
 [docs/layers.md](docs/layers.md) explains how and the trade-offs.
 
+Search engines are asked not to index an instance until `ATLAS_PUBLIC_URL` is
+set; then it gets a canonical address, link previews, `robots.txt` and a
+sitemap. [docs/seo.md](docs/seo.md) lists what the app does and the steps
+that remain for a public instance (domain, redirects, Search Console).
+
 ## Layout
 
 | Path | |
@@ -207,8 +255,12 @@ Keys go in `.env` and stay on the server: the API proxies those tiles.
 | `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, export, OGC API – Features, live describe |
 | `web/` | TypeScript + MapLibre + vis-network frontend (built into the nginx image) |
 | `shapes/` | facet shapes (edit these) |
+| `config/` | `environments.yaml` (environments, data quality), `layers.example.yaml` (extra map layers) |
 | `site/` | optional pages for your instance, such as `privacy.html` |
 | `db/init.sql` | PostGIS schema |
+| `tests/` | `smoke.sh` end-to-end test and its sample data in `fixtures/` |
+| `scripts/` | `check-commits.sh` (Conventional Commits check) |
+| `third_party/` | licences of third-party material (ERA ontology and shapes) |
 | `docs/api.md` | HTTP API contract |
 | `docs/urls.md` | shareable links: the URL scheme of the web app |
 | `docs/datasets.md` | how datasets are updated |
@@ -216,6 +268,7 @@ Keys go in `.env` and stay on the server: the API proxies those tiles.
 | `docs/DESIGN.md` | design notes |
 | `docs/privacy.md` | adding a privacy statement; what the app processes |
 | `docs/layers.md` | adding your own map layers, with API keys |
+| `docs/seo.md` | search engines and link previews; steps for a public instance |
 
 ## Feedback
 
