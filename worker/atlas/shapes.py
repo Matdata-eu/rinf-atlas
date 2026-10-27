@@ -43,6 +43,9 @@ class Facet:
     unit: str | None = None
     order: int = 100
     color_by: int | None = None  # atlas:colorBy: suggested in the map's "Colour by" picker (rank)
+    # atlas:colorClasses: fixed map colour classes of a range facet, low to high:
+    # {"up_to": inclusive upper bound (None for the last class), "label": name or None}
+    color_classes: list[dict] | None = None
 
 
 @dataclass
@@ -142,8 +145,12 @@ class ShapeSet:
     class_files: dict[str, str] = field(default_factory=dict)
 
     def digest(self) -> str:
-        blob = json.dumps([INDEX_VERSION] + [asdict(c) for c in self.classes] + [asdict(f) for f in self.shared],
-                          sort_keys=True)
+        def strip(d: dict) -> dict:  # map colour classes are display only: no reindex
+            for f in d.get("facets", [d]):
+                f.pop("color_classes", None)
+            return d
+        blob = json.dumps([INDEX_VERSION] + [strip(asdict(c)) for c in self.classes]
+                          + [strip(asdict(f)) for f in self.shared], sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
     def all_facets(self, cls: ClassShape) -> list[Facet]:
@@ -312,6 +319,11 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             )
             if fc.color_by is not None and kind == "text":
                 raise ShapeError(f"{key}.{fkey}: a text facet cannot be used to colour the map")
+            cc = r.one(prop, ATLAS + "colorClasses")
+            if cc is not None:
+                if kind != "range":
+                    raise ShapeError(f"{key}.{fkey}: atlas:colorClasses needs a range facet")
+                fc.color_classes = _color_classes(r, r.rdf_list(cc), f"{key}.{fkey}: atlas:colorClasses")
             (cs.facets if not is_shared else shared).append(fc)
         cs.facets.sort(key=lambda f: (f.order, f.key))
         if not is_shared:
@@ -549,6 +561,30 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             raise ShapeError(f"compatibility.{x.key}: atlas:noneFrom {x.none_from!r} must name a rule with atlas:noneValue")
     rules.sort(key=lambda x: (x.order, x.key))
     return CompatSet(track_classes=track_classes, section_class=section_class, rules=rules)
+
+
+MAX_COLOR_CLASSES = 8  # the web map's sequential ramp has eight steps
+
+
+def _color_classes(r: _Reader, nodes: list, what: str) -> list[dict]:
+    """atlas:colorClasses ( [ atlas:upTo 40 ; rdfs:label "..." ] ... [ rdfs:label "..." ] ):
+    increasing inclusive upper bounds; the last class has none and takes every higher value."""
+    if not 2 <= len(nodes) <= MAX_COLOR_CLASSES:
+        raise ShapeError(f"{what}: give 2 to {MAX_COLOR_CLASSES} classes, got {len(nodes)}")
+    out: list[dict] = []
+    for i, n in enumerate(nodes):
+        raw = r.lit(n, ATLAS + "upTo")
+        last = i == len(nodes) - 1
+        if (raw is None) != last:
+            raise ShapeError(f"{what}: every class but the last needs atlas:upTo, the last none")
+        try:
+            up = float(raw) if raw is not None else None
+        except ValueError:
+            raise ShapeError(f"{what}: atlas:upTo must be a number, got {raw!r}") from None
+        if up is not None and out and up <= out[-1]["up_to"]:
+            raise ShapeError(f"{what}: atlas:upTo values must increase")
+        out.append({"up_to": up, "label": r.label(n, RDFS + "label", SH + "name")})
+    return out
 
 
 def _int(v: str | None, what: str) -> int | None:
