@@ -92,12 +92,20 @@ test('class names give way to the zoom hint, and the side panel resizes', async 
 });
 
 test('a class without locations says so in a tooltip on its count, on one line', async ({ page, errors: _ }) => {
+  // Say half the operational points have no location. The sample's own kilometric post
+  // without geometry is gone once tests/smoke.sh has loaded the sample again without it.
+  await page.route('**/api/facets', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const n = body.by_class['operational-point'] ?? 0;
+    body.unlocated_by_class = { ...body.unlocated_by_class, 'operational-point': Math.ceil(n / 2) };
+    await route.fulfill({ response: res, json: body });
+  });
   await openApp(page);
-  // The sample's one kilometric post has no geometry.
-  const row = page.locator('#class-list li.class-row').filter({ has: page.locator('input[data-class="kilometric-post"]') });
+  const row = page.locator('#class-list li.class-row').filter({ has: page.locator('input[data-class="operational-point"]') });
   const mark = row.locator('.nomap-hint');
   await expect(mark).toBeVisible();
-  await expect(mark).toHaveAttribute('aria-label', /No location in RINF, not on the map/);
+  await expect(mark).toHaveAttribute('aria-label', /^\d+ without location, not on the map/);
   const line = (await row.locator('.class-line').boundingBox())!;
   expect((await row.boundingBox())!.height).toBeLessThanOrEqual(line.height + 1);
   const tip = () => mark.evaluate((e) => getComputedStyle(e, '::after').visibility);
