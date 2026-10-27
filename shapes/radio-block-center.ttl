@@ -20,6 +20,7 @@ shape:radio-block-center
     atlas:geometry "point" ;
     atlas:order 105 ;
     atlas:minZoom 5 ;
+    atlas:drawOrder 10 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] .

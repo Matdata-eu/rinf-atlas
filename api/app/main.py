@@ -152,7 +152,8 @@ def meta(env: str):
                FROM dataset WHERE env=%s AND kind='provider' AND status <> 'removed'""", [env, env])[0]
     return {
         "classes": [{"class": c["class"], "class_iri": c["class_iri"], "label": c["label"], "color": c["color"],
-                     "geometry": c["geometry"], "min_zoom": c["min_zoom"], "count": counts.get(c["class"], 0)}
+                     "geometry": c["geometry"], "min_zoom": c["min_zoom"],
+                     "draw_order": c.get("draw_order"), "count": counts.get(c["class"], 0)}
                     for c in d["classes"]],
         "facets": [{"key": f["key"], "class": f["class"], "label": f["label"], "kind": f["kind"],
                     "datatype": f["datatype"], "unit": f["unit"], "position": f["position"],

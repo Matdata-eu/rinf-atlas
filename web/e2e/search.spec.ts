@@ -66,6 +66,9 @@ test('limit to map view counts only what is in view', async ({ page, errors: _ }
   await page.locator('#limit-view').check();
   await expect.poll(() => resultCount(page)).toBe(0);
   await expect(page).toHaveURL(/[#&]v=1/);
+  // The class counts drop to zero too, not back to the totals (#54).
+  await expect(page.locator('#class-list .class-row .count').first()).toHaveText('0');
+  for (const n of await page.locator('#class-list .class-row .count').allInnerTexts()) expect(n).toBe('0');
 });
 
 test('typing in a facet filter keeps the focus', async ({ page, errors: _ }) => {
@@ -85,4 +88,19 @@ test('typing in a facet filter keeps the focus', async ({ page, errors: _ }) => 
   await expect(filter).toBeFocused();
   await expect(filter).toHaveValue('bel');
   await expect(page.locator('#facets [data-facet="country"] .terms label')).toHaveText([/BEL/]);
+});
+
+test('picking a data quality value turns on the data issues layer', async ({ page, errors: _ }) => {
+  await openApp(page);
+  const toggle = page.locator('#qa-toggle');
+  await expect(toggle).not.toBeChecked();
+  const block = page.locator('#facets [data-facet="quality"]');
+  await block.locator('.terms label').first().click();
+  await expect(page).toHaveURL(/[#&]qa=1/);
+  await expect(toggle).toBeChecked();
+  // It can still be switched off while the filter stays.
+  await page.locator('#layers-btn').click();
+  await toggle.uncheck();
+  await expect(page).not.toHaveURL(/[#&]qa=1/);
+  await expect(block.locator('.terms input:checked')).toHaveCount(1);
 });

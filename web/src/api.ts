@@ -10,6 +10,8 @@ export interface ClassMeta {
   geometry: string;
   /** Below this map zoom the tiles leave the class out (the list and search still have it). */
   min_zoom: number;
+  /** Draw order among the features drawn alike (points, lines, areas): higher on top (atlas:drawOrder). */
+  draw_order?: number | null;
   count: number;
 }
 

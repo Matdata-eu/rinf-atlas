@@ -142,3 +142,28 @@ def test_clear_graph_in_batches(tmp_path):
     assert not st.contains_named_graph(g)
     assert not list(st.quads_for_pattern(None, None, None, g))
     assert len(list(st.quads_for_pattern(None, None, None, other))) == 1
+
+
+def test_geometry_alternatives_tried_in_order():
+    # Issue #61: a section with a geometry of its own and one on its net reference shows
+    # only the net reference's geometry, so the branches are kept apart and tried in order.
+    s = load_shapes(SHAPES)
+    sol = next(c for c in s.classes if c.key == "section-of-line")
+    assert sol.geometry_paths == [
+        "(<http://data.europa.eu/949/netReference>/<http://www.opengis.net/ont/geosparql#hasGeometry>"
+        "/<http://www.opengis.net/ont/geosparql#asWKT>)",
+        "(<http://www.opengis.net/ont/geosparql#hasGeometry>/<http://www.opengis.net/ont/geosparql#asWKT>)",
+    ]
+    assert position_rules(sol)["geometry_path"] == ["era:netReference/gsp:hasGeometry/gsp:asWKT",
+                                                    "gsp:hasGeometry/gsp:asWKT"]
+
+
+def test_draw_order():
+    s = load_shapes(SHAPES)
+    draw = {c.key: c.draw_order for c in s.classes}
+    # Issue #53: structures over tracks, tracks over sections, equipment over operational points.
+    assert draw["bridge"] > draw["running-track"] > draw["section-of-line"]
+    assert draw["tunnel"] > draw["siding"]
+    assert draw["signal"] > draw["primary-location"] > draw["operational-point"]
+    # Without atlas:drawOrder: below the classes that have one, earlier in the list on top.
+    assert draw["paid-up-to"] == -200 < draw["section-of-line"]

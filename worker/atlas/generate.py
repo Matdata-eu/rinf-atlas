@@ -46,6 +46,16 @@ CLASS_META = {
     "Station":            ("station",             "#b2182b", "point", 15, 0),
 }
 
+# Map draw order (atlas:drawOrder, higher on top among points, lines or areas): structures
+# over the tracks they carry, tracks over their section of line, small equipment over the
+# operational point it sits in.
+DRAW_ORDER = {
+    "SpecialArea": 5, "SpecialTunnelArea": 6, "SectionOfLine": 10, "RunningTrack": 20, "Track": 22,
+    "Siding": 24, "PlatformEdge": 30, "Tunnel": 40, "Bridge": 42,
+    "RadioBlockCenter": 10, "OperationalPoint": 20, "Station": 22, "PrimaryLocation": 30,
+    "KilometricPost": 40, "LevelCrossing": 50, "HABD": 52, "Switch": 60, "Signal": 62,
+}
+
 # Display labels that differ from the ontology's rdfs:label.
 CLASS_LABELS = {
     "Siding": "Siding track",
@@ -69,8 +79,9 @@ ID_LIKE = re.compile(r"(Id|ID|Identification|Name|Code|uopid|Number|Reference)$"
 MIN_USAGE = 10  # with data: drop facets used by fewer instances (test uploads)
 TERMS_STRINGS = {ERA + "lineId"}  # strings that make good term facets (national line number)
 
-GEOM_PATH = ("[ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) "
-             "( era:netReference gsp:hasGeometry gsp:asWKT ) ) ]")
+# Alternatives are tried in order: the net reference's geometry wins over the feature's own.
+GEOM_PATH = ("[ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) "
+             "( gsp:hasGeometry gsp:asWKT ) ) ]")
 PART_OF = "[ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ]"
 # Link facets (atlas:kind "link") the line profile needs: (key, SHACL path, label).
 LINKS = {
@@ -315,8 +326,10 @@ def render_class(c: ClassInfo, version: str, with_data: bool) -> str:
     out.append(f"shape:{key}\n    a sh:NodeShape ;\n    atlas:key {_ttl_str(key)} ;\n"
                f"    rdfs:label {_ttl_str(c.label[:1].upper() + c.label[1:])} ;\n"
                f"    sh:targetClass {_curie(c.iri)} ;\n    atlas:color {_ttl_str(color)} ;\n"
-               f"    atlas:geometry {_ttl_str(geom)} ;\n    atlas:order {order} ;\n    atlas:minZoom {minz} ;\n"
-               f"    atlas:labelPath rdfs:label ;\n    atlas:geometryPath {GEOM_PATH} ;\n")
+               f"    atlas:geometry {_ttl_str(geom)} ;\n    atlas:order {order} ;\n    atlas:minZoom {minz} ;\n")
+    if name in DRAW_ORDER:
+        out.append(f"    atlas:drawOrder {DRAW_ORDER[name]} ;\n")
+    out.append(f"    atlas:labelPath rdfs:label ;\n    atlas:geometryPath {GEOM_PATH} ;\n")
     if name == "SectionOfLine":
         out.append("    atlas:lineBetween ( era:opStart era:opEnd ) ;\n")
     elif name == "OperationalPoint":

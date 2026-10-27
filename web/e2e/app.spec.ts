@@ -63,3 +63,48 @@ test('datasets dialog lists the loaded sample', async ({ page, errors: _ }) => {
   await expect(dlg).toContainText('0082');
   await expect(dlg).toContainText(/processed/i);
 });
+
+test('class names give way to the zoom hint, and the side panel resizes', async ({ page, errors: _ }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openApp(page, 'map=6/49.7/6.1');
+  // Long names are cut with an ellipsis, but "zoom in to see" stays whole (#55).
+  for (const row of await page.locator('#class-list .class-lbl').all()) {
+    const hint = row.locator('.zoom-hint');
+    if (!(await hint.isVisible())) continue;
+    const [r, hr] = [await row.boundingBox(), await hint.boundingBox()];
+    expect(hr!.x + hr!.width).toBeLessThanOrEqual(r!.x + r!.width + 1);
+    expect(await hint.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  }
+  const side = page.locator('#side');
+  const handle = page.getByRole('separator', { name: 'Resize the side panel' });
+  const w0 = (await side.boundingBox())!.width;
+  const hb = (await handle.boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + 150, hb.y + 200, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(w0 + 100);
+  // Remembered in this browser, and a double click goes back to the default width.
+  await page.reload();
+  await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(w0 + 100);
+  await handle.dblclick();
+  await expect.poll(async () => (await side.boundingBox())!.width).toBe(w0);
+});
+
+test('a class without locations says so in a tooltip on its count, on one line', async ({ page, errors: _ }) => {
+  await openApp(page);
+  // The sample's one kilometric post has no geometry.
+  const row = page.locator('#class-list li.class-row').filter({ has: page.locator('input[data-class="kilometric-post"]') });
+  const mark = row.locator('.nomap-hint');
+  await expect(mark).toBeVisible();
+  await expect(mark).toHaveAttribute('aria-label', /No location in RINF, not on the map/);
+  const line = (await row.locator('.class-line').boundingBox())!;
+  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(line.height + 1);
+  const tip = () => mark.evaluate((e) => getComputedStyle(e, '::after').visibility);
+  expect(await tip()).toBe('hidden');
+  await mark.hover();
+  await expect.poll(tip).toBe('visible');
+  // A click on it does not tick the class.
+  await mark.click();
+  await expect(row.locator('input[type=checkbox]')).not.toBeChecked();
+});

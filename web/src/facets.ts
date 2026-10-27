@@ -131,10 +131,15 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   const hint = h('button', { type: 'button', class: 'link zoom-hint', onclick: (e: Event) => {
     e.preventDefault(); e.stopPropagation(); toggleAllZoom(c.class);
   } });
-  const nomap = h('div', { class: 'muted nomap-hint', hidden: true });
+  // Features without coordinates: an exclamation mark by the count, explained on hover or focus.
+  // Inside the label: a click on it must not tick the class.
+  const nomap = h('span', { class: 'nomap-hint', role: 'img', tabindex: '0', hidden: true,
+    onclick: (e: Event) => { e.preventDefault(); e.stopPropagation(); } }, '!');
   const count = h('span', { class: 'count' });
+  // The name gives way (ellipsis) before the zoom hint does; the full name is in its title.
   const label = h('label', { class: 'check' }, box, h('span', { class: 'swatch', style: `background:${c.color}` }),
-    h('span', { class: 'lbl' }, c.label, ' ', hint), count);
+    h('span', { class: 'lbl class-lbl' }, h('span', { class: 'class-name', title: c.label }, c.label), hint),
+    h('span', { class: 'count-cell' }, nomap, count));
   const badge = h('span', { class: 'filter-badge' });
   const hasFacets = classFacets(store.get(), c.class).length > 0;
   const btn = hasFacets ? h('button', {
@@ -144,7 +149,7 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   }) : null;
   if (btn) { btn.innerHTML = FILTER_ICON; btn.append(badge); }
   const panel = h('div', { class: 'class-facets', hidden: true });
-  const li = h('li', { class: 'class-row' }, h('div', { class: 'class-line' }, label, btn ?? h('span', { class: 'filter-btn-spacer' })), nomap, panel);
+  const li = h('li', { class: 'class-row' }, h('div', { class: 'class-line' }, label, btn ?? h('span', { class: 'filter-btn-spacer' })), panel);
   r = { li, label, box, hint, nomap, count, btn, badge, panel };
   rows.set(c.class, r);
   return r;
@@ -158,7 +163,8 @@ function renderClasses() {
   const shown = (s.meta?.classes ?? []).filter((c) => c.count > 0 || s.classes.includes(c.class));
   const els = shown.map((c) => {
     const r = rowFor(c);
-    const n = counts[c.class] ?? c.count;
+    // by_class leaves out classes with no match (e.g. none in view): those count 0, not the total.
+    const n = data ? counts[c.class] ?? 0 : c.count;
     r.label.classList.toggle('zero', n === 0);
     r.box.checked = s.classes.includes(c.class);
     r.count.textContent = fmt.format(n);
@@ -170,8 +176,10 @@ function renderClasses() {
     r.hint.title = forced ? `Drawn at every zoom; click to draw it from zoom ${c.min_zoom} only again`
       : `Drawn on the map from zoom ${c.min_zoom}; click to draw it at every zoom`;
     r.nomap.hidden = !(u > 0 && u >= n * NOMAP_SHARE);
-    r.nomap.textContent = u === n ? 'No location in RINF, not on the map' : `${fmt.format(u)} without location, not on the map`;
-    r.nomap.title = 'Listed in the results, but the infrastructure manager published no coordinates for them';
+    const tip = (u === n ? 'No location in RINF, not on the map' : `${fmt.format(u)} without location, not on the map`)
+      + '. Listed in the results, but the infrastructure manager published no coordinates for them.';
+    r.nomap.dataset.tip = tip;
+    r.nomap.setAttribute('aria-label', tip);
     const open = openClasses.has(c.class);
     const active = activeOn(s, c.class);
     r.li.classList.toggle('open', open);
