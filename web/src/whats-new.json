@@ -1,0 +1,89 @@
+[
+  {
+    "version": "1.4.0",
+    "date": "2026-10-27",
+    "new": [
+      "Fixed speed bands when you colour the map by maximum speed, so high-speed lines get their own colours.",
+      "Full screen line profile: open it over the whole window, Escape brings the map back.",
+      "Drag the side panel's edge to make it wider; the width is remembered.",
+      "Tunnels and bridges are drawn over tracks, and tracks over sections of line."
+    ],
+    "improved": [
+      "A section of line shows one geometry, from its net reference, instead of two.",
+      "Elements without a location show an exclamation mark next to their count, with the explanation on hover.",
+      "Picking a data quality value in the filters turns on the Data issues layer.",
+      "With the vehicle check shown, a click on the map opens the section of line under it."
+    ],
+    "fixed": [
+      "A class with no match in the map view counts 0 instead of its total.",
+      "The data quality filter matches the Data issues layer again."
+    ]
+  },
+  {
+    "version": "1.3.1",
+    "date": "2026-10-19",
+    "fixed": [
+      "No more false data quality findings on border points, NUTS regions and data types.",
+      "Typing in a facet's filter box keeps the focus."
+    ]
+  },
+  {
+    "version": "1.3.0",
+    "date": "2026-10-18",
+    "new": [
+      "An element's details say how its position on the map was worked out.",
+      "The facet shapes this site runs with can be opened and downloaded from Help.",
+      "Draw a class at every zoom with \"zoom in to see\", for example to colour the whole network.",
+      "The current map zoom shows above the scale bar.",
+      "Vehicle check: axle load, mass per metre and \"No ETCS installed\".",
+      "A new icon and look, and the app installs with a proper icon."
+    ],
+    "improved": [
+      "The list of overlapping elements marks the ones with data issues.",
+      "The map loads faster when zoomed out over Europe."
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-10-16",
+    "new": [
+      "Colour the map by a property, such as maximum speed or energy supply.",
+      "Vehicle check: see where a vehicle can run, section by section.",
+      "Line profile: the track parameters of a line laid out along the distance.",
+      "Data quality: ERA's validation results per dataset, on the map and per element.",
+      "Open the results in QGIS, ArcGIS Pro or GDAL.",
+      "Share a link to exactly this view, including filters and open tools.",
+      "Back and forward in the Describe and Graph tabs.",
+      "Export the results as Turtle.",
+      "A Help button with a short guide.",
+      "Pick from a list when a click lands on several elements."
+    ],
+    "improved": [
+      "Line profile, vehicle check and the map layers have a tidier toolbar on the map.",
+      "The Datasets dialog starts with four key figures.",
+      "Classes with elements that have no location say how many are not on the map."
+    ],
+    "fixed": [
+      "Datasets no longer disappear from the map while they are being updated.",
+      "Short sections of line stay visible when zoomed out."
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-10-14",
+    "new": [
+      "Zoom to a single result from the Results list or the details panel.",
+      "The About dialog shows the version."
+    ],
+    "fixed": [
+      "About 9,300 elements, mostly in Lithuania, are now drawn on the map."
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "date": "2026-10-14",
+    "new": [
+      "First release: every kind of RINF infrastructure element on one map, with filters, search, details and CSV or Excel export, for PROD and UAT."
+    ]
+  }
+]

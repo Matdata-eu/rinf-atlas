@@ -80,3 +80,7 @@ does).
   [GitHub Releases](https://github.com/Matdata-eu/rinf-atlas/releases), generated
   from the merged pull requests and edited there, so give your pull request a
   Conventional Commits title that reads well as a line in them.
+- With each release, add an entry at the top of `web/src/whats-new.json`: the
+  app's "What's new" dialog. Keep it short and for users: one line per item
+  under `new`, `improved` and `fixed`, leaving out contributor-only changes.
+  A returning visitor gets a dot on the About button until they open it.

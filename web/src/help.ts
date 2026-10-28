@@ -3,6 +3,7 @@
 import { COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_TITLE } from './disclaimer';
 import { openShapes } from './shapes';
 import { h } from './state';
+import { whatsNewLink } from './whats-new';
 import { openTour } from './tour';
 
 let dlg: HTMLDialogElement | null = null;
@@ -27,6 +28,7 @@ export function openHelp() {
       h('div', { class: 'about-body help-body' },
         h('p', { class: 'muted' }, 'Find railway infrastructure from the EU Register of Infrastructure (RINF) on the map, ',
           'narrow it down with filters, and inspect any element. Open a topic below.'),
+        h('p', { class: 'muted' }, 'Recent changes: ', whatsNewLink(() => dlg), '.'),
         h('p', { class: 'help-tour' }, 'New here? Take the short tour: ',
           h('button', { class: 'link', type: 'button', onclick: () => { dlg?.close(); openTour(); } }, 'How RINF Atlas works'), '.'),
         section('Getting started', true,
