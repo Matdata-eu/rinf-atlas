@@ -11,6 +11,7 @@ import { initFacets } from './facets';
 import { fitBbox, initMap, jumpToView, resizeMap, TILE_MODE } from './map';
 import { initResults } from './results';
 import { initThematic } from './thematic';
+import { maybeOpenTour } from './tour';
 import { setTheme, themePref, type ThemePref } from './theme';
 import { changed, debounce, h, isFilterEmpty, queryState, store, type AppState, type SideTab } from './state';
 import { buildHash, currentLink, fromUrl, parseHash, URL_DEFAULTS, writeUrl } from './url';
@@ -315,6 +316,7 @@ async function main() {
   window.addEventListener('popstate', onUrl);
   window.addEventListener('hashchange', onUrl);
   if (TILE_MODE === 'geojson') document.body.classList.add('geojson-mode');
+  maybeOpenTour();
 }
 
 main();
