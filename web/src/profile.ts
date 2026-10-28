@@ -134,6 +134,18 @@ function setMode(m: Mode) {
 
 const setSpec = (spec: ProfileSpec | null) => store.set({ profile: spec });
 
+/** Fill the form, keeping the focus and caret in an input that is moved: a re-render while
+ *  someone types (the panel's first load lands ~120 ms after it opens) would otherwise drop the keys. */
+function setForm(...kids: HTMLElement[]) {
+  const el = document.activeElement;
+  const keep = el instanceof HTMLInputElement && form.contains(el) ? { el, start: el.selectionStart, end: el.selectionEnd } : null;
+  form.replaceChildren(...kids);
+  if (keep && form.contains(keep.el) && document.activeElement !== keep.el) {
+    keep.el.focus();
+    keep.el.setSelectionRange(keep.start, keep.end);
+  }
+}
+
 function renderForm() {
   const spec = store.get().profile;
   if (mode === 'line') {
@@ -142,11 +154,11 @@ function renderForm() {
     graphSelect.hidden = alts.length < 2;
     graphSelect.replaceChildren(...alts.map((a) => h('option', { value: a.graph_iri, selected: a.graph_iri === data?.line?.graph_iri },
       `${a.provider ?? a.graph_iri.split('/').pop()} (${a.sections} sections)`)));
-    form.replaceChildren(lineInput, graphSelect,
+    setForm(lineInput, graphSelect,
       h('span', { class: 'muted small profile-hint' }, 'Or open a section of line on the map and choose “Line profile”.'));
   } else if (mode === 'sections') {
     const n = spec?.mode === 'sections' ? spec.sections.length : 0;
-    form.replaceChildren(...[
+    setForm(...[
       h('span', { class: 'profile-hint' }, h('strong', {}, n ? `${n} section${n === 1 ? '' : 's'} selected. ` : ''),
         'Click sections of line on the map to add or remove them; they are put in order and gaps are flagged.'),
       n ? h('button', { class: 'btn btn-small', type: 'button', onclick: () => {
@@ -157,7 +169,7 @@ function renderForm() {
   } else {
     if (document.activeElement !== fromInput) fromInput.value = routeDraft.from?.label ?? '';
     if (document.activeElement !== toInput) toInput.value = routeDraft.to?.label ?? '';
-    form.replaceChildren(fromInput, h('span', { class: 'muted', 'aria-hidden': 'true' }, '→'), toInput,
+    setForm(fromInput, h('span', { class: 'muted', 'aria-hidden': 'true' }, '→'), toInput,
       h('span', { class: 'muted small profile-hint' }, 'Type a name, or click two operational points on the map.'));
   }
 }

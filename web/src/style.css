@@ -550,6 +550,7 @@ body.side-resizing { cursor: col-resize; user-select: none; }
   .wn-group { grid-template-columns: 1fr; gap: 4px; }
   .wn-tag { justify-self: start; padding: 2px 8px; }
 }
+.help-tour .link { font: inherit; font-weight: 600; }
 .help-sec { border-top: 1px solid var(--border); }
 .help-sec:last-child { border-bottom: 1px solid var(--border); }
 .help-sec summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 9px 0; }
@@ -560,6 +561,71 @@ body.side-resizing { cursor: col-resize; user-select: none; }
   border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface-2);
 }
 .gis-dialog { width: min(640px, calc(100vw - 32px)); }
+
+/* ---------- "How RINF Atlas works" tour ---------- */
+.tour-dialog { width: min(640px, calc(100vw - 32px)); }
+.tour-dialog .dlg-head { align-items: flex-start; padding-top: 14px; }
+.tour-title { display: flex; flex-direction: column; gap: 2px; }
+.tour-kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.tour-dialog .dlg-head h2 { font-size: 18px; }
+.tour-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 6px; overflow: auto; }
+.tour-item { display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: center; padding: 8px 0; }
+.tour-item + .tour-item { border-top: 1px solid var(--border); }
+.tour-item h3 { font-size: 14px; margin: 0 0 2px; }
+.tour-item p { margin: 0; line-height: 1.45; color: var(--muted); }
+.tour-art {
+  width: 76px; height: 60px; display: grid; place-items: center;
+  background: var(--surface-2); border-radius: var(--radius);
+}
+.tour-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px 14px; border-top: 1px solid var(--border);
+}
+.tour-nav-left, .tour-nav { display: flex; align-items: center; gap: 10px; }
+.tour-nav { margin-left: auto; }
+.tour-dots { display: flex; gap: 2px; }
+.tour-dot { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.tour-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: width .15s; }
+.tour-dot[aria-current]::before { background: var(--accent); width: 18px; border-radius: 4px; }
+.tour-step { font-size: 12px; }
+.tour-skip { font-size: 13px; color: var(--muted); }
+.tour-next { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.tour-next:hover { background: var(--accent); filter: brightness(1.08); }
+/* drawings: theme colours only, so they follow light and dark */
+.tour-art svg { overflow: visible; }
+.tour-art :is(path, circle, rect, ellipse) { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tour-art text { font: 600 8px var(--font); }
+.ta-soft, .ta-card { fill: var(--surface) !important; stroke: var(--border); stroke-width: 1.5; }
+.ta-fill { fill: var(--accent) !important; }
+.ta-fill-soft { fill: var(--accent-soft) !important; stroke: var(--accent); stroke-width: 1.5; }
+.ta-on { fill: var(--surface); }
+.ta-txt { fill: var(--muted); }
+.ta-on-line { stroke: var(--surface); stroke-width: 2.2; }
+.ta-line { stroke: var(--accent); stroke-width: 2; }
+.ta-thick { stroke-width: 3.5; }
+.ta-muted { stroke: var(--muted); stroke-width: 2; opacity: .55; }
+.ta-tab { stroke: var(--accent); stroke-width: 3; }
+.ta-rail { stroke: var(--accent); stroke-width: 3; }
+.ta-dot { fill: var(--signal) !important; stroke: var(--surface); stroke-width: 1.5; }
+.ta-ptr { fill: var(--text) !important; stroke: var(--surface); stroke-width: 1.2; }
+.ta-ptr-line { stroke: var(--text); stroke-width: 1.2; stroke-dasharray: 2 2; }
+.ta-box { stroke: var(--muted); stroke-width: 1.5; fill: var(--surface) !important; }
+.ta-tick { stroke: var(--accent); stroke-width: 2; }
+.ta-c1 { fill: #2e90fa !important; } .ta-c2 { fill: #f79009 !important; } .ta-c3 { fill: #12b76a !important; }
+.ta-c1s { stroke: #2e90fa; } .ta-c3s { stroke: #12b76a; }
+.ta-band { stroke-width: 5; }
+.ta-b1 { stroke: #f04438; } .ta-b2 { stroke: #fdb022; } .ta-b3 { stroke: #12b76a; }
+.ta-b1f { fill: #f04438 !important; } .ta-b2f { fill: #fdb022 !important; } .ta-b3f { fill: #12b76a !important; }
+.ta-ok { stroke: var(--ok); } .ta-warn { stroke: var(--warn); } .ta-bad { stroke: var(--danger); }
+.ta-okf { fill: var(--ok) !important; }
+.ta-win { fill: var(--surface) !important; stroke: var(--accent); stroke-width: 1.2; }
+.ta-wheel { fill: var(--text) !important; }
+@media (max-width: 520px) {
+  .tour-item { grid-template-columns: 60px 1fr; gap: 10px; }
+  .tour-art { width: 60px; height: 48px; }
+  .tour-art svg { width: 52px; height: 39px; }
+  .tour-step { display: none; }
+}
 .gis-row { margin: 14px 0 0; }
 .gis-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .gis-row p { margin: 4px 0 0; }

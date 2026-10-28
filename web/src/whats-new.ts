@@ -52,7 +52,10 @@ export function initWhatsNew() {
     let returning = false;
     try {
       for (let i = 0; i < localStorage.length; i++) {
-        if (/^(atlas-|rinf-atlas\.)/.test(localStorage.key(i) ?? '')) returning = true;
+        // The first-visit tour's key is left out: it ships with this dialog, so a browser
+        // that has it already went through this check on that visit.
+        const key = localStorage.key(i) ?? '';
+        if (/^(atlas-|rinf-atlas\.)/.test(key) && key !== 'atlas-tour') returning = true;
       }
     } catch { /* private mode */ }
     if (!returning) { markSeen(); return; }
