@@ -186,6 +186,11 @@ def test_geometry_alternatives_tried_in_order():
                                                     "gsp:hasGeometry/gsp:asWKT"]
 
 
+DRAWN = {"special-area", "special-tunnel-area", "section-of-line", "running-track", "track", "siding",
+         "platform-edge", "tunnel", "bridge", "radio-block-center", "operational-point", "station",
+         "primary-location", "kilometric-post", "level-crossing", "hot-axle-box-detector", "switch", "signal"}
+
+
 def test_draw_order():
     s = load_shapes(SHAPES)
     draw = {c.key: c.draw_order for c in s.classes}
@@ -193,5 +198,10 @@ def test_draw_order():
     assert draw["bridge"] > draw["running-track"] > draw["section-of-line"]
     assert draw["tunnel"] > draw["siding"]
     assert draw["signal"] > draw["primary-location"] > draw["operational-point"]
+    # Issue #79: an operational point can be drawn as a line (its net reference), so it must
+    # not tie with a track class; no two shipped classes share a number.
+    assert draw["running-track"] > draw["operational-point"] > draw["section-of-line"]
+    shipped = [c.draw_order for c in s.classes if c.key in DRAWN]
+    assert len(shipped) == len(set(shipped)) == len(DRAWN)
     # Without atlas:drawOrder: below the classes that have one, earlier in the list on top.
     assert draw["paid-up-to"] == -200 < draw["section-of-line"]
