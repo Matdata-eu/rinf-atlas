@@ -28,7 +28,7 @@ flowchart LR
 | Service | Technology | Role |
 |---|---|---|
 | `db` | PostgreSQL 16 + PostGIS 3.4 | The index: one row per infrastructure element with its geometry (EPSG:4326 plus a pre-projected EPSG:3857 copy for tiles), facet values as `jsonb`, a full-text `tsvector`; labels of IRI values; dataset status. |
-| `worker` | Python 3.14, pyoxigraph, psycopg | Polls ERA, mirrors changed named graphs in an embedded Oxigraph store per environment, indexes them into PostGIS and validates them against ERA's SHACL shapes. See [datasets.md](datasets.md). With the optional describe index on, it also stores every triple and one precomputed page per resource for [RINF Describe](https://github.com/Matdata-eu/rinf-describe), which reads them from the same database ([describe.md](describe.md)). |
+| `worker` | Python 3.14, pyoxigraph, psycopg | Polls ERA, mirrors changed named graphs in an embedded Oxigraph store per environment, indexes them into PostGIS and validates them against ERA's SHACL shapes. See [datasets.md](datasets.md). |
 | `api` | Python 3.14, FastAPI, uvicorn | Facet counts, search, extent, vector tiles (`ST_AsMVT` straight from PostGIS), map colouring, feature details, dataset status and data quality, exports, line profiles, the vehicle check, OGC API – Features, the proxy for extra map layers, and the live describe proxy to ERA. Contract: [api.md](api.md). |
 | `web` | TypeScript, Vite, MapLibre GL JS, vis-network, nginx | The single-page UI; nginx serves the build and proxies `/api/` to the api service. |
 
