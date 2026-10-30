@@ -124,3 +124,43 @@ test('picking a data quality value turns on the data issues layer', async ({ pag
   await expect(page).not.toHaveURL(/[#&]qa=1/);
   await expect(block.locator('.terms input:checked')).toHaveCount(1);
 });
+
+test('Full describe links show only when the deployment sets a template', async ({ page, errors: _ }) => {
+  // Without ATLAS_DESCRIBE_URL (the test stack) there is no link.
+  await openApp(page, 'q=Bettembourg-Voyageurs&side=results');
+  await page.locator('#results .result-row button').filter({ hasText: 'Bettembourg-Voyageurs' }).first().click();
+  const detail = page.locator('#detail');
+  await expect(detail.locator('h2')).toHaveText('Bettembourg-Voyageurs');
+  await expect(detail.getByRole('button', { name: 'Describe live' })).toBeVisible();
+  await expect(detail.getByRole('link', { name: /Full describe/ })).toHaveCount(0);
+});
+
+test('Full describe links follow the selected feature and the Describe breadcrumb', async ({ page, errors: _ }) => {
+  await page.route('**/api/envs', async (route) => {
+    const res = await route.fetch();
+    const body = (await res.json()) as Record<string, unknown>[];
+    await route.fulfill({ response: res, json: body.map((e) => ({ ...e, describe_url: 'https://describe.example/describe?uri={iri}&env={env}' })) });
+  });
+  // Describe goes live to ERA: answer it here, with a link to an IRI that needs encoding.
+  const odd = 'http://example.org/x?a=1&b=2#frag';
+  await page.route('**/api/describe?*', (route) => {
+    const iri = new URL(route.request().url()).searchParams.get('iri')!;
+    return route.fulfill({ json: { iri, labels: {}, triples: iri === odd ? [] : [{ s: iri, p: 'http://www.w3.org/2000/01/rdf-schema#seeAlso', o: { type: 'uri', value: odd } }] } });
+  });
+  await openApp(page, 'q=Bettembourg-Voyageurs&side=results');
+  await page.locator('#results .result-row button').filter({ hasText: 'Bettembourg-Voyageurs' }).first().click();
+  const detail = page.locator('#detail');
+  await expect(detail.locator('h2')).toHaveText('Bettembourg-Voyageurs');
+  const iri = await detail.locator('a.iri').getAttribute('href');
+  const link = detail.getByRole('link', { name: /Full describe/ });
+  await expect(link).toHaveAttribute('href', `https://describe.example/describe?uri=${encodeURIComponent(iri!)}&env=prod`);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener');
+
+  // The Describe tab links the IRI at the end of the breadcrumb.
+  await detail.getByRole('button', { name: 'Describe live' }).click();
+  await expect(link).toHaveAttribute('href', `https://describe.example/describe?uri=${encodeURIComponent(iri!)}&env=prod`);
+  await detail.locator('.describe-table .iri-btn').first().click();
+  await expect(detail.locator('.crumb.current')).toHaveAttribute('title', odd);
+  await expect(link).toHaveAttribute('href', 'https://describe.example/describe?uri=http%3A%2F%2Fexample.org%2Fx%3Fa%3D1%26b%3D2%23frag&env=prod');
+});

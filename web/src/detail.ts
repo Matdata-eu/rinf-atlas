@@ -1,5 +1,5 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
-import { api, ApiError, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
+import { api, ApiError, fullDescribeUrl, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
 import { checkColour, viewKeys, viewMeta } from './checks';
 import { openShapes } from './shapes';
 import { compatBlock } from './compat';
@@ -190,10 +190,17 @@ function renderProperties(body: HTMLElement) {
       ...(f.classes.includes('section-of-line') ? (f.facets['nationalLine.lineId'] ?? []).map((v) => h('button', {
         class: 'btn', title: 'Parameters along this national line', onclick: () => showLineProfile(String(v.value), f.graph_iri),
       }, `Line profile ${v.label ?? v.value}`)) : []),
-      h('button', { class: 'btn', onclick: () => store.set({ detailTab: 'describe' }) }, 'Describe live')),
+      h('button', { class: 'btn', onclick: () => store.set({ detailTab: 'describe' }) }, 'Describe live'),
+      fullDescribeLink(f.iri, 'btn')),
   );
   if (f.position) body.append(positionSection(f));
   if (f.quality && store.get().meta?.quality?.enabled) body.append(qualitySection(f, f.quality));
+}
+
+/** A link to the deployment's page-style description of the resource (ATLAS_DESCRIBE_URL), if it has one. */
+function fullDescribeLink(iri: string, cls: string): HTMLElement | null {
+  const href = fullDescribeUrl(store.get().env, iri);
+  return href ? h('a', { class: `${cls} full-describe`, href, target: '_blank', rel: 'noopener', title: `Full description of ${iri}` }, 'Full describe ↗') : null;
 }
 
 /** Where the map position comes from: the element's own coordinates, or inferred from related
@@ -286,7 +293,7 @@ function renderDescribe(body: HTMLElement) {
   const dirToggle = h('div', { class: 'seg', role: 'group', 'aria-label': 'Direction' },
     ...(['out', 'in'] as const).map((d) => h('button', { class: 'seg-btn', 'aria-pressed': String(direction === d),
       onclick: () => setNav(nav().path, d) }, d === 'out' ? 'Outgoing' : 'Incoming')));
-  const tools = h('div', { class: 'describe-tools' }, dirToggle, h('span', { class: 'spacer' }));
+  const tools = h('div', { class: 'describe-tools' }, dirToggle, h('span', { class: 'spacer' }), fullDescribeLink(iri, 'btn btn-small'));
   const table = h('div', { class: 'describe-table' }, h('p', { class: 'muted loading-text' }, 'Querying ERA…'));
   body.append(crumbs, tools, table);
 

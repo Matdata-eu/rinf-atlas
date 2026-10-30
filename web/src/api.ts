@@ -1,6 +1,10 @@
 // Typed client for the RINF Atlas HTTP API (docs/api.md).
 
-export interface Env { key: string; label: string; sparql: string; default: boolean }
+export interface Env {
+  key: string; label: string; sparql: string; default: boolean;
+  /** "Full describe" link template with {iri} and {env} placeholders; null = no link. */
+  describe_url?: string | null;
+}
 
 export interface ClassMeta {
   class: string;
@@ -451,8 +455,18 @@ const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>
 
 const qs = (o: Record<string, string>) => new URLSearchParams(o).toString();
 
+/** The environments, as the last `api.envs()` answered them. */
+let envList: Env[] = [];
+
+/** The "Full describe" link of a resource in an environment, or null when the deployment sets none. */
+export function fullDescribeUrl(env: string, iri: string): string | null {
+  const t = envList.find((e) => e.key === env)?.describe_url;
+  if (!t || !iri) return null;
+  return t.replaceAll('{iri}', encodeURIComponent(iri)).replaceAll('{env}', encodeURIComponent(env));
+}
+
 export const api = {
-  envs: () => request<Env[]>('/envs'),
+  envs: () => request<Env[]>('/envs').then((r) => (envList = r)),
   layers: () => request<MapLayer[]>('/layers'),
   /** Absolute tile URL of a proxied layer (MapLibre needs absolute URLs in workers). */
   layerTilesUrl: (id: string) => `${new URL(BASE, location.href).href.replace(/\/$/, '')}/layers/${encodeURIComponent(id)}/{z}/{x}/{y}`,
