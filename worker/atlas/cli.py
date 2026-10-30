@@ -34,7 +34,7 @@ from .config import settings
 from .extract import refresh_facet_cache
 from .generate import generate
 from .shapes import ShapeError, load_shapes
-from .sync import publish_defs, reindex_env, stale_envs, sync_env
+from .sync import publish_defs, reindex_env, stale_envs, stale_view_envs, sync_env
 
 log = logging.getLogger("atlas")
 SQL = Path(__file__).resolve().parent.parent / "init.sql"
@@ -198,6 +198,13 @@ def cmd_check_shapes(a) -> None:
                              f"  termValues={len(r.term_values)}" if r.term_values else "",
                              f"  section={','.join(r.section_facets)}" if r.section_facets else ""])
             print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}{extra}")
+    for v in shapes.views:
+        print(f"view {v.key}: {', '.join(v.classes) or 'every class'}, group by {v.group_by or '-'}, "
+              f"{len(v.params)} parameters, {len(v.checks)} checks on {', '.join(v.check_classes) or '-'}"
+              f"{' / ' + v.section_class if v.section_class else ''}")
+        for c in v.checks:
+            print(f"  {c.key:32} {c.constraint:13} {', '.join(c.facets)}"
+                  f"{'  when ' + '; '.join(w['facet'] for w in c.applies_when) if c.applies_when else ''}")
 
 
 def cmd_run(a) -> None:
@@ -226,6 +233,10 @@ def cmd_run(a) -> None:
                 if env in cfg.envs:
                     log.info("%s: shapes changed, reindexing from the mirror", env)
                     reindex_env(cfg, conn, shapes, cfg.envs[env])
+            for env in stale_view_envs(conn, shapes):
+                if env in cfg.envs:
+                    log.info("%s: view checks changed, evaluating them again", env)
+                    refresh_facet_cache(conn, env)
             jobs = _take_jobs(conn)
             for jid, env, kind in jobs:
                 if kind.startswith("generate"):

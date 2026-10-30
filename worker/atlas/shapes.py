@@ -134,11 +134,66 @@ class CompatSet:
     rules: list[CompatRule]
 
 
+# The result of a view's requirement check, as the value of its facet (see atlas.ttl).
+CHECK_MEETS, CHECK_NO_DATA, CHECK_FAILS = ATLAS + "Meets", ATLAS + "NoData", ATLAS + "DoesNotMeet"
+CHECK_LABELS = {CHECK_MEETS: "Meets the requirement", CHECK_NO_DATA: "Data missing",
+                CHECK_FAILS: "Does not meet the requirement"}
+# SHACL constraint components a check can use: the compat ones, plus atlas:notIn
+# (the feature has at least one value that is not in the list).
+CHECK_TERMS = {"hasValue", "in", "notIn"}
+
+
+@dataclass
+class ViewCheck:
+    """One requirement of a view (a sh:property with atlas:check): evaluated by the worker on
+    the indexed facets of the view's check classes, the result stored as facet `key`."""
+    key: str
+    label: str
+    constraint: str          # hasValue | in | notIn | minInclusive | maxInclusive | minExclusive | maxExclusive
+    facets: list[str]        # compared facet keys (values pooled)
+    values: list = field(default_factory=list)  # IRIs / strings / booleans, or [number]
+    # A numeric check compared with a facet of concepts: the number each concept stands for.
+    term_values: dict[str, float] = field(default_factory=dict)
+    implied: list[dict] = field(default_factory=list)  # as CompatRule.implied
+    when_missing: str = "unknown"  # unknown | fails
+    # Only features matching every condition are checked: [{"facet": key, "values": [...]}].
+    applies_when: list[dict] = field(default_factory=list)
+    comment: str | None = None
+    deadline: str | None = None    # atlas:deadline, display text
+    unit: str | None = None
+    order: int = 100
+
+
+@dataclass
+class View:
+    """A named lens on the map (shapes/views/*.ttl): classes, filters, a group picker, the
+    parameters that matter and optional requirement checks."""
+    key: str
+    label: str
+    comment: str | None = None
+    order: int = 100
+    classes: list[str] = field(default_factory=list)
+    group_by: str | None = None     # terms facet key whose values are the view's groups
+    group_label: str | None = None
+    color_by: str | None = None
+    filters: dict = field(default_factory=dict)  # facet key -> [values] | {"min", "max"}
+    params: list[str] = field(default_factory=list)  # facet keys, in order
+    checks: list[ViewCheck] = field(default_factory=list)
+    check_classes: list[str] = field(default_factory=list)
+    section_class: str | None = None  # gets the best result of its parts (feature_link 'from')
+    summary_key: str | None = None    # every check at once (worst result), when there are several
+    summary_label: str | None = None
+    file: str | None = None           # the shapes/ file it is defined in
+
+
 @dataclass
 class ShapeSet:
     classes: list[ClassShape]
     shared: list[Facet]
     compat: CompatSet | None = None  # not part of the digest: rules need no reindex
+    # Views and their checks: not part of the digest either; changed checks are re-evaluated
+    # on the index without a reindex (see views_digest).
+    views: list[View] = field(default_factory=list)
     # The shape files as written (name relative to the shapes folder -> Turtle) and the
     # file each class shape is in, so the app can show them. Not part of the digest either.
     files: dict[str, str] = field(default_factory=dict)
@@ -153,9 +208,20 @@ class ShapeSet:
                           + [strip(asdict(f)) for f in self.shared], sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
+    def views_digest(self) -> str:
+        """Hash of what the worker evaluates for the views (their checks)."""
+        return views_digest([asdict(v) for v in self.views])
+
     def all_facets(self, cls: ClassShape) -> list[Facet]:
         seen = {f.key for f in cls.facets}
         return cls.facets + [f for f in self.shared if f.key not in seen]
+
+
+def views_digest(views: list[dict]) -> str:
+    """Hash of the view checks, from views as dicts (asdict(View), or view_def.def rows)."""
+    blob = json.dumps([[v["checks"], v["check_classes"], v["section_class"], v["summary_key"]]
+                       for v in sorted(views, key=lambda v: (v["order"], v["key"]))], sort_keys=True)
+    return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
 class ShapeError(ValueError):
@@ -235,6 +301,7 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
         raise ShapeError(f"no shapes found in {shapes_dir}")
     texts: dict[str, str] = {}
     class_files: dict[str, str] = {}
+    view_files: dict[str, str] = {}
     for f in files:
         name = f.relative_to(shapes_dir).as_posix()
         texts[name] = f.read_text(encoding="utf-8")
@@ -246,6 +313,8 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             raise ShapeError(f"{f.name}: {e}") from e
         for q in one.quads_for_pattern(None, ox.NamedNode(ATLAS + "key"), None):
             class_files.setdefault(q.object.value, name)
+        for q in one.quads_for_pattern(None, ox.NamedNode(ATLAS + "view"), None):
+            view_files.setdefault(q.object.value, name)
     r = _Reader(st)
 
     classes: list[ClassShape] = []
@@ -334,6 +403,7 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
     out.compat = _load_compat(st, r, out)
     if out.compat:
         _index_compat_facets(out)
+    out.views = _load_views(r, out, view_files)
     return out
 
 
@@ -561,6 +631,202 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             raise ShapeError(f"compatibility.{x.key}: atlas:noneFrom {x.none_from!r} must name a rule with atlas:noneValue")
     rules.sort(key=lambda x: (x.order, x.key))
     return CompatSet(track_classes=track_classes, section_class=section_class, rules=rules)
+
+
+def _term(t):
+    """An RDF term as a facet value: IRI or string, boolean, number."""
+    if isinstance(t, ox.NamedNode):
+        return t.value
+    if not isinstance(t, ox.Literal):
+        raise ShapeError("blank node used as a value")
+    dt = t.datatype.value if t.datatype else XSD + "string"
+    if dt == XSD + "boolean":
+        return t.value.strip().lower() in ("true", "1")
+    if _numeric(dt):
+        f = float(t.value)
+        return int(f) if f.is_integer() else f
+    return t.value
+
+
+def _values_of(r: _Reader, node, what: str) -> tuple[str | None, list]:
+    """The SHACL constraint on a filter, condition or check node: (component, values).
+    sh:hasValue (repeatable), sh:in ( ... ), atlas:notIn ( ... ), or one numeric bound."""
+    found = []
+    has = r.objs(node, SH + "hasValue")
+    if has:
+        found.append(("hasValue", [_term(t) for t in has]))
+    for comp, ns in (("in", SH), ("notIn", ATLAS)):
+        lst = r.one(node, ns + comp)
+        if lst is not None:
+            found.append((comp, [_term(t) for t in r.rdf_list(lst)]))
+    for comp in sorted(COMPAT_NUMERIC):
+        o = r.one(node, SH + comp)
+        if o is not None:
+            v = _term(o)
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                raise ShapeError(f"{what}: sh:{comp} needs a number")
+            found.append((comp, [v]))
+    if len(found) > 1 and not all(c in COMPAT_NUMERIC for c, _ in found):
+        raise ShapeError(f"{what}: give one of sh:hasValue, sh:in, atlas:notIn or numeric bounds")
+    if not found:
+        return None, []
+    if len(found) > 1:  # a range: both bounds, for filters only
+        return "range", found
+    comp, vals = found[0]
+    # value lists are sets: a stable order keeps the views digest stable
+    return comp, vals if comp in COMPAT_NUMERIC else sorted(vals, key=lambda x: (str(type(x)), str(x)))
+
+
+def _load_views(r: _Reader, shapes: ShapeSet, files: dict[str, str]) -> list[View]:
+    """The views: node shapes with atlas:view (see shapes/atlas.ttl)."""
+    by_key = {c.key: c for c in shapes.classes}
+    known: dict[str, Facet] = {f.key: f for f in shapes.shared}
+    for c in shapes.classes:
+        for f in c.facets:
+            known.setdefault(f.key, f)
+    views: list[View] = []
+    check_keys: set[str] = set()
+    for q in r.s.quads_for_pattern(None, ox.NamedNode(ATLAS + "view"), None):
+        node, key = q.subject, q.object.value
+        if r.lit(node, ATLAS + "enabled", "true") == "false":
+            continue
+        if any(v.key == key for v in views):
+            raise ShapeError(f"duplicate atlas:view {key!r}")
+        what = f"view {key!r}"
+        classes = sorted({o.value for o in r.objs(node, ATLAS + "viewClass") if isinstance(o, ox.Literal)},
+                         key=lambda c: (by_key[c].order, c) if c in by_key else (0, c))
+        for c in classes:
+            if c not in by_key:
+                raise ShapeError(f"{what}: atlas:viewClass {c!r} has no facet shape")
+
+        def facet(k: str | None, role: str, kinds=("terms", "range", "boolean")) -> str | None:
+            if k is None:
+                return None
+            if k not in known or known[k].kind not in kinds:
+                raise ShapeError(f"{what}: {role} {k!r} is not a {' / '.join(kinds)} facet")
+            return k
+
+        v = View(key=key, label=r.label(node, RDFS + "label", SH + "name") or key,
+                 comment=r.label(node, RDFS + "comment", SH + "description"),
+                 order=int(r.lit(node, SH + "order", "100")), classes=classes, file=files.get(key))
+        v.group_by = facet(r.lit(node, ATLAS + "groupBy"), "atlas:groupBy", ("terms",))
+        v.group_label = r.label(node, ATLAS + "groupLabel")
+        for fnode in r.objs(node, ATLAS + "filter"):
+            fk = facet(r.lit(fnode, ATLAS + "facet"), "atlas:filter facet")
+            if fk is None:
+                raise ShapeError(f"{what}: atlas:filter needs atlas:facet")
+            comp, vals = _values_of(r, fnode, f"{what} filter {fk}")
+            if comp in ("hasValue", "in"):
+                v.filters[fk] = vals
+            elif comp == "range" or comp in ("minInclusive", "maxInclusive"):
+                bounds = dict(vals) if comp == "range" else {comp: vals[0]}
+                if set(bounds) - {"minInclusive", "maxInclusive"}:
+                    raise ShapeError(f"{what} filter {fk}: only sh:minInclusive / sh:maxInclusive bound a range")
+                v.filters[fk] = {"min": bounds.get("minInclusive"), "max": bounds.get("maxInclusive")}
+            else:
+                raise ShapeError(f"{what} filter {fk}: use sh:hasValue, sh:in or sh:minInclusive / sh:maxInclusive")
+        v.check_classes = sorted({o.value for o in r.objs(node, ATLAS + "checkClass") if isinstance(o, ox.Literal)})
+        v.section_class = r.lit(node, ATLAS + "checkSection")
+        for c in v.check_classes + ([v.section_class] if v.section_class else []):
+            if c not in by_key:
+                raise ShapeError(f"{what}: check class {c!r} has no facet shape")
+        params: list[tuple[int, str]] = []
+        for prop in r.objs(node, SH + "property"):
+            if r.lit(prop, ATLAS + "enabled", "true") == "false":
+                continue
+            order = int(r.lit(prop, SH + "order", "100"))
+            fk, ck = r.lit(prop, ATLAS + "facet"), r.lit(prop, ATLAS + "check")
+            if fk and ck:
+                raise ShapeError(f"{what}: a property is either atlas:facet or atlas:check")
+            if fk:
+                params.append((order, facet(fk, "parameter", ("terms", "range", "boolean", "link"))))
+                continue
+            if not ck:
+                continue
+            v.checks.append(_load_check(r, prop, ck, order, known, f"{what} check {ck!r}"))
+        v.params = [k for _, k in sorted(params, key=lambda x: x[0])]
+        v.checks.sort(key=lambda c: (c.order, c.key))
+        if v.checks and not v.check_classes:
+            raise ShapeError(f"{what}: checks need atlas:checkClass")
+        if len(v.checks) > 1:
+            v.summary_key = r.lit(node, ATLAS + "summaryCheck") or f"{key}.all"
+            v.summary_label = r.label(node, ATLAS + "summaryLabel") or f"{v.label}: every requirement"
+        for k in [c.key for c in v.checks] + ([v.summary_key] if v.summary_key else []):
+            if k in known or k in check_keys or "/" in k:
+                raise ShapeError(f"{what}: check key {k!r} is already used (or has a /)")
+            check_keys.add(k)
+        v.color_by = r.lit(node, ATLAS + "colorBy")
+        if v.color_by and v.color_by not in check_keys:
+            facet(v.color_by, "atlas:colorBy")
+        views.append(v)
+    views.sort(key=lambda v: (v.order, v.key))
+    _index_check_facets(shapes, views)
+    return views
+
+
+def _load_check(r: _Reader, prop, key: str, order: int, known: dict[str, Facet], what: str) -> ViewCheck:
+    facets = sorted(o.value for o in r.objs(prop, ATLAS + "compareTo") if isinstance(o, ox.Literal))
+    if not facets:
+        raise ShapeError(f"{what}: atlas:compareTo is required")
+    for fk in facets:
+        if fk not in known or known[fk].kind not in ("terms", "range", "boolean"):
+            raise ShapeError(f"{what}: atlas:compareTo {fk!r} is not a terms, range or boolean facet")
+    comp, vals = _values_of(r, prop, what)
+    if comp is None or comp == "range":
+        raise ShapeError(f"{what}: give one constraint (sh:hasValue, sh:in, atlas:notIn, sh:minInclusive …)")
+    term_values: dict[str, float] = {}
+    for tv in r.objs(prop, ATLAS + "termValue"):
+        t, n = _iri(r.one(tv, ATLAS + "term")), r.lit(tv, ATLAS + "value")
+        try:
+            term_values[t] = float(n)
+        except (TypeError, ValueError):
+            t = None
+        if not t:
+            raise ShapeError(f"{what}: atlas:termValue needs an atlas:term IRI and a numeric atlas:value")
+    numeric = comp in COMPAT_NUMERIC
+    for fk in facets:
+        if (known[fk].kind == "range") != (numeric and not term_values):
+            raise ShapeError(f"{what}: sh:{comp} does not fit the {known[fk].kind} facet {fk!r}")
+    implied = []
+    for iv in r.objs(prop, ATLAS + "impliedValue"):
+        x = {"facet": r.lit(iv, ATLAS + "facet"), "when": _iri(r.one(iv, ATLAS + "when")),
+             "value": _iri(r.one(iv, ATLAS + "value"))}
+        if not all(x.values()) or numeric or x["facet"] not in known:
+            raise ShapeError(f"{what}: atlas:impliedValue needs a known atlas:facet, atlas:when and atlas:value IRIs, "
+                             f"on a check compared by value")
+        implied.append(x)
+    wm = _iri(r.one(prop, ATLAS + "whenMissing"))
+    when_missing = {None: "unknown", CHECK_NO_DATA: "unknown", ATLAS + "Unknown": "unknown",
+                    CHECK_FAILS: "fails", ATLAS + "Incompatible": "fails"}.get(wm)
+    if when_missing is None:
+        raise ShapeError(f"{what}: atlas:whenMissing must be atlas:NoData or atlas:DoesNotMeet")
+    applies = []
+    for cond in r.objs(prop, ATLAS + "appliesWhen"):
+        fk = r.lit(cond, ATLAS + "facet")
+        c, cv = _values_of(r, cond, f"{what} atlas:appliesWhen")
+        if fk not in known or known[fk].kind != "terms" or c not in ("hasValue", "in"):
+            raise ShapeError(f"{what}: atlas:appliesWhen needs a terms atlas:facet and sh:hasValue or sh:in")
+        applies.append({"facet": fk, "values": cv})
+    return ViewCheck(key=key, label=r.label(prop, RDFS + "label", SH + "name") or key, constraint=comp,
+                     facets=facets, values=vals, term_values=term_values, implied=implied,
+                     when_missing=when_missing, applies_when=applies,
+                     comment=r.label(prop, RDFS + "comment", SH + "description"),
+                     deadline=r.label(prop, ATLAS + "deadline"), unit=r.lit(prop, ATLAS + "unit"), order=order)
+
+
+def _index_check_facets(shapes: ShapeSet, views: list[View]) -> None:
+    """Index every facet a check reads on every check class of its view, also where that
+    class's own shape does not list it (as for the vehicle check rules)."""
+    by_key = {c.key: c for c in shapes.classes}
+    for v in views:
+        classes = [by_key[k] for k in v.check_classes]
+        for chk in v.checks:
+            for fk in chk.facets + [x["facet"] for x in chk.implied] + [x["facet"] for x in chk.applies_when]:
+                src = next((f for c in shapes.classes for f in shapes.all_facets(c) if f.key == fk), None)
+                for c in classes:
+                    if src and not any(f.key == fk for f in shapes.all_facets(c)):
+                        c.facets.append(replace(src))
+                        c.facets.sort(key=lambda f: (f.order, f.key))
 
 
 MAX_COLOR_CLASSES = 8  # the web map's sequential ramp has eight steps
