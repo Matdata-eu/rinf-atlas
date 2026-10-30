@@ -97,6 +97,43 @@ python3 -c "import zipfile,sys; z=zipfile.ZipFile('/tmp/atlas-export.xlsx'); n=s
   || fail "XLSX export is not a workbook with one sheet per class"
 rm -f /tmp/atlas-export.xlsx
 
+# Full export: an async job the worker runs from the mirror (docs/export.md).
+post_code() { curl -s -o /tmp/atlas-export.json -w '%{http_code}' -X POST "$BASE/api/exports" -H 'content-type: application/json' -d "$1"; }
+nprof=$(curl -fsS "$BASE/api/exports/profiles?env=prod" | json "len(d['profiles'])")
+[ "$nprof" -ge 1 ] || fail "no export profile published (shapes/export/full.ttl)"
+curl -fsS "$BASE/api/exports/profiles?env=prod" | json "len(d['profiles'][0]['classes']['operational-point']['columns'])" | grep -qv '^0$' \
+  || fail "the full profile has no columns for operational points"
+opq='{"env":"prod","classes":["operational-point"],"filters":{}}'
+code=$(post_code "{\"state\":$opq,\"format\":\"ttl\"}")
+[ "$code" = 202 ] || fail "POST /api/exports returned HTTP $code: $(cat /tmp/atlas-export.json)"
+eid=$(json "d['id']" < /tmp/atlas-export.json)
+code=$(post_code "{\"state\":$opq,\"format\":\"csv\",\"profile\":\"nope\"}")
+[ "$code" = 400 ] || fail "an unknown export profile should be refused, got HTTP $code"
+code=$(post_code "{\"state\":$opq,\"format\":\"xlsx\",\"include\":[\"opName\",\"uopid\"],\"headers\":\"rinf\"}")
+[ "$code" = 202 ] || fail "POST /api/exports (xlsx, custom columns) returned HTTP $code"
+xid=$(json "d['id']" < /tmp/atlas-export.json)
+[ "$(curl -fsS "$BASE/api/exports/$eid" | json "d['status']")" = queued ] || fail "new export is not queued"
+echo "running export jobs"
+"${compose[@]}" run --rm --no-deps -T worker atlas export-jobs --once
+st=$(curl -fsS "$BASE/api/exports/$eid" | json "d['status'] + ' ' + str(d['total']) + ' ' + str(d['error'])")
+echo "ttl export: $st"; [ "${st%% *}" = done ] || fail "export job $eid: $st"
+[ "$(curl -fsS "$BASE/api/exports/$eid" | json "d['total']")" -eq "$ops" ] || fail "export counted other than $ops elements"
+curl -fsS "$BASE/api/exports/$eid/download" -o /tmp/atlas-export.ttl
+grep -q '^@prefix era:' /tmp/atlas-export.ttl || fail "Turtle export has no era: prefix"
+ntyped=$(grep -c 'era:OperationalPoint ;' /tmp/atlas-export.ttl || true)
+[ "$ntyped" -eq "$ops" ] || fail "Turtle export types $ntyped operational points, expected $ops"
+grep -q '^<http://data.europa.eu/949/netReference/' /tmp/atlas-export.ttl || fail "Turtle export did not resolve component nodes"
+curl -fsS "$BASE/api/exports/$eid/recipe" | grep -q "SPARQL" || fail "export recipe does not describe the query"
+[ "$(curl -fsS "$BASE/api/exports/$xid" | json "d['status']")" = done ] || fail "xlsx export job did not finish"
+curl -fsS "$BASE/api/exports/$xid/download" -o /tmp/atlas-export.xlsx
+python3 -c "import zipfile,sys; z=zipfile.ZipFile('/tmp/atlas-export.xlsx'); sys.exit(0 if any(f.startswith('xl/worksheets/sheet') for f in z.namelist()) else 1)" \
+  || fail "XLSX export job did not produce a workbook"
+rm -f /tmp/atlas-export.ttl /tmp/atlas-export.xlsx /tmp/atlas-export.json
+code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/api/exports/$eid")
+[ "$code" = 204 ] || fail "DELETE /api/exports returned HTTP $code"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/exports/$eid/download")
+[ "$code" = 409 ] || fail "a removed export should not download, got HTTP $code"
+
 # GIS access: OGC API - Features (unfiltered and filtered) and TileJSON / style.
 ogc="$BASE/api/ogc"
 curl -fsS "$ogc" | json "' '.join(l['rel'] for l in d['links'])" | grep -qw conformance || fail "OGC landing page lacks links"

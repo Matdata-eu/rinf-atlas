@@ -60,16 +60,35 @@ test('vehicle check colours sections by compatibility', async ({ page, errors: _
   await expect(page).not.toHaveURL(/[#&]veh=/);
 });
 
-test('CSV export downloads the current results', async ({ page, errors: _ }) => {
+test('quick CSV export downloads the current results', async ({ page, errors: _ }) => {
   await openApp(page, 'c=tunnel&side=results');
   await expect.poll(() => resultCount(page)).toBeGreaterThan(0);
   const n = await resultCount(page);
+  await page.locator('#export-open').click();
+  const dlg = page.locator('dialog.export-dialog');
+  await expect(dlg.getByRole('button', { name: 'Prepare export' })).toBeVisible();
   const download = page.waitForEvent('download');
-  await page.locator('#export-csv').click();
+  await dlg.getByRole('button', { name: 'CSV', exact: true }).click();
   const file = await (await download).path();
-  const rows = (await readFile(file, 'utf8')).replace(/^﻿/, '').trim().split(/\r?\n/);
+  const rows = (await readFile(file, 'utf8')).replace(/^\ufeff/, '').trim().split(/\r?\n/);
   expect(rows[0].split(',')[0]).toBe('IRI');
   expect(rows.length - 1).toBe(n);
+});
+
+test('a full export is queued as a job with a recipe', async ({ page, errors: _ }) => {
+  await openApp(page, 'c=tunnel&side=results');
+  await expect.poll(() => resultCount(page)).toBeGreaterThan(0);
+  await page.locator('#export-open').click();
+  const dlg = page.locator('dialog.export-dialog');
+  await dlg.getByLabel('Format').selectOption('ttl');
+  await dlg.getByRole('button', { name: 'Prepare export' }).click();
+  const job = dlg.locator('.export-job').first();
+  await expect(job).toBeVisible();
+  await expect(job.getByRole('link', { name: 'Recipe' })).toBeVisible();
+  // the job is listed by the API and remembered across reloads
+  await page.reload();
+  await page.locator('#export-open').click();
+  await expect(page.locator('dialog.export-dialog .export-job').first()).toBeVisible();
 });
 
 test('map colours by a facet show a legend', async ({ page, errors: _ }) => {

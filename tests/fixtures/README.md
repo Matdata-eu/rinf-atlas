@@ -32,3 +32,10 @@ A copy of the licence, taken from that repository at tag `v3.3.4`, is in
 `kp-nogeom.nt`: a made-up kilometric post with a label and a km value but no
 geometry, like the ones in DB InfraGO's dataset. `tests/smoke.sh` adds it to
 the sample to check that features without a location are counted as such.
+
+`era-classes.nt`: the class hierarchy below `era:InfrastructureElement` from
+the ERA ontology (`rdfs:subClassOf` and English `rdfs:label` of the 19
+infrastructure element classes, 38 triples), version 3.3.4, graph
+`http://data.europa.eu/949/graph/ontology` on the mirror. Used by the worker's
+export tests to generate the Full RINF export profile from `era-shacl.nt.gz`.
+Same source and licence (EUPL-1.2) as the shapes above.

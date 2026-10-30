@@ -41,8 +41,13 @@ services:
       ATLAS_QUALITY_MAX_TRIPLES: ${ATLAS_QUALITY_MAX_TRIPLES:-}
       ATLAS_QUALITY_MINUTES: ${ATLAS_QUALITY_MINUTES:-}
       ATLAS_QUALITY_SHAPES_TAG: ${ATLAS_QUALITY_SHAPES_TAG:-}
+      # Export jobs (docs/export.md): parallel jobs and how long files are kept.
+      ATLAS_EXPORTS: /data/exports
+      ATLAS_EXPORT_WORKERS: ${ATLAS_EXPORT_WORKERS:-2}
+      ATLAS_EXPORT_RETENTION_HOURS: ${ATLAS_EXPORT_RETENTION_HOURS:-24}
     volumes:
       - mirror:/data
+      - exports:/data/exports         # export files; the api serves them read-only
       - ./shapes:/app/shapes          # edit shapes on the host; the worker reindexes on change
       - ./config:/app/config:ro
     depends_on:
@@ -59,7 +64,9 @@ services:
       DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@db:5432/atlas
       ATLAS_ENVS: ${ATLAS_ENVS:-}
       ATLAS_PUBLIC_URL: ${ATLAS_PUBLIC_URL:-}
-      ATLAS_TTL_EXPORT_MAX: ${ATLAS_TTL_EXPORT_MAX:-20000}
+      ATLAS_EXPORTS: /data/exports
+      ATLAS_EXPORT_MAX_ENTITIES: ${ATLAS_EXPORT_MAX_ENTITIES:-}
+      ATLAS_EXPORT_QUEUE: ${ATLAS_EXPORT_QUEUE:-20}
       ATLAS_SHACL_REPORT_URL: ${ATLAS_SHACL_REPORT_URL-https://shacl-report.matdata.eu/}
     # Keys of the extra map layers in config/layers.yaml (ATLAS_LAYER_* in .env, docs/layers.md).
     # Only the api container gets them; it proxies those layers' tiles.
@@ -68,6 +75,7 @@ services:
         required: false
     volumes:
       - ./config:/app/config:ro         # also config/layers.yaml: extra map layers (docs/layers.md)
+      - exports:/data/exports:ro
     depends_on:
       db:
         condition: service_healthy
@@ -92,3 +100,4 @@ services:
 volumes:
   pgdata:
   mirror:
+  exports:

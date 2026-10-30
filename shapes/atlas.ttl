@@ -89,6 +89,25 @@
 #   atlas:missingReason short text shown for a track where the system is absent
 #   rdfs:label, rdfs:comment, sh:datatype, sh:order, atlas:enabled false
 #
+# Export profiles (shapes/export/*.ttl, docs/export.md): the columns of tabular
+# and GIS exports. A profile is
+#   atlas:ExportProfile  with atlas:key, rdfs:label, rdfs:comment, atlas:order
+# and one sh:NodeShape per class with
+#   atlas:profile       the profile it belongs to (shapes without it are nested
+#                       component shapes, reached through sh:node)
+#   sh:targetClass      the class (an era:InfrastructureElement subclass, or a
+#                       component class for a nested shape)
+#   rdfs:label          class label (sheet / layer name)
+# and per sh:property (one column):
+#   sh:path             an IRI or a sequence of IRIs, read from the resolved
+#                       description of the element
+#   rdfs:label          column name
+#   era:rinfIndex       RINF parameter number, usable as column header
+#   sh:datatype         optional
+#   sh:node             a nested shape: the value is a component whose own
+#                       properties become sub-columns ("Parent / Child")
+#   sh:order            column order
+#
 # Views (shapes/views/*.ttl): a named lens on the map, picked from the top of the
 # filter panel. One sh:NodeShape per view with
 #   atlas:view          view key, used in links (vw=) and the API (required)

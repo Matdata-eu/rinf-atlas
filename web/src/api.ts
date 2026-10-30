@@ -137,8 +137,8 @@ export interface Meta {
   views?: ViewMeta[];
   /** The facet values of a check's result. */
   check_results?: Record<CheckResult, string>;
-  /** Turtle export queries ERA live and is capped at this many entities. */
-  limits?: { ttl_export: number };
+  /** Full exports (jobs) are capped at this many elements on this instance; null = no cap. */
+  limits?: { export_max: number | null };
   datasets: { total: number; loaded: number; failed?: number; pending?: number; last_ingest: string | null; last_check?: string | null };
   quality?: QualityMeta;
 }
@@ -430,6 +430,26 @@ export interface MapLayer {
   style?: Record<string, unknown>[];
 }
 
+/** Export jobs (docs/export.md): profiles, formats and a job's state. */
+export interface ExportColumn { key: string; label: string; path: string[]; rinf?: string; datatype?: string; children?: ExportColumn[] }
+export interface ExportFormat { key: string; label: string; kind: 'rdf' | 'table' | 'gis'; ext: string; description: string }
+export interface ExportProfiles {
+  profiles: { key: string; label: string; comment: string | null; classes: Record<string, { label: string; columns: ExportColumn[] }> }[];
+  formats: ExportFormat[];
+  limits: { max_entities: number | null; queue: number };
+}
+export interface ExportCreate {
+  state: QueryState; format: string; profile: string | null; include: string[] | null;
+  values: 'label' | 'iri' | 'both'; headers: 'label' | 'rinf' | 'path'; shape: 'wide' | 'long'; parts: boolean; gzip: boolean;
+}
+export interface ExportJob {
+  id: string; env: string; status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'expired';
+  format: string; profile: string | null; shape: string; values: string; headers: string; parts: boolean; gzip: boolean;
+  total: number | null; done: number; bytes: number | null; filename: string | null; warning: string | null; error: string | null;
+  created_at: string; started_at: string | null; finished_at: string | null; expires_at: string | null;
+  download: string | null; recipe: string;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -495,10 +515,17 @@ export const api = {
   shapeFileUrl: (name: string, download = false) =>
     `${BASE}/shapes/file?${qs({ name, ...(download ? { download: 'true' } : {}) })}`,
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
-  exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl', view?: string | null) => {
+  exportUrl: (st: QueryState, format: 'csv' | 'xlsx', view?: string | null) => {
     const { facets: _facets, ...rest } = st;
     return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format, ...(view ? { view } : {}) })}`;
   },
+  exportProfiles: (env: string) => request<ExportProfiles>(`/exports/profiles?${qs({ env })}`),
+  createExport: (req: ExportCreate) => {
+    const { facets: _facets, ...state } = req.state;
+    return post<ExportJob>('/exports', { ...req, state });
+  },
+  exportStatus: (id: string) => request<ExportJob>(`/exports/${encodeURIComponent(id)}`),
+  cancelExport: (id: string) => fetch(`${BASE}/exports/${encodeURIComponent(id)}`, { method: 'DELETE' }).then((r) => { if (!r.ok) throw new ApiError(r.status, r.statusText); }),
   /** Absolute URLs for desktop GIS (docs/api.md, "GIS access") for a state; bbox is left out. */
   gisUrls: (st: QueryState) => {
     const { bbox: _bbox, facets: _facets, ...rest } = st;

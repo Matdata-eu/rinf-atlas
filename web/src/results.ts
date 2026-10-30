@@ -1,6 +1,7 @@
 // Results list: POST /api/search, paged by 50.
 import { api, isAbort, type SearchItem } from './api';
 import { ZOOM_ICON, zoomToFeature } from './detail';
+import { openExport, setResultTotal } from './export';
 import { openGis } from './gis';
 import { flyTo } from './map';
 import { changed, debounce, fmt, h, queryState, store } from './state';
@@ -26,6 +27,7 @@ async function load(reset: boolean) {
     const r = await api.search(queryState(s), PAGE, reset ? 0 : items.length, ctl.signal);
     items = reset ? r.items : items.concat(r.items);
     total = r.total;
+    setResultTotal(total);
     unlocated = r.unlocated ?? 0;
     render(reset);
   } catch (e) {
@@ -75,36 +77,13 @@ function render(reset: boolean) {
   more.textContent = `Load more (${fmt.format(total - items.length)} left)`;
 }
 
-/** Starts a browser download of the current results; the browser streams it to disk. */
-function download(format: 'csv' | 'xlsx' | 'ttl') {
-  const s = store.get();
-  if (!s.env) return;
-  const msg = document.getElementById('export-msg') as HTMLParagraphElement;
-  const max = s.meta?.limits?.ttl_export;
-  msg.hidden = true;
-  if (format === 'ttl' && max != null && total > max) {
-    msg.textContent = `Turtle export fetches every entity live from ERA and is limited to ${fmt.format(max)} entities; narrow the selection (${fmt.format(total)} now).`;
-    msg.hidden = false;
-    return;
-  }
-  const viewCols = s.lens && format !== 'ttl' && document.querySelector<HTMLInputElement>('#export-view-cols input')?.checked;
-  const a = h('a', { href: api.exportUrl(queryState(s), format, viewCols ? s.lens : null), download: '' });
-  document.body.append(a);
-  a.click();
-  a.remove();
-}
-
 export function initResults() {
   more.addEventListener('click', () => load(false));
-  document.getElementById('export-csv')!.addEventListener('click', () => download('csv'));
-  document.getElementById('export-xlsx')!.addEventListener('click', () => download('xlsx'));
+  document.getElementById('export-open')!.addEventListener('click', () => void openExport());
   document.getElementById('export-gis')!.addEventListener('click', openGis);
-  document.getElementById('export-ttl')!.addEventListener('click', () => download('ttl'));
   store.subscribe((s, prev) => {
-    if (changed(s, prev, 'lens')) (document.getElementById('export-view-cols') as HTMLElement).hidden = !s.lens;
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) {
       reload();
-      (document.getElementById('export-msg') as HTMLParagraphElement).hidden = true;
     }
     else if (changed(s, prev, 'selected')) {
       for (const b of list.querySelectorAll<HTMLButtonElement>('.result')) b.classList.toggle('selected', b.dataset.iri === s.selected);

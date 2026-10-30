@@ -30,7 +30,6 @@ from starlette.background import BackgroundTask
 from . import compat as cx
 from . import export as xp
 from . import profile as pf
-from . import turtle as ttl
 from .query import QueryState, SearchRequest, ThemeRequest, Where, split_key
 from .theme import MIXED, Themes
 
@@ -39,8 +38,8 @@ CONFIG = Path(os.environ.get("ATLAS_CONFIG", "/app/config/environments.yaml"))
 TERMS_LIMIT = int(os.environ.get("ATLAS_TERMS_LIMIT", "200"))
 LOW_DETAIL_ZOOM = int(os.environ.get("ATLAS_LOW_DETAIL_ZOOM", "8"))
 TILE_CACHE_SECONDS = int(os.environ.get("ATLAS_TILE_CACHE_SECONDS", "300"))
-# Turtle export queries ERA live (batches of 100 IRIs), so it is capped.
-TTL_EXPORT_MAX = int(os.environ.get("ATLAS_TTL_EXPORT_MAX", "20000"))
+# Export jobs (api/app/exports.py): 0 = no limit on the elements per export.
+EXPORT_MAX_ENTITIES = int(os.environ.get("ATLAS_EXPORT_MAX_ENTITIES") or 0)
 # A shacl-report instance (https://github.com/Matdata-eu/shacl-report) the UI links to for
 # exploring a downloaded report; empty hides the link.
 SHACL_REPORT_URL = os.environ.get("ATLAS_SHACL_REPORT_URL", "https://shacl-report.matdata.eu/").strip() or None
@@ -168,7 +167,7 @@ def meta(env: str):
                    for f in d["facets"] if f["kind"] not in HIDDEN_KINDS],
         "views": [_view_meta(v) for v in d["views"]],
         "check_results": CHECK_RESULTS,
-        "limits": {"ttl_export": TTL_EXPORT_MAX},
+        "limits": {"export_max": EXPORT_MAX_ENTITIES or None},
         "datasets": {"total": ds["total"], "loaded": ds["loaded"], "failed": ds["failed"], "pending": ds["pending"],
                      "last_ingest": ds["last_ingest"].isoformat() if ds["last_ingest"] else None,
                      "last_check": ds["last_check"].isoformat() if ds["last_check"] else None},
@@ -537,14 +536,14 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
 
 
 @app.get("/api/export")
-def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
+def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx)$"),
            values: str = Query("label", pattern="^(label|iri)$"), view: str | None = None):
-    """Every feature matching the query state (classes, facets, datasets, search, bbox)
-    as CSV (one table, streamed), XLSX (one sheet per class) or Turtle (the outgoing
-    triples of each entity, live from ERA, streamed). `view`: CSV and XLSX columns are
-    that view's parameters and checks only."""
+    """Quick export: every feature matching the query state (classes, facets, datasets, search,
+    bbox) with its facet columns, as CSV (one table, streamed) or XLSX (one sheet per class),
+    straight from the index. `view` (a view key): the columns are that view's parameters and
+    checks only. Resolved exports with every RINF property are jobs: POST /api/exports."""
     st = _decode_state(state)
-    e = _env(st.env)
+    _env(st.env)
     d = _defs()
     only = None
     if view:
@@ -553,8 +552,6 @@ def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
             raise HTTPException(404, f"unknown view {view!r}")
         only = list(v["params"]) + ([v["summary_key"]] if v.get("summary_key") else []) + [c["key"] for c in v["checks"]]
     sql, p = Where(st, d["owners"]).build()
-    if format == "ttl":
-        return _export_ttl(st, e, sql, p)
     present = {r["class"] for r in _q(f"SELECT DISTINCT f.class FROM feature f WHERE {sql}", p)}
     order = [c["class"] for c in d["classes"]]
     classes = sorted(present, key=lambda c: (order.index(c) if c in order else len(order), c))
@@ -582,27 +579,6 @@ def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
     path = xp.write_xlsx(batches, lambda c: xp.columns_for([c], d["facets"], only), vals, class_labels, info)
     return FileResponse(path, filename=f"{name}.xlsx", background=BackgroundTask(os.unlink, path),
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-
-def _export_ttl(st: QueryState, e: dict, sql: str, p: list) -> StreamingResponse:
-    iris = [r["iri"] for r in _q(f"SELECT DISTINCT f.iri FROM feature f WHERE {sql} ORDER BY f.iri LIMIT %s",
-                                 p + [TTL_EXPORT_MAX + 1])]
-    if len(iris) > TTL_EXPORT_MAX:
-        raise HTTPException(413, f"Turtle export is limited to {TTL_EXPORT_MAX} entities (it queries ERA live); "
-                                 "narrow the selection")
-    stamp = datetime.now(UTC)
-
-    def fetch(query: str) -> list[dict]:
-        r = httpx.post(e["sparql"], data={"query": query}, timeout=120,
-                       headers={"Accept": "application/sparql-results+json", "User-Agent": "rinf-atlas/0.1"})
-        r.raise_for_status()
-        return r.json()["results"]["bindings"]
-
-    head = ttl.header([f"RINF Atlas export: outgoing triples of {len(iris)} entities",
-                       f"Source: {e['sparql']} ({st.env}), {stamp:%Y-%m-%d %H:%M} UTC"])
-    name = f"rinf-atlas-{st.env}-{stamp:%Y%m%d-%H%M}.ttl"
-    return StreamingResponse(ttl.stream(iris, fetch, head), media_type="text/turtle; charset=utf-8",
-                             headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.get("/api/feature")
@@ -1373,6 +1349,11 @@ def describe(env: str, iri: str, direction: str = Query("out", pattern="^(out|in
 from . import gis  # noqa: E402
 
 gis.install(app)
+
+# Export jobs: resolved descriptions written by the worker from its mirror (docs/export.md).
+from . import exports  # noqa: E402
+
+app.include_router(exports.router)
 
 # Extra map layers configured by the deployer (config/layers.yaml), with a tile proxy for keys.
 from . import layers as extra_layers  # noqa: E402

@@ -28,7 +28,7 @@ flowchart LR
 | Service | Technology | Role |
 |---|---|---|
 | `db` | PostgreSQL 16 + PostGIS 3.4 | The index: one row per infrastructure element with its geometry (EPSG:4326 plus a pre-projected EPSG:3857 copy for tiles), facet values as `jsonb`, a full-text `tsvector`; labels of IRI values; dataset status. |
-| `worker` | Python 3.14, pyoxigraph, psycopg | Polls ERA, mirrors changed named graphs in an embedded Oxigraph store per environment, indexes them into PostGIS and validates them against ERA's SHACL shapes. See [datasets.md](datasets.md). |
+| `worker` | Python 3.14, pyoxigraph, psycopg | Polls ERA, mirrors changed named graphs in an embedded Oxigraph store per environment, indexes them into PostGIS and validates them against ERA's SHACL shapes. Also runs the export jobs the API queues, reading the full descriptions from the mirror ([export.md](export.md)). See [datasets.md](datasets.md). |
 | `api` | Python 3.14, FastAPI, uvicorn | Facet counts, search, extent, vector tiles (`ST_AsMVT` straight from PostGIS), map colouring, feature details, dataset status and data quality, exports, line profiles, the vehicle check, OGC API – Features, the proxy for extra map layers, and the live describe proxy to ERA. Contract: [api.md](api.md). |
 | `web` | TypeScript, Vite, MapLibre GL JS, vis-network, nginx | The single-page UI; nginx serves the build and proxies `/api/` to the api service. |
 
@@ -44,7 +44,9 @@ flowchart LR
   Starter shapes were generated from the ontology and the data.
 - **A local RDF mirror.** Keeping every graph in Oxigraph means a shape
   change re-indexes without downloading anything, and extraction can use
-  full SPARQL paths.
+  full SPARQL paths. Full exports (RDF, tables with every RINF property, GIS
+  files) are read from it too, as worker jobs, so they never hit ERA's
+  endpoint and are reproducible from the datasets they name.
 - **Facet semantics.** Shared facets (country, infrastructure manager) apply
   to every class. A class's own facets are scoped to that class
   (`class/key`), so filtering operational points leaves other classes alone.
@@ -55,9 +57,9 @@ flowchart LR
   severity below zoom 8, and detailed classes (tracks, signals, kilometric
   posts…) appear from a per-class minimum zoom (unless the user draws a class
   at every zoom).
-- **Only what ERA's SPARQL needs goes live.** Describe, the graph view
-  and the Turtle export query ERA from the api container; the browser never
-  talks to ERA.
+- **Only what ERA's SPARQL needs goes live.** Describe and the graph view
+  query ERA from the api container; the browser never talks to ERA. Exports
+  read the local mirror instead.
 - **Environments side by side.** PROD and UAT share one database, tagged by
   environment; the UI switches between them.
 

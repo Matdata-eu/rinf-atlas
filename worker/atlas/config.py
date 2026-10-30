@@ -66,6 +66,11 @@ class Settings:
     tmp_dir: Path
     quality: Quality = field(default_factory=Quality)
     shapes_cache: Path = Path("/data/shapes-cache")
+    # Export jobs (docs/export.md): where the files go (a volume shared with the api
+    # container), how many run at once, how long a finished file is kept.
+    export_dir: Path = Path("/data/exports")
+    export_workers: int = 2
+    export_retention_hours: float = 24
 
     def env(self, key: str) -> Env:
         if key not in self.envs:
@@ -127,6 +132,9 @@ def settings() -> Settings:
         tmp_dir=Path(os.environ.get("ATLAS_TMP", "/data/tmp")),
         quality=quality,
         shapes_cache=Path(os.environ.get("ATLAS_SHAPES_CACHE", "/data/shapes-cache")),
+        export_dir=Path(os.environ.get("ATLAS_EXPORTS", "/data/exports")),
+        export_workers=int(os.environ.get("ATLAS_EXPORT_WORKERS") or 2),
+        export_retention_hours=float(os.environ.get("ATLAS_EXPORT_RETENTION_HOURS") or 24),
     )
 
 

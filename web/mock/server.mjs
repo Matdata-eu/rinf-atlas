@@ -104,6 +104,7 @@ const FACET_BY_KEY = Object.fromEntries(FACETS.map((f) => [f.key, f]));
 
 // ---------- generate features ----------
 const features = []; // {id, iri, class, label, geometry, facets:{key:[{value,label}]}, extra}
+const exportJobs = new Map(); // mock export jobs (/api/exports)
 const labels = {}; // iri -> label for concepts
 const term = (value, label) => { labels[value] = label; return { value, label }; };
 const countryTerm = (c) => term(COUNTRY + c, c === 'BEL' ? 'Belgium' : 'Netherlands');
@@ -1169,14 +1170,60 @@ const server = http.createServer(async (req, res) => {
       const xs = all.map((c) => c[0]), ys = all.map((c) => c[1]);
       return send(res, 200, { bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] });
     }
+    if (p === '/api/exports/profiles') {
+      const columns = [
+        { key: 'opName', label: 'Name of operational point', path: [`${ERA}opName`], rinf: '1.2.0.0.0.1' },
+        { key: 'uopid', label: 'Unique OP ID', path: [`${ERA}uopid`], rinf: '1.2.0.0.0.2' },
+        { key: 'netReference', label: 'Net reference', path: [`${ERA}netReference`], children: [
+          { key: 'netReference.hasGeometry.asWKT', label: 'Net reference / Geometry / WKT', path: [`${ERA}netReference`, 'http://www.opengis.net/ont/geosparql#hasGeometry', 'http://www.opengis.net/ont/geosparql#asWKT'] }] },
+      ];
+      const classes = Object.fromEntries(CLASSES.map((c) => [c.class, { label: c.label, columns }]));
+      return send(res, 200, { profiles: [{ key: 'full', label: 'Full RINF', comment: 'Every RINF parameter (mock).', classes }],
+        formats: [['ttl', 'Turtle', 'rdf'], ['nt', 'N-Triples', 'rdf'], ['jsonld', 'JSON-LD', 'rdf'], ['csv', 'CSV', 'table'], ['xlsx', 'Excel', 'table'], ['geojson', 'GeoJSON', 'gis'], ['gpkg', 'GeoPackage', 'gis']]
+          .map(([key, label, kind]) => ({ key, label, kind, ext: key, description: `${label} (mock)` })),
+        limits: { max_entities: null, queue: 20 }, parts_predicate: `${ERA}hasPart` });
+    }
+    if (req.method === 'POST' && p === '/api/exports') {
+      const body = await readJson(req);
+      const hits = features.filter((f) => matches(f, body.state ?? {}));
+      if (!hits.length) return send(res, 400, { detail: 'nothing matches this selection' });
+      const id = `mock${exportJobs.size + 1}`;
+      const job = { id, env: body.state.env, status: 'queued', format: body.format, profile: body.profile ?? null, shape: body.shape ?? 'wide',
+        values: body.values ?? 'label', headers: body.headers ?? 'label', parts: !!body.parts, gzip: false, state: body.state,
+        total: hits.length, done: 0, bytes: null, filename: null, warning: null, error: null, created_at: new Date().toISOString(),
+        started_at: null, finished_at: null, expires_at: null, download: null, recipe: `/api/exports/${id}/recipe`, hits };
+      exportJobs.set(id, job);
+      // The mock "worker": a few progress ticks, then done.
+      let step = 0;
+      const tick = setInterval(() => {
+        step += 1;
+        job.status = 'running'; job.started_at ??= new Date().toISOString();
+        job.done = Math.min(job.total, Math.round(job.total * step / 4));
+        if (step >= 4) {
+          clearInterval(tick);
+          Object.assign(job, { status: 'done', finished_at: new Date().toISOString(), expires_at: new Date(Date.now() + 864e5).toISOString(),
+            bytes: 1234 * job.total, filename: `rinf-atlas-mock.${job.format}`, download: `/api/exports/${id}/download` });
+        }
+      }, 700);
+      return send(res, 202, { ...job, hits: undefined });
+    }
+    const em = p.match(/^\/api\/exports\/([^/]+)(?:\/(download|recipe))?$/);
+    if (em) {
+      const job = exportJobs.get(em[1]);
+      if (!job) return send(res, 404, { detail: 'unknown export' });
+      if (req.method === 'DELETE') { job.status = job.status === 'done' ? 'expired' : 'cancelled'; res.writeHead(204); return res.end(); }
+      if (em[2] === 'recipe') { res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }); return res.end(`RINF Atlas export recipe (mock)\nExport: ${job.id}\nSelection: ${JSON.stringify(job.state)}\n`); }
+      if (em[2] === 'download') {
+        if (job.status !== 'done') return send(res, 409, { detail: `export is ${job.status}` });
+        const body = job.hits.map((f) => `<${f.iri}> <http://www.w3.org/2000/01/rdf-schema#label> ${JSON.stringify(f.label)} .`);
+        res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'content-disposition': `attachment; filename="${job.filename}"` });
+        return res.end(body.join('\n') + '\n');
+      }
+      return send(res, 200, { ...job, hits: undefined });
+    }
     if (p === '/api/export') {
       // CSV only (the mock has no XLSX writer); good enough to exercise the download.
       const st = JSON.parse(Buffer.from(url.searchParams.get('state') || '', 'base64url').toString() || '{}');
-      if (url.searchParams.get('format') === 'ttl') {
-        const body = features.filter((f) => matches(f, st)).map((f) => `<${f.iri}> <http://www.w3.org/2000/01/rdf-schema#label> ${JSON.stringify(f.label)} .`);
-        res.writeHead(200, { 'content-type': 'text/turtle; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock.ttl"' });
-        return res.end(body.join('\n') + '\n');
-      }
       const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const rows = features.filter((f) => matches(f, st)).map((f) => [f.iri, f.label, f.class, ...repPoint(f.geometry)].map(q).join(','));
       res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="rinf-atlas-mock.csv"' });

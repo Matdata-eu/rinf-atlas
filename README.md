@@ -13,6 +13,7 @@ and UAT side by side.
 server and is hosted on a best-effort basis, so expect occasional downtime.
 
 Documentation: [how datasets are updated](docs/datasets.md),
+[exporting data](docs/export.md),
 [architecture](docs/architecture.md), [HTTP API](docs/api.md),
 [shareable links](docs/urls.md), [design notes](docs/DESIGN.md),
 [extra map layers](docs/layers.md), [privacy statement](docs/privacy.md).
@@ -199,6 +200,9 @@ up by the loop (`--now` runs `sync`, `reindex`, `generate-shapes` or
 | `atlas generate-shapes [--force] [--no-data]` | regenerate starter shapes into `shapes/` (keeps existing files unless `--force`) |
 | `atlas check-shapes [-v]` | parse `shapes/` and print the compiled facets |
 | `atlas load-file --env prod --graph IRI file.nt` | index a local file (testing; stop the worker first) |
+| `atlas export --env prod --format ttl\|nt\|jsonld\|csv\|xlsx\|geojson\|gpkg [--class K] [--graph IRI] [--profile full] [--shape long] [--parts] [--gzip] [--out F]` | write a full export from the mirror ([docs/export.md](docs/export.md)) |
+| `atlas export-jobs [--once]` | run the exports queued by the API (`atlas run` does this too) |
+| `atlas generate-export-profile [--force]` | regenerate `shapes/export/full.ttl` from ERA's shapes on the mirror |
 
 ## Configuration
 
@@ -257,9 +261,9 @@ that remain for a public instance (domain, redirects, Search Console).
 | Path | |
 |---|---|
 | `worker/` | ingest worker (`atlas` CLI): discovery, Oxigraph mirror, SHACL-driven extraction, shape generator |
-| `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, export, OGC API – Features, live describe |
+| `api/` | FastAPI app: facets, search, extent, vector tiles (`ST_AsMVT`), feature, quick export and export jobs, OGC API – Features, live describe |
 | `web/` | TypeScript + MapLibre + vis-network frontend (built into the nginx image) |
-| `shapes/` | facet shapes (edit these) |
+| `shapes/` | facet shapes (edit these); `shapes/export/` the export profiles |
 | `config/` | `environments.yaml` (environments, data quality), `layers.example.yaml` (extra map layers) |
 | `site/` | optional pages for your instance, such as `privacy.html` |
 | `db/init.sql` | PostGIS schema |
@@ -269,6 +273,7 @@ that remain for a public instance (domain, redirects, Search Console).
 | `docs/api.md` | HTTP API contract |
 | `docs/urls.md` | shareable links: the URL scheme of the web app |
 | `docs/datasets.md` | how datasets are updated |
+| `docs/export.md` | exporting data: full exports, formats, export profiles |
 | `docs/architecture.md` | architecture overview |
 | `docs/DESIGN.md` | design notes |
 | `docs/privacy.md` | adding a privacy statement; what the app processes |
