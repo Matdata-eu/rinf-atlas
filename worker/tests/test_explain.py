@@ -107,14 +107,19 @@ def test_every_repo_rule_is_explained_with_its_source_and_facets():
     for r in rules:
         out = cx.explain_rule(r, by_key, cp.track_classes, cp.section_class)
         assert out["vehicle_path"].startswith(("era:", "atlas:"))  # atlas: where ERA has no property
-        assert {s["topic"] for s in out["steps"]} >= {"compare", "missing", "rollup", "empty"}
-        assert [f["key"] for f in r["infra"]] == r["facets"] and all(f["path"] for f in r["infra"])
+        # an input (the maximum speed) is not compared itself, only read by other rules
+        need = {"compare", "empty"} if r["constraint"] == "input" else {"compare", "missing", "rollup", "empty"}
+        assert {s["topic"] for s in out["steps"]} >= need, r["key"]
+        # the compared facets, then those that pick rows or the speed (record filter, braking)
+        assert [f["key"] for f in r["infra"]][:len(r["facets"])] == r["facets"]
+        assert all(f["path"] for f in r["infra"])
         # the Turtle is valid and holds the rule
         st = ox.Store()
         st.load(r["source"].encode(), ox.RdfFormat.TURTLE)
         keys = [q.object.value for q in st.quads_for_pattern(
             None, ox.NamedNode("https://rinf-atlas.matdata.eu/ns#characteristic"), None)]
-        assert keys == [r["key"]], r["source"]
+        # the rule, and the characteristics it reads (the maximum speed of a record row)
+        assert r["key"] in keys and set(keys) <= {r["key"]} | cx._reads(r), r["source"]
     es = by_key["energySupplySystem"]
     assert es["infra"][0]["path"] == "era:contactLineSystem/era:energySupplySystem"
     assert "atlas:noneValue <http://data.europa.eu/949/concepts/contact-line-systems/40>" in es["source"]

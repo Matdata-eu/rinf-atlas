@@ -567,10 +567,39 @@ const COMPAT_RULES = [
   ['axleLoad', 'Axle load', [`${ERA}staticAxleLoadNormalPayload`], 'minInclusive', 'number', 'TONNE', ['trackLoadCapability.loadCapabilityLineCategory']],
   ['massPerMetre', 'Mass per metre', ['https://rinf-atlas.matdata.eu/ns#massPerMetre'], 'minInclusive', 'number', 'TONNE-PER-M', ['trackLoadCapability.loadCapabilityLineCategory']],
   ['trainLength', 'Train length', [`${ERA}lengthOfVehicle`], 'minInclusive', 'number', 'M', ['maxPermittedTrainLength']],
+  ['maxSpeed', 'Maximum speed', [`${ERA}vehicleTypeMaximumSpeed`], 'input', 'number', 'KiloM-PER-HR', []],
+  ['brakingDeceleration', 'Mean braking deceleration', [`${ERA}maximumAverageDeceleration`], 'brakingDistance', 'number', 'M-PER-SEC2', ['maximumBrakingDistance']],
+  ['redTailLights', 'Steady red tail lights', [`${ERA}redLightsSteady`], 'requires', 'boolean', null, ['redLightsRequired']],
+  ['magneticBrake', 'Magnetic track brake', [`${ERA}hasMagneticBrake`], 'in', 'terms', null, ['magneticBraking']],
 ].map(([key, label, path, constraint, kind, unit, facets]) => ({
   key, label, comment: null, path, constraint, kind, datatype: kind === 'number' ? 'http://www.w3.org/2001/XMLSchema#double' : null,
   unit, facets, applies_to: 'track', when_missing: 'unknown', none_value: null, none_from: null, missing_reason: null,
 }));
+// Groups and how a train's vehicles combine (atlas:group, atlas:combineOver, atlas:combineBy)
+const COMBINE = {
+  wheelSetGauge: ['Gauge and dimensions', 'all', 'intersection'], gaugingProfile: ['Gauge and dimensions', 'all', 'intersection'],
+  trainLength: ['Gauge and dimensions', 'all', 'sum'],
+  energySupplySystem: ['Energy', 'pantograph', 'intersection'], pantographHead: ['Energy', 'pantograph', 'intersection'],
+  etcsLevel: ['Signalling', 'leading', 'intersection'], trainDetectionSystemType: ['Signalling', 'all', 'intersection'],
+  lineCategory: ['Load', 'all', 'intersection'], axleLoad: ['Load', 'all', 'max'], massPerMetre: ['Load', 'all', 'max'],
+  maxSpeed: ['Speed and braking', 'all', 'min'], brakingDeceleration: ['Speed and braking', 'train', 'min'],
+  redTailLights: ['Equipment the track may require', 'tail', 'all'], magneticBrake: ['Brakes', 'all', 'union'],
+};
+const OVER = { all: 'all vehicles', pantograph: 'the units with a raised pantograph', leading: 'the leading cab', tail: 'the last vehicle' };
+const combineText = (over, by) => (over === 'train' ? 'entered for the whole train' : ['leading', 'tail'].includes(over) ? `the value of ${OVER[over]}`
+  : { sum: `the sum over ${OVER[over]}`, max: `the highest value among ${OVER[over]}`, min: `the lowest value among ${OVER[over]}`,
+    intersection: `the values ${OVER[over]} have in common`, union: `the most demanding choice among ${OVER[over]}`, all: `yes only when ${OVER[over]} have it` }[by]);
+for (const r of COMPAT_RULES) {
+  const [group, over, by] = COMBINE[r.key];
+  Object.assign(r, { group, combine_over: over, combine_by: by, combine_text: combineText(over, by), options: [] });
+}
+const MB = `${CC}magnetic-braking/`;
+const NS = 'https://rinf-atlas.matdata.eu/ns#';
+COMPAT_RULES.find((r) => r.key === 'magneticBrake').options = [
+  { value: `${NS}BrakeNotFitted`, label: 'Not fitted', order: 1, any: true, matches: [], maybe: [], path_value: false },
+  { value: `${NS}BrakeEmergencyOnly`, label: 'Emergency brake only', order: 2, any: false, matches: [`${MB}10`, `${MB}40`], maybe: [`${MB}20`, `${MB}30`], path_value: true },
+  { value: `${NS}BrakeService`, label: 'Service and emergency brake', order: 3, any: false, matches: [`${MB}10`], maybe: [`${MB}20`], path_value: true },
+];
 // No contact line: an electric vehicle is not compatible, a bi-mode one ("not electrified") is.
 const NOT_ELECTRIFIED = `${CC}contact-line-systems/40`;
 Object.assign(COMPAT_RULES.find((r) => r.key === 'energySupplySystem'),
@@ -654,6 +683,8 @@ for (const sol of sols) {
     if (r() < 0.7) f['trainDetectionSystem.trainDetectionSystemType'] = r() < 0.5 ? [CV.tc] : [CV.tc, CV.wd];
     if (r() < 0.6) f['trackLoadCapability.loadCapabilityLineCategory'] = [r() < 0.7 ? CV.d4 : CV.c4];
     if (r() < 0.6) { const v = [400, 600, 740, 750][Math.floor(r() * 4)]; f.maxPermittedTrainLength = [{ value: v, label: String(v) }]; }
+    if (r() < 0.7) { const req = r() < 0.4; f.redLightsRequired = [{ value: req, label: req ? 'Yes' : 'No' }]; }
+    if (r() < 0.6) { const c = ['10', '20', '40'][Math.floor(r() * 3)]; f.magneticBraking = [{ value: `${MB}${c}`, label: { 10: 'Allowed', 20: 'Allowed under conditions', 40: 'Emergency brake only' }[c] }]; }
     tracks.push({ id: `${sol.id}_T${i + 1}`, iri: `${sol.iri.replace('/sectionsOfLine/', '/tracks/')}/${i + 1}`, label: `Track ${i + 1}`, class: 'running-track', facets: f });
   }
   tracksBySol.set(sol.id, tracks);
@@ -675,14 +706,51 @@ const compatRules = () => COMPAT_RULES.map((rule) => {
     vals.splice(0, vals.length, { value: rule.without_value, label: rule.without_label, count: n, without: true },
       ...vals.filter((v) => v.value !== rule.without_value));
   }
+  if (rule.options.length) {
+    const ts = [...tracksBySol.values()].flat();
+    return { ...rule, values: vals, options: rule.options.map((o) => ({ ...o,
+      count: ts.filter((t) => { const v = trackVals(rule, t); return v.length && (o.any || v.every((x) => o.matches.includes(x))); }).length })) };
+  }
   if (rule.kind !== 'number') return { ...rule, values: vals };
   const nums = rule.term_values ? vals.map((v) => rule.term_values[v.value]).filter((x) => x != null) : vals.map((v) => v.value);
   return { ...rule, range: { min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null, count: vals.reduce((n, v) => n + v.count, 0) } };
 });
-const compatChecks = (profile) => {
-  const empty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
-  return COMPAT_RULES.filter((r) => !empty(profile[r.key]));
-};
+const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
+const compatChecks = (profile) => COMPAT_RULES.filter((r) => r.constraint !== 'input' && !isEmpty(profile[r.key]));
+
+// A train as one profile (as api/app/compat.py combine): per characteristic the vehicles that
+// count and how their values make the train's; a vehicle without a value makes it unknown.
+function combine(train) {
+  const profile = {};
+  const sources = {};
+  const groups = train.vehicles;
+  for (const r of COMPAT_RULES) {
+    const src = { by: r.combine_by, over: r.combine_over, from: [], missing: [] };
+    const entered = (train.values || {})[r.key];
+    if (!isEmpty(entered)) { profile[r.key] = entered; sources[r.key] = { ...src, entered: true }; continue; }
+    const lead = Math.max(0, groups.findIndex((g) => (g.roles || []).includes('leading')));
+    const scope = groups.map((_, i) => i).filter((i) => ({ all: true, train: false, leading: i === lead, tail: i === groups.length - 1,
+      pantograph: (groups[i].roles || []).includes('pantograph') })[r.combine_over]);
+    const have = scope.filter((i) => !isEmpty(groups[i].values[r.key]));
+    const missing = scope.filter((i) => isEmpty(groups[i].values[r.key]));
+    if (!have.length) continue;
+    if (missing.length) { sources[r.key] = { ...src, missing }; continue; }
+    const vals = have.map((i) => groups[i].values[r.key]);
+    const list = (v) => (Array.isArray(v) ? v : [v]);
+    let out;
+    if (r.combine_by === 'sum') out = have.reduce((s, i) => s + Number(list(groups[i].values[r.key])[0]) * (groups[i].count || 1), 0);
+    else if (r.combine_by === 'max') out = Math.max(...vals.map((v) => Number(list(v)[0])));
+    else if (r.combine_by === 'min') out = Math.min(...vals.map((v) => Number(list(v)[0])));
+    else if (r.combine_by === 'all') out = [vals.every((v) => list(v).every((x) => x === true))];
+    else if (r.combine_by === 'union') out = [...new Set(vals.flatMap(list))].sort();
+    else { const common = list(vals[0]).filter((x) => vals.every((v) => list(v).includes(x))); out = common.length ? common : ['urn:rinf-atlas:no-common-value']; }
+    profile[r.key] = out;
+    // the vehicles that set it: for the highest or lowest, those with that value
+    const from = typeof out === 'number' && r.combine_by !== 'sum' ? have.filter((i) => Number(list(groups[i].values[r.key])[0]) === out) : have;
+    sources[r.key] = { ...src, from };
+  }
+  return { profile, sources };
+}
 // 0 = compatible, 1 = unknown, 2 = not compatible (as the real API)
 const trackVals = (rule, track) => rule.facets.flatMap((fk) => (track.facets[fk] || []).map((x) => x.value));
 // What a track without a value gives, and whether it is because the system is absent.
@@ -704,6 +772,14 @@ const checkTrack = (rule, track, v, profile) => (bypassOf(rule, profile) ? 0 : r
 const rawCheck = (rule, track, v, profile) => {
   const vals = trackVals(rule, track);
   if (!vals.length) return missingOf(rule, track, profile).code;
+  if (rule.constraint === 'requires') return (Array.isArray(v) ? v : [v]).includes(true) || !vals.includes(true) ? 0 : 2;
+  if (rule.constraint === 'brakingDistance') return 1;
+  if (rule.options.length) {
+    const picked = rule.options.filter((o) => (Array.isArray(v) ? v : [v]).includes(o.value) && !o.any);
+    if (!picked.length) return 0;
+    if (vals.every((x) => picked.every((o) => o.matches.includes(x)))) return 0;
+    return vals.every((x) => picked.every((o) => o.matches.includes(x) || o.maybe.includes(x))) ? 1 : 2;
+  }
   if (rule.term_values) {
     // a category must satisfy every filled rule with term_values on the same facet
     const sib = COMPAT_RULES.filter((r) => r.term_values && r.facets.join() === rule.facets.join() && profile[r.key] != null && profile[r.key] !== '');
@@ -1290,10 +1366,15 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { track_classes: ['running-track'], section_class: 'section-of-line',
         class_labels: { 'running-track': 'Running track', 'section-of-line': 'Section of line' }, rules: compatRules() });
     }
+    if (req.method === 'POST' && p === '/api/compatibility/combine') {
+      const body = await readJson(req);
+      return send(res, 200, combine(body.train));
+    }
     if (req.method === 'POST' && (p === '/api/compatibility' || p === '/api/compatibility/explain')) {
       const body = await readJson(req);
       if (!checkEnv(body.env)) return send(res, 400, { detail: 'unknown env' });
-      const profile = body.profile || {};
+      const trainOf = body.train ? combine(body.train) : null;
+      const profile = trainOf ? trainOf.profile : body.profile || {};
       const checks = compatChecks(profile);
       if (!checks.length) return send(res, 400, { detail: 'the profile has no characteristic filled in that a rule checks' });
       const ignored = Object.keys(profile).filter((k) => !COMPAT_RULES.some((r) => r.key === k));
@@ -1302,7 +1383,7 @@ const server = http.createServer(async (req, res) => {
         const out = { env: body.env, version: 'mock', checked: checks.map((c) => c.key), ignored, counts: {}, green: [], yellow: [], red: [] };
         for (const sol of sols) out[COLOURS[compatOf(sol, checks, profile).status]].push(sol.id);
         for (const c of COLOURS) out.counts[c] = out[c].length;
-        return send(res, 200, out);
+        return send(res, 200, trainOf ? { ...out, ...trainOf } : out);
       }
       const sol = sols.find((x) => x.iri === body.iri || x.id === body.id);
       if (!sol) return send(res, 404, { detail: 'not an indexed section-of-line' });
@@ -1313,7 +1394,9 @@ const server = http.createServer(async (req, res) => {
           id: t.id, iri: t.iri, label: t.label, class: t.class, status: COLOURS[worst],
           results: checks.map((rule, i) => ({ key: rule.key, result: ['ok', 'unknown', 'fail'][codes[i]],
             values: rule.facets.flatMap((fk) => (t.facets[fk] || []).map(({ value, label }) => ({ value, label }))),
-            ...noteOf(rule, t, profile[rule.key], profile) })),
+            ...noteOf(rule, t, profile[rule.key], profile),
+            ...(trainOf ? { source: { entered: !!trainOf.sources[rule.key]?.entered, text: rule.combine_text,
+              from: [...new Set((trainOf.sources[rule.key]?.from || []).map((i) => body.train.vehicles[i].name))] } } : {}) })),
         })),
       });
     }

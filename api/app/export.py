@@ -68,6 +68,17 @@ def feature_rows(conn_factory, where_sql: str, params: list) -> Iterator[list[di
             yield rows
 
 
+def record_label(rec: dict, labels: dict[str, str] | None = None) -> str:
+    """A record facet value ({field: value}, e.g. raised pantographs) as one line of text."""
+    def one(v):
+        if isinstance(v, bool):
+            return "yes" if v else "no"
+        if isinstance(v, str):
+            return (labels or {}).get(v) or v
+        return f"{v:g}" if isinstance(v, float) else str(v)
+    return ", ".join(f"{k} {one(v)}" for k, v in rec.items())
+
+
 class Values:
     """Turns stored facet values into cell values: IRIs become labels (or stay IRIs),
     several values are joined with '; ', a single number stays a number."""
@@ -87,6 +98,8 @@ class Values:
                 self._cache[i] = found.get(i) or (self._local(i) if i.startswith(("http", "urn:")) else i)
 
     def one(self, v):
+        if isinstance(v, dict):
+            return record_label(v, self._cache if self.use_labels else None)
         if isinstance(v, bool):
             return ("Yes" if v else "No") if self.use_labels else ("true" if v else "false")
         if isinstance(v, str):

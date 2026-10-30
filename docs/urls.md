@@ -117,6 +117,11 @@ The mode gets `-r` when the sequence is reversed (`line-r,50A`).
 map, in the form `key:value,value;key:number`. The keys are the
 compatibility rules' keys (see `/api/compatibility/rules`).
 
+For a train, `veh` holds the train's combined values (what the check uses)
+and `vehn` its name: the composition itself is not in the link. Export the
+train as JSON to share it with its vehicles. The recipient sees it as one
+shared vehicle.
+
 Saved vehicle profiles stay in the user's browser and are never put in a
 link. When the link is opened:
 - If the recipient has a saved profile with the same name and values, it is

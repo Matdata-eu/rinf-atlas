@@ -3,11 +3,13 @@
 // explanation shown in the detail panel. Self-contained: its own source and layers.
 // The profile shown on the map is mirrored in store.vehicle (its content, so a shared link
 // carries it); a profile that arrives with a link is used as is and can be saved.
+// In train mode the check runs for a train of vehicle profiles; the API combines their
+// values, and a link carries the combined values (the composition is shared as a JSON file).
 import type * as maplibregl from 'maplibre-gl';
 import type { ExpressionSpecification, GeoJSONSource, MapGeoJSONFeature } from 'maplibre-gl';
 import {
-  api, isAbort, type CompatCheck, type CompatColour, type CompatExplain, type CompatResponse, type CompatRule,
-  type CompatRules, type Feature, type TermCount, type TermValue,
+  api, isAbort, type CompatCheck, type CompatColour, type CompatCombined, type CompatExplain, type CompatInput,
+  type CompatResponse, type CompatRule, type CompatRules, type Feature, type TermCount, type TermValue, type VehicleValues,
 } from './api';
 import {
   acceptDisclaimer, COMPAT_DISCLAIMER, COMPAT_DISCLAIMER_SHORT, COMPAT_DISCLAIMER_TITLE, disclaimerAccepted,
@@ -16,6 +18,7 @@ import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setPreferredClass, setTip
 import { changed, debounce, fmt, h, store, unitLabel, type SharedVehicle } from './state';
 import * as V from './vehicles';
 import { explainButton } from './compat-explain';
+import * as TE from './train-editor';
 
 const SRC = 'compat';
 const LAYERS = ['compat-casing', 'compat-line', 'compat-circle'];
@@ -61,9 +64,22 @@ let exportAll = false;
 /** A profile that came with a link: used for the check, not stored until the user saves it. */
 let shared: V.VehicleProfile | null = null;
 const SHARED_ID = 'shared-link';
+/** The active train's values as the API combined them, and where each comes from. */
+let combined: CompatCombined | null = null;
+let combineErr: string | null = null;
+let combineCtl: AbortController | null = null;
 
 const active = () => (shared && saved.active === SHARED_ID ? shared
   : saved.profiles.find((p) => p.id === saved.active) ?? saved.profiles[0]);
+const trainMode = () => saved.mode === 'train';
+const activeTrain = () => saved.trains.find((t) => t.id === saved.activeTrain) ?? saved.trains[0];
+/** The name of what is checked: the train or the vehicle profile. */
+const checkName = () => (trainMode() ? activeTrain()?.name : active()?.name) ?? (trainMode() ? 'Train' : 'Vehicle');
+/** What the API checks: the active train, or the active vehicle profile's values. */
+function checkInput(): CompatInput {
+  const t = activeTrain();
+  return trainMode() && t ? { train: V.trainRequest(t, saved.profiles) } : { profile: V.filledValues(active()) };
+}
 const sectionClass = () => rules?.section_class ?? 'section-of-line';
 const persist = () => V.save(saved.active === SHARED_ID
   ? { ...saved, active: saved.profiles.some((p) => p.id === lastSavedActive) ? lastSavedActive : saved.profiles[0]?.id ?? null }
@@ -79,8 +95,13 @@ const canon = (v: V.VehicleProfile['values']) => JSON.stringify(Object.keys(v).s
 const sameVehicle = (a: SharedVehicle | null, b: SharedVehicle | null) =>
   a === b || (!!a && !!b && a.name === b.name && canon(a.values) === canon(b.values));
 const current = (): SharedVehicle | null => {
+  if (!saved.show) return null;
+  if (trainMode()) {
+    const t = activeTrain();
+    return t && combined ? { name: t.name, values: combined.profile } : null;
+  }
   const p = active();
-  return saved.show && p ? { name: p.name, values: V.filledValues(p) } : null;
+  return p ? { name: p.name, values: V.filledValues(p) } : null;
 };
 /** Mirrors the check shown on the map into the store, so it is part of the URL. */
 function publish() {
@@ -98,6 +119,12 @@ function adopt(v: SharedVehicle | null) {
     if (saved.show) { saved.show = false; setVisible(false); renderPane(); recompute(); }
     return;
   }
+  // a link carries one set of values: a train's arrive as a vehicle profile
+  if (trainMode() && combined && activeTrain()?.name === v.name && canon(combined.profile) === canon(v.values)) {
+    if (!saved.show) { saved.show = true; setVisible(true); renderPane(); recompute(); }
+    return;
+  }
+  saved.mode = 'vehicle';
   const same = saved.profiles.find((p) => p.name === v.name && canon(V.filledValues(p)) === canon(v.values));
   if (same) { shared = null; saved.active = same.id; lastSavedActive = same.id; }
   else {
@@ -138,9 +165,36 @@ function ruleValues(r: CompatRule): Map<string, TermCount> {
 // ---------- computing ----------
 function hasFilled(): boolean {
   if (!rules) return false;
+  const keys = new Set(rules.rules.filter((r) => r.constraint !== 'input').map((r) => r.key));
+  if (trainMode()) {
+    const t = activeTrain();
+    if (!t) return false;
+    const req = V.trainRequest(t, saved.profiles);
+    return req.vehicles.length > 0 && [req.values, ...req.vehicles.map((x) => x.values)].some((vals) => Object.keys(vals).some((k) => keys.has(k)));
+  }
   const vals = V.filledValues(active());
-  return rules.rules.some((r) => r.key in vals);
+  return Object.keys(vals).some((k) => keys.has(k));
 }
+
+/** The active train's combined values, for the panel, the editor and the link. */
+async function recombine() {
+  combineCtl?.abort();
+  const t = activeTrain();
+  if (!trainMode() || !t) { combined = null; return; }
+  const req = V.trainRequest(t, saved.profiles);
+  if (!req.vehicles.length) { combined = null; combineErr = null; renderTrainDerived(); publish(); return; }
+  combineCtl = new AbortController();
+  try {
+    combined = await api.compatCombine(req, combineCtl.signal);
+    combineErr = null;
+  } catch (e) {
+    if (isAbort(e)) return;
+    combined = null; combineErr = (e as Error).message;
+  }
+  renderTrainDerived();
+  publish();
+}
+const recombineSoon = debounce(recombine, 250);
 
 async function recompute() {
   ctl?.abort();
@@ -150,7 +204,7 @@ async function recompute() {
   ctl = new AbortController();
   busy = true; resultErr = null; renderStatus();
   try {
-    result = await api.compat(env, V.filledValues(active()), ctl.signal);
+    result = await api.compat(env, checkInput(), ctl.signal);
     busy = false;
     applyResult(result);
   } catch (e) {
@@ -260,7 +314,7 @@ function applyResult(r: CompatResponse | null) {
 function tipNote(f: MapGeoJSONFeature): string | null {
   if (!saved.show || f.properties.class !== sectionClass()) return null;
   const c = statusById.get(String(f.properties.id ?? f.id));
-  return c ? `${STATUS_TEXT[c]} · ${active()?.name ?? ''}` : null;
+  return c ? `${STATUS_TEXT[c]} · ${checkName()}` : null;
 }
 
 // ---------- map legend ----------
@@ -269,18 +323,18 @@ const legend = h('div', { class: 'compat-legend', hidden: true, role: 'region', 
 function renderLegend() {
   legend.hidden = !saved.show;
   if (!saved.show) return;
-  const p = active();
+  const name = checkName();
   const rows = (['green', 'yellow', 'red'] as const).map((c) => h('li', { title: STATUS_HELP[c] },
     h('span', { class: 'compat-swatch', style: `background:${COLOUR[c]}` }),
     h('span', { class: 'lbl' }, STATUS_TEXT[c]),
     h('span', { class: 'count' }, result ? fmt.format(result.counts[c]) : '')));
   const body = !rules ? h('p', { class: 'muted small' }, rulesErr ? 'Compatibility rules unavailable.' : 'Loading…')
-    : !hasFilled() ? h('p', { class: 'muted small' }, 'Fill in at least one characteristic of the vehicle.')
+    : !hasFilled() ? h('p', { class: 'muted small' }, trainMode() ? 'Add vehicles with at least one characteristic filled in.' : 'Fill in at least one characteristic of the vehicle.')
     : resultErr ? h('p', { class: 'error small' }, resultErr)
     : h('ul', { class: 'compat-rows' + (busy ? ' busy' : '') }, ...rows);
   legend.replaceChildren(
     h('div', { class: 'compat-legend-head' },
-      h('span', { class: 'compat-legend-name', title: p?.name ?? '' }, p?.name ?? 'Vehicle'),
+      h('span', { class: 'compat-legend-name', title: name }, trainMode() ? `Train: ${name}` : name),
       h('button', { class: 'btn btn-small compat-legend-edit', type: 'button', title: 'Open the vehicle check panel to edit the profile',
         'aria-expanded': String(store.get().vehicleOpen), 'aria-controls': 'vehicle-panel', onclick: () => setPanelOpen(true) }, 'Edit'),
       h('button', { class: 'icon-btn', type: 'button', title: 'Turn the vehicle check off', 'aria-label': 'Turn the vehicle check off', onclick: () => setShow(false) }, '×')),
@@ -339,15 +393,89 @@ function setActive(id: string) {
   recompute();
 }
 
-function updateValue(key: string, v: V.VehicleProfile['values'][string] | undefined) {
+function updateValue(key: string, v: VehicleValues[string] | undefined) {
   const p = active();
   if (!p) return;
-  if (v === undefined || !V.isFilled(v)) delete p.values[key];
-  else p.values[key] = v;
+  setValue(p, key, v);
   persist(); publish();
   renderEditorHeads();
   renderLegend();
   if (saved.show) { busy = true; renderStatus(); recomputeSoon(); }
+}
+
+function setValue(target: { values: VehicleValues }, key: string, v: VehicleValues[string] | undefined) {
+  if (v === undefined || !V.isFilled(v)) delete target.values[key];
+  else target.values[key] = v;
+}
+
+/** The train (its groups, its values or one of its vehicles) changed: save, combine, check. */
+function trainChanged() {
+  persist();
+  recombineSoon();
+  renderLegend();
+  if (saved.show) { busy = true; renderStatus(); recomputeSoon(); }
+}
+
+function setMode(mode: V.Mode) {
+  if (saved.mode === mode) return;
+  saved.mode = mode;
+  if (mode === 'train' && saved.active === SHARED_ID) { shared = null; saved.active = lastSavedActive ?? saved.profiles[0]?.id ?? null; }
+  combined = null;
+  persist();
+  if (mode === 'train') recombine(); else publish();
+  renderPane();
+  recompute();
+}
+
+function setActiveTrain(id: string) {
+  saved.activeTrain = id;
+  combined = null;
+  persist();
+  recombine();
+  renderPane();
+  recompute();
+}
+
+const editorCtx = (): TE.EditorCtx | null => {
+  const t = activeTrain();
+  if (!rules || !t) return null;
+  return {
+    rules, train: t, profiles: saved.profiles, combined,
+    label: (_r, v) => valueLabel(v, labelOf(_r, v)),
+    changed: () => { trainChanged(); renderPane(); },
+    setVehicleValue: (id, key, v) => {
+      const p = saved.profiles.find((x) => x.id === id);
+      if (!p) return;
+      setValue(p, key, v);
+      trainChanged();
+    },
+    setTrainValue: (key, v) => { setValue(t, key, v); trainChanged(); renderPane(); },
+    newVehicle: () => {
+      const n: V.VehicleProfile = { id: V.newId(), name: 'New vehicle', values: {} };
+      saved.profiles.push(n);
+      persist();
+      return n.id;
+    },
+    close: () => { TE.closeEditor(); renderPane(); pane.querySelector<HTMLElement>('.train-open')?.focus(); },
+    showOnMap: () => { TE.closeEditor(); if (!saved.show) setShow(true); renderPane(); },
+  };
+};
+
+function openTrainEditor() {
+  const c = editorCtx();
+  if (c) TE.openEditor(c);
+}
+
+/** After new combined values: the panel's summary and the editor. */
+function renderTrainDerived() {
+  const el = pane.querySelector<HTMLElement>('.train-checked');
+  if (el) el.replaceWith(trainChecked());
+  TE.refreshEditor({ combined });
+}
+
+/** The label the index has for a value of a rule, when it has one. */
+function labelOf(r: CompatRule, v: TermValue): string | undefined {
+  return r.values?.find((x) => String(x.value) === String(v))?.label;
 }
 
 function download(name: string, type: string, text: string) {
@@ -362,25 +490,41 @@ function download(name: string, type: string, text: string) {
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'vehicle';
 
 function exportProfiles(fmtName: 'json' | 'ttl') {
-  const list = exportAll ? saved.profiles : [active()].filter(Boolean) as V.VehicleProfile[];
-  const base = exportAll ? 'rinf-atlas-vehicles' : slug(list[0]?.name ?? 'vehicle');
-  if (fmtName === 'json') download(`${base}.json`, 'application/json', V.toJson(list));
+  const t = trainMode() ? activeTrain() : undefined;
+  // a train goes with its vehicle profiles
+  const trains = exportAll ? saved.trains : t ? [t] : [];
+  const list = exportAll ? saved.profiles
+    : t ? saved.profiles.filter((p) => t.groups.some((g) => g.profile === p.id))
+    : [active()].filter(Boolean) as V.VehicleProfile[];
+  const base = exportAll ? 'rinf-atlas-vehicles' : slug((t ?? list[0])?.name ?? 'vehicle');
+  if (fmtName === 'json') download(`${base}.json`, 'application/json', V.toJson(list, trains));
   else download(`${base}.ttl`, 'text/turtle', V.toTurtle(list, rules?.rules ?? []));
 }
 
 async function importFile(file: File) {
   try {
     if (!rules) throw new Error('the compatibility rules have not loaded yet');
-    const list = V.importProfiles(await file.text(), rules.rules);
+    const { profiles: list, trains } = V.importProfiles(await file.text(), rules.rules);
     const ids = new Set(saved.profiles.map((p) => p.id));
+    const renamed = new Map<string, string>();
     for (const p of list) {
-      if (ids.has(p.id)) p.id = V.newId();
+      if (ids.has(p.id)) { const id = V.newId(); renamed.set(p.id, id); p.id = id; }
       p.example = undefined;
       ids.add(p.id);
     }
+    const tids = new Set(saved.trains.map((t) => t.id));
+    for (const t of trains) {
+      if (tids.has(t.id)) t.id = V.newId();
+      t.example = undefined;
+      tids.add(t.id);
+      for (const g of t.groups) g.profile = renamed.get(g.profile) ?? g.profile;
+    }
     saved.profiles.push(...list);
-    message = { text: `Imported ${list.length} profile${list.length === 1 ? '' : 's'} from ${file.name}.` };
-    setActive(list[0].id);
+    saved.trains.push(...trains);
+    const n = (k: number, what: string) => `${k} ${what}${k === 1 ? '' : 's'}`;
+    message = { text: `Imported ${[list.length ? n(list.length, 'profile') : '', trains.length ? n(trains.length, 'train') : ''].filter(Boolean).join(' and ')} from ${file.name}.` };
+    if (trains.length) { saved.mode = 'vehicle'; setMode('train'); setActiveTrain(trains[0].id); }
+    else setActive(list[0].id);
   } catch (e) {
     message = { text: `Import failed: ${(e as Error).message}`, error: true };
     renderPane();
@@ -389,7 +533,10 @@ async function importFile(file: File) {
 
 function restoreExamples() {
   const ex = V.exampleProfiles();
+  const exT = V.exampleTrains();
   saved.profiles = [...saved.profiles.filter((p) => !ex.some((x) => x.id === p.id)), ...ex];
+  saved.trains = [...saved.trains.filter((t) => !exT.some((x) => x.id === t.id)), ...exT];
+  if (trainMode()) recombine();
   message = { text: 'The example profiles were restored.' };
   setActive(saved.active && saved.profiles.some((p) => p.id === saved.active) ? saved.active : ex[0].id);
 }
@@ -403,7 +550,8 @@ function renderStatus() {
   const parts: (Node | string)[] = [];
   if (!saved.show) parts.push(h('p', { class: 'muted small' }, 'Turn on to colour the sections of line on the map.'));
   else if (!rules) parts.push(h('p', { class: 'muted small' }, rulesErr ? '' : 'Loading the rules…'));
-  else if (!hasFilled()) parts.push(h('p', { class: 'muted small' }, 'Fill in at least one characteristic below.'));
+  else if (!hasFilled()) parts.push(h('p', { class: 'muted small' }, trainMode()
+    ? 'Add vehicles to the train with at least one characteristic filled in.' : 'Fill in at least one characteristic below.'));
   else if (resultErr) parts.push(h('p', { class: 'error small' }, `Check failed: ${resultErr}`));
   else {
     parts.push(h('ul', { class: 'compat-rows' + (busy ? ' busy' : '') }, ...(['green', 'yellow', 'red'] as const).map((c) =>
@@ -423,6 +571,7 @@ function renderEditorHeads() {
     const v = p?.values[r.key];
     el.textContent = !V.isFilled(v) ? 'not checked'
       : typeof v === 'number' ? `${fmt.format(v)}${r.unit ? ` ${unitLabel(r.unit)}` : ''}`
+      : r.options?.length || r.constraint === 'requires' ? TE.formatValue(r, v, (rr, x) => valueLabel(x, labelOf(rr, x)))
       : `${(v as unknown[]).length} selected`;
     el.classList.toggle('filled', V.isFilled(v));
   }
@@ -479,6 +628,23 @@ function termEditor(r: CompatRule, body: HTMLElement) {
   body.querySelector('.compat-values')?.replaceChildren(...parts);
 }
 
+/** One choice (an option, or Yes / No for a requirement), or not checked. */
+function choiceEditor(r: CompatRule, body: HTMLElement) {
+  const cur = (Array.isArray(active()!.values[r.key]) ? active()!.values[r.key] : []) as (string | boolean)[];
+  const choices: { value: string | boolean; label: string; count?: number }[] = r.options?.length
+    ? r.options.map((o) => ({ value: o.value, label: o.label, count: o.count }))
+    : [{ value: true, label: 'Yes' }, { value: false, label: 'No' }];
+  const name = `choice-${r.key}`;
+  const radio = (value: string | boolean | null, label: string, count?: number) => h('li', {},
+    h('label', { class: 'check' },
+      h('input', { type: 'radio', name, checked: value === null ? !cur.length : cur.length === 1 && String(cur[0]) === String(value),
+        onchange: () => updateValue(r.key, value === null ? undefined : [value]) }),
+      h('span', { class: 'lbl' }, label),
+      count != null ? h('span', { class: 'count', title: 'Tracks this choice is compatible with' }, fmt.format(count)) : ''));
+  body.querySelector('.compat-values')?.replaceChildren(h('ul', { class: 'terms' },
+    radio(null, 'Not checked'), ...choices.map((c) => radio(c.value, c.label, c.count))));
+}
+
 function numberEditor(r: CompatRule, body: HTMLElement) {
   const v = active()!.values[r.key];
   const input = h('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'compat-number', placeholder: 'not checked',
@@ -511,7 +677,9 @@ function ruleBlock(r: CompatRule): HTMLElement {
       root.querySelector('.facet-head')!.setAttribute('aria-expanded', String(open));
     } }, h('span', {}, r.label, ' ', state), h('span', { class: 'chev', 'aria-hidden': 'true' })),
     body);
-  if (r.kind === 'number') numberEditor(r, body); else termEditor(r, body);
+  if (r.kind === 'number') numberEditor(r, body);
+  else if (r.options?.length || r.constraint === 'requires') choiceEditor(r, body);
+  else termEditor(r, body);
   return root;
 }
 
@@ -594,7 +762,14 @@ function renderPane() {
     editor.push(h('h2', { class: 'section-title' }, 'Characteristics'),
       h('p', { class: 'muted small' }, 'Fill in only what you know: a characteristic left empty is not checked. ',
         'Values are compared with the running tracks of each section of line.'));
-    if (rules) editor.push(...rules.rules.map(ruleBlock));
+    if (rules) {
+      let group: string | null | undefined;
+      for (const r of TE.groupedRules(rules.rules)) {
+        if (r.group && r.group !== group) editor.push(h('h3', { class: 'compat-sub compat-group' }, r.group));
+        group = r.group;
+        editor.push(ruleBlock(r));
+      }
+    }
     else editor.push(h('p', { class: rulesErr ? 'error small' : 'muted small loading-text' }, rulesErr ? `Could not load the compatibility rules: ${rulesErr}` : 'Loading the rules…'));
   } else {
     editor.push(h('p', { class: 'muted' }, 'No vehicle profiles. Create one or restore the examples.'));
@@ -603,14 +778,17 @@ function renderPane() {
   const file = h('input', { type: 'file', accept: '.json,.ttl,application/json,text/turtle', hidden: true });
   file.addEventListener('change', () => { const f = file.files?.[0]; if (f) importFile(f); file.value = ''; });
   const scope = h('select', { class: 'compat-scope', 'aria-label': 'What to export', onchange: (e: Event) => { exportAll = (e.target as HTMLSelectElement).value === 'all'; } },
-    h('option', { value: 'one', selected: !exportAll }, 'This profile'), h('option', { value: 'all', selected: exportAll }, 'All profiles'));
+    h('option', { value: 'one', selected: !exportAll }, trainMode() ? 'This train' : 'This profile'),
+    h('option', { value: 'all', selected: exportAll }, trainMode() ? 'All profiles and trains' : 'All profiles'));
   const io = h('div', { class: 'compat-io' },
     h('h2', { class: 'section-title' }, 'Share and back up'),
     h('p', { class: 'muted small' }, 'Profiles are kept in this browser only. Export them as JSON, or as Turtle using ',
-      h('code', {}, 'era:VehicleType'), ' from the ERA ontology, and import them elsewhere.'),
+      h('code', {}, 'era:VehicleType'), ' from the ERA ontology, and import them elsewhere.',
+      trainMode() ? ' A train is exported as JSON with its vehicle profiles; a shared link carries only its combined values.' : ''),
     h('div', { class: 'compat-bar' }, scope,
       btn('JSON', 'Download as JSON', () => exportProfiles('json'), !p),
-      btn('Turtle', 'Download as Turtle (era:VehicleType)', () => exportProfiles('ttl'), !p || !rules)),
+      btn('Turtle', trainMode() ? 'Download the train’s vehicle profiles as Turtle (era:VehicleType)' : 'Download as Turtle (era:VehicleType)',
+        () => exportProfiles('ttl'), !p || !rules)),
     h('div', { class: 'compat-bar' },
       btn('Import…', 'Import profiles from a JSON or Turtle file', () => file.click(), !rules),
       btn('Restore examples', 'Add the example profiles again, with their original values', restoreExamples), file),
@@ -618,6 +796,10 @@ function renderPane() {
     h('p', { class: 'muted small compat-eratv' }, 'Profiles are made by hand. Once ERATV, the European register of authorised ',
       'types of vehicles, is published as linked data, profiles could be imported from authorised vehicle types instead.'));
 
+  const modeSwitch = h('div', { class: 'compat-mode', role: 'radiogroup', 'aria-label': 'Check a single vehicle or a train' },
+    ...([['vehicle', 'Single vehicle'], ['train', 'Train']] as const).map(([m, label]) => h('button', {
+      type: 'button', role: 'radio', class: 'compat-mode-btn', 'aria-checked': String(saved.mode === m), onclick: () => setMode(m),
+    }, label)));
   pane.replaceChildren(
     h('p', { class: 'muted small compat-intro' }, 'A lightweight check of where a vehicle type can run, from the technical ',
       'characteristics you fill in and the RINF data of each section of line.'),
@@ -627,11 +809,143 @@ function renderPane() {
     h('details', { class: 'compat-help' }, h('summary', { class: 'small' }, 'How sections are coloured'), h('p', { class: 'small' }, RULE_HELP),
       h('p', { class: 'small muted' }, 'Each characteristic is compared with an RINF track parameter using a SHACL constraint ',
         '(rules in shapes/compatibility.ttl, which whoever runs this site may have changed).')),
-    h('h2', { class: 'section-title' }, 'Vehicle profile'),
-    h('div', { class: 'compat-bar' }, select), profileBar,
-    ...editor.filter((x): x is Node => x !== null), io);
+    modeSwitch,
+    ...(trainMode() ? trainSection() : [
+      h('h2', { class: 'section-title' }, 'Vehicle profile'),
+      h('div', { class: 'compat-bar' }, select), profileBar,
+      ...editor.filter((x): x is Node => x !== null)]),
+    io);
+  if (TE.isOpen()) { const c = editorCtx(); if (c) TE.openEditor(c); else TE.closeEditor(); }
   renderEditorHeads();
   renderStatus();
+}
+
+// ---------- train mode in the panel ----------
+const ROLE_TEXT: Record<V.Role, string> = { leading: 'Leading cab', pantograph: 'Pantograph up' };
+const shortName = (id: string) => (saved.profiles.find((p) => p.id === id)?.name ?? 'Missing vehicle profile').replace(/^Example: /, '');
+
+function trainSection(): Node[] {
+  const t = activeTrain();
+  const btn = (label: string, title: string, fn: () => void, disabled = false, cls = '') =>
+    h('button', { class: `btn btn-small ${cls}`, type: 'button', title, disabled, onclick: fn }, label);
+  const select = h('select', { class: 'compat-select', 'aria-label': 'Train', onchange: (e: Event) => setActiveTrain((e.target as HTMLSelectElement).value) },
+    ...saved.trains.map((x) => h('option', { value: x.id, selected: x.id === t?.id }, x.name)));
+  const bar = h('div', { class: 'compat-bar' },
+    btn('New', 'Start a train with the current vehicle profile', () => {
+      const first = active() && active() !== shared ? active()!.id : saved.profiles[0]?.id;
+      const n: V.TrainProfile = { id: V.newId(), name: 'New train', groups: first ? [{ profile: first, count: 1, roles: ['leading'] }] : [], values: {} };
+      saved.trains.push(n); setActiveTrain(n.id);
+      pane.querySelector<HTMLInputElement>('.compat-name')?.select();
+    }),
+    btn('Duplicate', 'Copy this train', () => {
+      if (!t) return;
+      const n: V.TrainProfile = { ...structuredClone(t), id: V.newId(), name: `${t.name} (copy)`.replace(/^Example: /, ''), example: undefined };
+      saved.trains.push(n); setActiveTrain(n.id);
+    }, !t),
+    btn('Delete', 'Delete this train from this browser (its vehicle profiles stay)', () => {
+      if (!t || !confirm(`Delete the train “${t.name}” from this browser? Its vehicle profiles stay.`)) return;
+      saved.trains = saved.trains.filter((x) => x.id !== t.id);
+      setActiveTrain(saved.trains[0]?.id ?? '');
+    }, !t));
+  const out: Node[] = [h('h2', { class: 'section-title' }, 'Train'), h('div', { class: 'compat-bar' }, select), bar];
+  if (!t) {
+    out.push(h('p', { class: 'muted' }, 'No trains. Create one or restore the examples.'));
+    return out;
+  }
+  const name = h('input', { type: 'text', class: 'facet-filter compat-name', value: t.name, 'aria-label': 'Train name', maxlength: 200 });
+  name.addEventListener('input', () => {
+    t.name = name.value || 'Unnamed train'; persist(); publish();
+    const opt = select.querySelector<HTMLOptionElement>(`option[value="${CSS.escape(t.id)}"]`);
+    if (opt) opt.textContent = t.name;
+    renderLegend();
+  });
+  out.push(h('label', { class: 'compat-field' }, h('span', { class: 'muted small' }, 'Name'), name));
+  if (t.example) out.push(h('p', { class: 'compat-example small' }, 'Example train with illustrative vehicles, not an authorised train. Duplicate it or edit it.'));
+
+  // the composition, front to back
+  const move = (i: number, d: number) => {
+    const [g] = t.groups.splice(i, 1);
+    t.groups.splice(i + d, 0, g);
+    trainChanged(); renderPane();
+    pane.querySelectorAll<HTMLElement>('.train-list li')[i + d]?.querySelector<HTMLElement>(d < 0 ? '.up' : '.down')?.focus();
+  };
+  let first = 1;
+  const items = t.groups.map((g, i) => {
+    const label = `${first}${g.count > 1 ? `–${first + g.count - 1}` : ''}`;
+    first += g.count;
+    const roles = [...g.roles.map((r) => ROLE_TEXT[r]), ...(i === t.groups.length - 1 ? ['Tail'] : [])];
+    return h('li', {},
+      h('div', { class: 'train-item-head' },
+        h('span', { class: 'train-item-name' }, `${label} · ${shortName(g.profile)}`, g.count > 1 ? h('span', { class: 'muted' }, ` ×${g.count}`) : ''),
+        h('button', { class: 'icon-btn up', type: 'button', title: 'Move towards the front', 'aria-label': `Move ${shortName(g.profile)} towards the front`, disabled: i === 0, onclick: () => move(i, -1) }, '▲'),
+        h('button', { class: 'icon-btn down', type: 'button', title: 'Move towards the tail', 'aria-label': `Move ${shortName(g.profile)} towards the tail`, disabled: i === t.groups.length - 1, onclick: () => move(i, 1) }, '▼'),
+        h('button', { class: 'icon-btn', type: 'button', title: 'Remove from the train', 'aria-label': `Remove ${shortName(g.profile)} from the train`, onclick: () => {
+          t.groups.splice(i, 1); trainChanged(); renderPane();
+        } }, '×')),
+      roles.length ? h('div', { class: 'train-roles' }, ...roles.map((r) => h('span', { class: 'chip' }, r))) : null);
+  });
+  const add = h('select', { class: 'compat-scope', 'aria-label': 'Vehicle profile to add' },
+    ...saved.profiles.map((p) => h('option', { value: p.id }, p.name)));
+  out.push(
+    h('h3', { class: 'compat-sub' }, 'Composition · front to back'),
+    items.length ? h('ol', { class: 'train-list' }, ...items) : h('p', { class: 'muted small' }, 'No vehicles yet.'),
+    h('div', { class: 'compat-bar' }, add, btn('+ Add', 'Add this vehicle profile at the tail', () => {
+      if (!add.value) return;
+      t.groups.push({ profile: add.value, count: 1, roles: t.groups.length ? [] : ['leading'] });
+      trainChanged(); renderPane();
+    }, !saved.profiles.length)),
+    h('div', { class: 'compat-bar' }, btn('Open the train editor', 'Compose the train full width: a drawing to scale and every vehicle’s values side by side',
+      openTrainEditor, !rules, 'btn-primary train-open')));
+
+  // values only the whole train has (e.g. its braking deceleration)
+  const trainRules = (rules?.rules ?? []).filter((r) => r.combine_over === 'train');
+  if (trainRules.length) {
+    out.push(h('h3', { class: 'compat-sub' }, 'Entered for the whole train'));
+    for (const r of trainRules) {
+      const v = t.values[r.key];
+      const input = h('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'compat-number', placeholder: 'not checked',
+        'aria-label': r.label, value: typeof v === 'number' ? String(v) : '' });
+      input.addEventListener('input', () => {
+        const x = input.value.trim();
+        const n = Number(x);
+        setValue(t, r.key, x === '' || !Number.isFinite(n) ? undefined : n);
+        trainChanged();
+      });
+      out.push(h('label', { class: 'compat-field' }, h('span', { class: 'small' }, r.label, r.explanation ? explainButton(r, rules, 'icon') : null),
+        h('div', { class: 'compat-number-row' }, input, r.unit ? h('span', { class: 'muted' }, unitLabel(r.unit)) : null)));
+    }
+  }
+  out.push(trainChecked(),
+    h('details', { class: 'compat-help' }, h('summary', { class: 'small' }, 'How are vehicles combined?'),
+      h('p', { class: 'small' }, 'Each characteristic says which vehicles count and how: the train length is the sum of all vehicles, ',
+        'the axle load the heaviest, the energy supply what every unit with a pantograph raised accepts, the ETCS level that of the ',
+        'leading cab, the tail lamps those of the last vehicle. A characteristic is not checked when a vehicle that counts has ',
+        'no value for it. The values of a vehicle belong to its profile: edit them under Single vehicle or in the train editor.')));
+  return out;
+}
+
+/** "What the train is checked with": the combined values and where they come from. */
+function trainChecked(): HTMLElement {
+  const t = activeTrain();
+  const el = h('div', { class: 'train-checked' }, h('h3', { class: 'compat-sub' }, 'What the train is checked with'));
+  if (!t || !rules) return el;
+  if (combineErr) { el.append(h('p', { class: 'error small' }, combineErr)); return el; }
+  if (!combined) { el.append(h('p', { class: 'muted small' }, t.groups.length ? 'Combining…' : 'Add vehicles to the train.')); return el; }
+  const names = (ix: number[]) => [...new Set(ix.map((i) => shortName(t.groups[i]?.profile ?? '')))].join(', ');
+  const rows = TE.groupedRules(rules.rules).flatMap((r) => {
+    const src = combined!.sources[r.key];
+    const v = combined!.profile[r.key];
+    if (!src || (!V.isFilled(v) && !src.missing.length)) return [];
+    const how = src.entered ? 'entered for the whole train'
+      : src.missing.length ? `not checked: no value for ${names(src.missing)}`
+      : `${r.combine_text ?? ''}${src.from.length && t.groups.length > 1 ? ` · set by ${names(src.from)}` : ''}`;
+    return [h('tr', {}, h('th', {}, r.label),
+      h('td', {}, V.isFilled(v) ? TE.formatValue(r, v, (rr, x) => valueLabel(x, labelOf(rr, x))) : h('span', { class: 'muted' }, 'unknown'),
+        h('div', { class: `small ${src.missing.length ? 'warn-text' : 'muted'}` }, how)))];
+  });
+  el.append(rows.length ? h('table', { class: 'kv compat-table' }, h('tbody', {}, ...rows))
+    : h('p', { class: 'muted small' }, 'None of the vehicles has a value filled in yet.'));
+  return el;
 }
 
 /** After a new result (or none): counts, legend and open detail blocks; the editor stays. */
@@ -646,17 +960,20 @@ function checksTable(checks: CompatCheck[]): HTMLElement {
   return h('table', { class: 'kv compat-table' }, h('tbody', {}, ...checks.map((c) => {
     const r = byKey.get(c.key);
     const unit = r?.unit ? ` ${unitLabel(r.unit)}` : '';
-    const vals = c.values.map((v) => typeof v.value === 'number' ? `${fmt.format(v.value)}${unit}` : valueLabel(v.value, v.label));
+    // a record row (e.g. raised pantographs per speed) comes labelled by the API
+    const vals = c.values.map((v) => typeof v.value === 'number' ? `${fmt.format(v.value)}${unit}`
+      : v.value !== null && typeof v.value === 'object' ? v.label : valueLabel(v.value, v.label));
     return h('tr', {},
       h('th', {}, r?.label ?? c.key, r?.explanation ? explainButton(r, rules, 'icon') : null),
       h('td', {}, h('span', { class: `compat-result ${c.result}` }, `${RESULT_ICON[c.result]} ${RESULT_TEXT[c.result]}`),
         c.note ? h('div', { class: 'compat-note-reason small' }, c.note) : null,
-        vals.length ? h('div', { class: 'muted small' }, `Track: ${vals.join(', ')}`) : null));
+        vals.length ? h('div', { class: 'muted small' }, `Track: ${vals.join(', ')}`) : null,
+        c.source && trainMode() ? h('div', { class: 'muted small compat-source' }, c.source.entered ? 'Train: entered for the whole train'
+          : `Train: ${c.source.text}${c.source.from.length ? ` · set by ${[...new Set(c.source.from)].join(', ')}` : ''}`) : null));
   })));
 }
 
 function renderExplain(el: HTMLElement, x: CompatExplain) {
-  const p = active();
   const tracks = x.tracks.map((t, i) => h('details', { class: 'compat-track', open: i === 0 || x.tracks.length <= 2 },
     h('summary', {}, h('span', { class: 'compat-swatch', style: `background:${COLOUR[t.status]}` }), ' ',
       t.label ?? t.iri, h('small', { class: 'muted' }, ` · ${STATUS_TEXT[t.status]}`)),
@@ -664,7 +981,7 @@ function renderExplain(el: HTMLElement, x: CompatExplain) {
   el.replaceChildren(
     h('div', { class: 'compat-detail-head' },
       h('span', { class: 'compat-swatch big', style: `background:${COLOUR[x.status]}` }),
-      h('div', {}, h('strong', {}, STATUS_TEXT[x.status]), h('div', { class: 'muted small' }, `for “${p?.name ?? 'vehicle'}”: ${STATUS_HELP[x.status]}`))),
+      h('div', {}, h('strong', {}, STATUS_TEXT[x.status]), h('div', { class: 'muted small' }, `for ${trainMode() ? 'the train ' : ''}“${checkName()}”: ${STATUS_HELP[x.status]}`))),
     x.section.length ? h('div', {}, h('h3', { class: 'compat-sub' }, 'Section of line'), checksTable(x.section)) : '',
     x.tracks.length ? h('h3', { class: 'compat-sub' }, `Running tracks (${x.tracks.length})`) : '',
     ...tracks,
@@ -675,12 +992,11 @@ function renderExplain(el: HTMLElement, x: CompatExplain) {
 function refreshBlock(b: { el: HTMLElement; feature: Feature }) {
   if (!b.el.isConnected) { liveBlocks.delete(b); return; }
   const env = store.get().env;
-  const p = active();
   b.el.hidden = !saved.show || !rules || !hasFilled();
   if (b.el.hidden) return;
   const body = b.el.querySelector<HTMLElement>('.compat-detail-body')!;
   body.replaceChildren(h('p', { class: 'muted small loading-text' }, 'Checking…'));
-  api.compatExplain(env, V.filledValues(p), b.feature.iri).then((x) => {
+  api.compatExplain(env, checkInput(), b.feature.iri).then((x) => {
     if (b.el.isConnected) renderExplain(body, x);
   }).catch((e) => { if (b.el.isConnected) body.replaceChildren(h('p', { class: 'error small' }, (e as Error).message)); });
 }
@@ -719,6 +1035,7 @@ export function initCompat(fromLink = false) {
     if (changed(s, prev, 'vehicleOpen')) applyPanel(true);
   });
   if (fromLink) adopt(store.get().vehicle); else publish();
+  if (trainMode()) recombine();
   renderPane();
   applyPanel(false);
 }

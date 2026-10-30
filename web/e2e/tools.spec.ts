@@ -60,6 +60,46 @@ test('vehicle check colours sections by compatibility', async ({ page, errors: _
   await expect(page).not.toHaveURL(/[#&]veh=/);
 });
 
+test('a train is checked with its vehicles combined', async ({ page, errors: _ }) => {
+  await openApp(page);
+  await page.locator('#vehicle-btn').click();
+  const panel = page.locator('#vehicle-panel');
+  await panel.getByText('I have read this disclaimer').click();
+  await panel.getByRole('button', { name: 'Accept and continue' }).click();
+
+  // The example freight train: two locomotives and 18 wagons, combined by the API.
+  await panel.getByRole('radio', { name: 'Train' }).click();
+  await expect(panel.getByLabel('Train', { exact: true })).toHaveValue('example-train-freight');
+  const checked = panel.locator('.train-checked');
+  await expect(checked.locator('tr', { hasText: 'Train length' })).toContainText('392.4 m');
+  await expect(checked.locator('tr', { hasText: 'Axle load' })).toContainText('set by loaded container wagon');
+  await expect(checked.locator('tr', { hasText: 'Maximum current' })).toContainText('3,600 A');
+
+  // Shown on the map, the link carries the combined values and the train's name.
+  await panel.getByText('Show compatibility on the map').click();
+  const legend = page.getByRole('region', { name: 'Vehicle compatibility legend' });
+  await expect(legend).toContainText('Train: Example freight');
+  await expect(page).toHaveURL(/[#&]veh=[^&]*trainLength:392\.4/);
+
+  // The full-width editor: one column per vehicle group; a value set there combines again.
+  await panel.getByRole('button', { name: 'Open the train editor' }).click();
+  const editor = page.getByRole('dialog', { name: 'Train editor' });
+  await expect(editor).toBeVisible();
+  await expect(editor.locator('.train-group')).toHaveCount(3);
+  await expect(editor.locator('.tv-flag', { hasText: 'Leading cab' })).toHaveCount(1);
+  const count = editor.getByLabel('Number of loaded container wagon');
+  await count.fill('10');
+  await count.press('Enter');
+  await expect(editor.locator('tr[data-rule="trainLength"] .te-train')).toHaveText('234.8 m');
+  await expect(editor.locator('tr[data-rule="axleLoad"] .te-cell.sets')).toHaveCount(1);
+  await editor.getByRole('button', { name: '⇄ Reverse' }).click();
+  await expect(editor.locator('.train-group').first()).toContainText('loaded container wagon');
+  await editor.getByRole('button', { name: 'Back to the panel' }).click();
+  await expect(editor).toBeHidden();
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.train-list li').first()).toContainText('loaded container wagon');
+});
+
 test('quick CSV export downloads the current results', async ({ page, errors: _ }) => {
   await openApp(page, 'c=tunnel&side=results');
   await expect.poll(() => resultCount(page)).toBeGreaterThan(0);

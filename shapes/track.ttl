@@ -714,6 +714,15 @@ shape:track
         atlas:unit "KiloM-PER-HR" ;
         sh:order 910 ;
     ] ;
+    sh:property [  # category and speed as one record each, for the vehicle check (not a filter)
+        sh:path era:trackLoadCapability ;
+        atlas:facet "trackLoadCapability" ;
+        rdfs:label "Load capability: line category at a speed" ;
+        atlas:kind "record" ;
+        atlas:field [ atlas:name "category" ; sh:path era:loadCapabilityLineCategory ] ,
+            [ atlas:name "speed" ; sh:path era:loadCapabilitySpeed ; sh:datatype xsd:integer ] ;
+        sh:order 911 ;
+    ] ;
     sh:property [  # 276 instances in data
         sh:path era:maxPermittedTrainLength ;
         atlas:facet "maxPermittedTrainLength" ;
@@ -779,6 +788,16 @@ shape:track
         sh:datatype xsd:integer ;
         atlas:unit "M" ;
         sh:order 990 ;
+    ] ;
+    sh:property [  # the same rows as one record each, for the vehicle check (not a filter)
+        sh:path era:trackRaisedPantographsDistanceAndSpeed ;
+        atlas:facet "trackRaisedPantographsDistanceAndSpeed" ;
+        rdfs:label "Raised pantographs: number and spacing at a speed" ;
+        atlas:kind "record" ;
+        atlas:field [ atlas:name "speed" ; sh:path era:raisedPantographsSpeed ; sh:datatype xsd:integer ] ,
+            [ atlas:name "number" ; sh:path era:raisedPantographsNumber ; sh:datatype xsd:integer ] ,
+            [ atlas:name "distance" ; sh:path era:raisedPantographsDistance ; sh:datatype xsd:integer ] ;
+        sh:order 991 ;
     ] ;
     sh:property [  # 1049 instances in data
         # also when the provider puts it on the track itself

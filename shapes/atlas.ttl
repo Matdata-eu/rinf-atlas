@@ -40,7 +40,8 @@
 #   atlas:facet         facet key; reuse the same key in several shapes to share
 #                       one facet across classes
 #   rdfs:label / sh:name  facet label
-#   atlas:kind          "terms" (default) | "range" | "boolean" | "text" | "link"
+#   atlas:kind          "terms" (default) | "range" | "boolean" | "text" | "link" |
+#                       "record"
 #                       text = only added to full-text search, no facet
 #                       link = IRIs of other indexed features (start/end
 #                       operational point of a section); stored and shown in
@@ -48,6 +49,11 @@
 #                       filter. The line profile chains sections with these.
 #                       (What a feature is part of needs no link facet: the
 #                       atlas:geometryFrom links are kept for every feature.)
+#                       record = one object per instance of the sh:path node,
+#                       with the fields named by atlas:field [ atlas:name ;
+#                       sh:path ; sh:datatype ] (e.g. the number and spacing of
+#                       raised pantographs at a speed). Read by the vehicle
+#                       check and shown in the detail panel, not a filter.
 #   sh:datatype         optional; used for range formatting
 #   sh:order            facet order in the panel
 #   atlas:colorBy       integer; suggest the facet in the map's "Colour by"
@@ -87,6 +93,13 @@
 #                       noneValue then apply only where it is absent, a missing
 #                       value elsewhere stays unknown
 #   atlas:missingReason short text shown for a track where the system is absent
+#   atlas:constraint also takes atlas:requires, atlas:record or
+#                       atlas:brakingDistance, and atlas:input true marks a
+#                       value only read by other rules; atlas:option,
+#                       atlas:recordFilter, atlas:linkedClass and the train
+#                       annotations atlas:combineOver, atlas:combineBy,
+#                       atlas:vehicleDefault, atlas:lengthFrom, atlas:group:
+#                       see the header of shapes/compatibility.ttl
 #   rdfs:label, rdfs:comment, sh:datatype, sh:order, atlas:enabled false
 #
 # Export profiles (shapes/export/*.ttl, docs/export.md): the columns of tabular

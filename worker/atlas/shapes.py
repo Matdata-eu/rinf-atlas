@@ -38,7 +38,7 @@ class Facet:
     label: str
     path: str               # SPARQL property path
     simple: str | None      # predicate IRI when the path is a single predicate
-    kind: str = "terms"     # terms|range|boolean|text|link
+    kind: str = "terms"     # terms|range|boolean|text|link|record
     datatype: str | None = None
     unit: str | None = None
     order: int = 100
@@ -46,6 +46,11 @@ class Facet:
     # atlas:colorClasses: fixed map colour classes of a range facet, low to high:
     # {"up_to": inclusive upper bound (None for the last class), "label": name or None}
     color_classes: list[dict] | None = None
+    # A record facet (atlas:kind "record"): each value is one node reached by path, kept as
+    # {name: value} with one entry per atlas:field [ atlas:name ; sh:path ], so values that
+    # belong together stay together (e.g. raised pantographs: number and spacing at a speed).
+    # [{"name": str, "path": SPARQL path, "kind": "range" | "terms" | "boolean"}]
+    fields: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -79,6 +84,11 @@ INDEX_VERSION = 3
 # SHACL constraint components a compatibility rule can use (see shapes/compatibility.ttl).
 COMPAT_TERMS = {"hasValue", "in"}
 COMPAT_NUMERIC = {"minInclusive", "maxInclusive", "minExclusive", "maxExclusive"}
+# Constraints of the atlas: namespace (a vehicle profile is more than a SHACL constraint
+# here): requires (the track requires a capability, the vehicle has it or not), record
+# (rows of a record facet, e.g. raised pantographs), brakingDistance (computed per track).
+COMPAT_ATLAS = {ATLAS + "requires": "requires", ATLAS + "record": "record",
+                ATLAS + "brakingDistance": "brakingDistance"}
 
 
 @dataclass
@@ -125,6 +135,39 @@ class CompatRule:
     # classes that index it; and the rule itself as Turtle.
     infra: list[dict] = field(default_factory=list)
     source: str = ""
+    # Vehicle-side choices (atlas:option) of a rule compared by value: each stands for the
+    # track values it is compatible with (matches) and those that make the result unknown
+    # (maybe, e.g. "allowed under conditions"): [{"value": IRI, "label", "matches": [IRI],
+    # "maybe": [IRI], "path_value": value written on sh:path in Turtle or None, "order"}].
+    options: list[dict] = field(default_factory=list)
+    # constraint "record": {"fields": [{"field", "constraint", "characteristic"}], "select":
+    # {"field", "characteristic"} | None}: the rows of the record facet that apply (select
+    # field >= the characteristic's value) must satisfy every field constraint, each with the
+    # value of its characteristic (the first one is this rule's own).
+    record: dict | None = None
+    # A rule compared by value or number that reads one field of a record facet instead of
+    # its facets when the select characteristic is filled in (e.g. the line categories whose
+    # load capability speed is at least the vehicle's maximum speed):
+    # {"facet", "field", "select": {"field", "characteristic"}}.
+    record_filter: dict | None = None
+    # constraint "brakingDistance": the vehicle value is a mean deceleration (m/s²); the
+    # distance from min(speed_from characteristic, highest speed_facets value) must not
+    # exceed the track's value. A caveat facet that is true makes the result unknown.
+    braking: dict | None = None
+    # The values come from the features of this class linked to the track ("part of" links,
+    # e.g. its tunnels); a track without such a feature is compatible.
+    linked_class: str | None = None
+    # Composing a train (see api/app/compat.py, combine): the vehicles whose values count
+    # (all | pantograph | leading | tail | train: entered for the whole train) and how they
+    # combine (sum | max | min | intersection | union | all; None: from the constraint).
+    combine_over: str = "all"
+    combine_by: str | None = None
+    group: str | None = None  # atlas:group: heading the characteristic is listed under
+    # atlas:vehicleDefault: the value of a vehicle that counts but has none (e.g. 1 raised
+    # pantograph for a unit with its pantograph up)
+    vehicle_default: float | None = None
+    # combine_by "spacing": the characteristic with each vehicle's length (atlas:lengthFrom)
+    length_from: str | None = None
 
 
 @dataclass
@@ -373,8 +416,22 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             kind = r.lit(prop, ATLAS + "kind")
             if not kind:
                 kind = "boolean" if dt == XSD + "boolean" else "range" if dt and _numeric(dt) else "terms"
-            if kind not in ("terms", "range", "boolean", "text", "link"):
+            if kind not in ("terms", "range", "boolean", "text", "link", "record"):
                 raise ShapeError(f"{key}.{fkey}: unknown atlas:kind {kind!r}")
+            fields = []
+            for fn in r.objs(prop, ATLAS + "field"):
+                name, fpath = r.lit(fn, ATLAS + "name"), r.one(fn, SH + "path")
+                if not name or fpath is None or not name.isidentifier():
+                    raise ShapeError(f"{key}.{fkey}: atlas:field needs an atlas:name (letters, digits, _) and a sh:path")
+                fdt = _iri(r.one(fn, SH + "datatype"))
+                fkind = r.lit(fn, ATLAS + "kind") or ("boolean" if fdt == XSD + "boolean"
+                                                       else "range" if fdt and _numeric(fdt) else "terms")
+                if fkind not in ("terms", "range", "boolean"):
+                    raise ShapeError(f"{key}.{fkey}: atlas:field {name!r} has unknown atlas:kind {fkind!r}")
+                fields.append({"name": name, "path": r.path(fpath), "kind": fkind})
+            fields.sort(key=lambda x: x["name"])
+            if (kind == "record") != bool(fields):
+                raise ShapeError(f"{key}.{fkey}: a record facet needs atlas:field, and only a record facet has them")
             fc = Facet(
                 key=fkey,
                 label=r.label(prop, RDFS + "label", SH + "name") or fkey,
@@ -385,9 +442,12 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
                 unit=r.lit(prop, ATLAS + "unit"),
                 order=int(r.lit(prop, SH + "order", "100")),
                 color_by=_int(r.lit(prop, ATLAS + "colorBy"), f"{key}.{fkey}: atlas:colorBy"),
+                fields=fields,
             )
-            if fc.color_by is not None and kind == "text":
-                raise ShapeError(f"{key}.{fkey}: a text facet cannot be used to colour the map")
+            if kind == "record":
+                fc.simple = None  # extracted node by node (extract.Extractor.records)
+            if fc.color_by is not None and kind in ("text", "record"):
+                raise ShapeError(f"{key}.{fkey}: a {kind} facet cannot be used to colour the map")
             cc = r.one(prop, ATLAS + "colorClasses")
             if cc is not None:
                 if kind != "range":
@@ -490,7 +550,10 @@ def _index_compat_facets(shapes: ShapeSet) -> None:
     for rule in shapes.compat.rules:
         if rule.applies_to != "track":
             continue
-        for fk in rule.facets + [x["facet"] for x in rule.implied]:
+        keys = [] if rule.linked_class else rule.facets + [x["facet"] for x in rule.implied]
+        keys += [rule.record_filter["facet"]] if rule.record_filter else []
+        keys += (rule.braking["speed_facets"] + rule.braking["caveat_facets"]) if rule.braking else []
+        for fk in keys:
             src = next((f for c in tracks for f in shapes.all_facets(c) if f.key == fk), None)
             for c in tracks:
                 if src and not any(f.key == fk for f in shapes.all_facets(c)):
@@ -499,15 +562,38 @@ def _index_compat_facets(shapes: ShapeSet) -> None:
     # what each rule compares, for explaining it
     section = by_key[shapes.compat.section_class]
     for rule in shapes.compat.rules:
-        classes = tracks if rule.applies_to == "track" else [section]
+        classes = ([by_key[rule.linked_class]] if rule.linked_class else tracks if rule.applies_to == "track"
+                   else [section])
         rule.infra = []
-        for fk in rule.facets:
+        extra = [rule.record_filter["facet"]] if rule.record_filter else []
+        extra += (rule.braking["speed_facets"] + rule.braking["caveat_facets"]) if rule.braking else []
+        for fk in rule.facets + [x for x in extra if x not in rule.facets]:
             defs = [(c, f) for c in classes for f in shapes.all_facets(c) if f.key == fk]
             if not defs:
                 continue
             f = defs[0][1]
             rule.infra.append({"key": fk, "label": f.label, "path": compact_path(f.path),
                                "classes": [c.key for c, _ in defs], "kind": f.kind, "unit": f.unit})
+
+
+def _number_or_error(v: str | None, what: str) -> float | None:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        raise ShapeError(f"{what} must be a number") from None
+
+
+def _select_by(r: _Reader, node, names: set[str], what: str) -> dict | None:
+    """atlas:selectBy [ atlas:name field ; atlas:characteristic key ] of a record rule or filter."""
+    sel = r.one(node, ATLAS + "selectBy")
+    if sel is None:
+        return None
+    out = {"field": r.lit(sel, ATLAS + "name"), "characteristic": r.lit(sel, ATLAS + "characteristic")}
+    if out["field"] not in names or not out["characteristic"]:
+        raise ShapeError(f"{what}: atlas:selectBy needs an atlas:name of a field and an atlas:characteristic")
+    return out
 
 
 def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None:
@@ -557,17 +643,28 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
         else:
             raise ShapeError(f"compatibility.{key}: sh:path must be an IRI or a list of IRIs")
         cnode = _iri(r.one(prop, ATLAS + "constraint"))
-        constraint = cnode[len(SH):] if cnode and cnode.startswith(SH) else None
-        if constraint not in COMPAT_TERMS | COMPAT_NUMERIC:
+        is_input = r.lit(prop, ATLAS + "input") == "true"
+        constraint = (cnode[len(SH):] if cnode and cnode.startswith(SH)
+                      else COMPAT_ATLAS.get(cnode or "") if not is_input else "input")
+        if is_input and cnode:
+            raise ShapeError(f"compatibility.{key}: an atlas:input characteristic has no atlas:constraint")
+        if constraint not in COMPAT_TERMS | COMPAT_NUMERIC | set(COMPAT_ATLAS.values()) | {"input"}:
             raise ShapeError(f"compatibility.{key}: atlas:constraint must be one of "
-                             f"{', '.join('sh:' + c for c in sorted(COMPAT_TERMS | COMPAT_NUMERIC))}")
+                             f"{', '.join('sh:' + c for c in sorted(COMPAT_TERMS | COMPAT_NUMERIC))}, "
+                             f"{', '.join('atlas:' + c for c in sorted(COMPAT_ATLAS.values()))}")
         applies = r.lit(prop, ATLAS + "appliesTo", "track")
         if applies not in ("track", "section"):
             raise ShapeError(f"compatibility.{key}: atlas:appliesTo must be \"track\" or \"section\"")
+        linked_class = r.lit(prop, ATLAS + "linkedClass")
+        if linked_class and (linked_class not in by_key or applies != "track"):
+            raise ShapeError(f"compatibility.{key}: atlas:linkedClass must name a class with a facet shape, "
+                             f"on a track rule")
         facets = sorted(o.value for o in r.objs(prop, ATLAS + "compareTo") if isinstance(o, ox.Literal))
-        if not facets:
+        if not facets and not is_input:
             raise ShapeError(f"compatibility.{key}: atlas:compareTo is required")
-        known = facet_keys(track_classes if applies == "track" else [section_class])
+        if facets and is_input:
+            raise ShapeError(f"compatibility.{key}: an atlas:input characteristic is not compared (no atlas:compareTo)")
+        known = facet_keys([linked_class] if linked_class else track_classes if applies == "track" else [section_class])
         term_values: dict[str, float] = {}
         for tv in r.objs(prop, ATLAS + "termValue"):
             t, v = _iri(r.one(tv, ATLAS + "term")), r.lit(tv, ATLAS + "value")
@@ -579,25 +676,84 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
                 raise ShapeError(f"compatibility.{key}: atlas:termValue needs an atlas:term IRI and a numeric atlas:value")
         implied = []
         for iv in r.objs(prop, ATLAS + "impliedValue"):
+            vnode = r.one(iv, ATLAS + "value")
             x = {"facet": r.lit(iv, ATLAS + "facet"), "when": _iri(r.one(iv, ATLAS + "when")),
-                 "value": _iri(r.one(iv, ATLAS + "value"))}
-            if not all(x.values()) or constraint not in COMPAT_TERMS:
-                raise ShapeError(f"compatibility.{key}: atlas:impliedValue needs atlas:facet, atlas:when and "
-                                 f"atlas:value IRIs, on a rule compared by value")
+                 "value": _term(vnode) if isinstance(vnode, (ox.NamedNode, ox.Literal)) else None}
+            if any(v is None for v in x.values()) or constraint not in COMPAT_TERMS | {"requires"}:
+                raise ShapeError(f"compatibility.{key}: atlas:impliedValue needs atlas:facet, an atlas:when IRI and "
+                                 f"an atlas:value, on a rule compared by value")
             if x["facet"] not in known or known[x["facet"]].kind != "terms":
                 raise ShapeError(f"compatibility.{key}: atlas:impliedValue facet {x['facet']!r} is not a terms "
-                                 f"facet of {applies} classes")
+                                 f"facet of {linked_class or applies} classes")
             implied.append(x)
         if term_values and constraint not in COMPAT_NUMERIC:
             raise ShapeError(f"compatibility.{key}: atlas:termValue needs a numeric constraint")
+        record = None
+        if constraint == "record":
+            if len(facets) != 1 or known.get(facets[0]) is None or known[facets[0]].kind != "record":
+                raise ShapeError(f"compatibility.{key}: atlas:record compares one record facet")
+            names = {x["name"] for x in known[facets[0]].fields}
+            record = {"fields": [], "select": None}
+            for fn in r.objs(prop, ATLAS + "recordField"):
+                c = _iri(r.one(fn, ATLAS + "constraint")) or ""
+                fx = {"field": r.lit(fn, ATLAS + "name"), "constraint": c[len(SH):] if c.startswith(SH) else None,
+                      "characteristic": r.lit(fn, ATLAS + "characteristic") or key}
+                if fx["field"] not in names or fx["constraint"] not in COMPAT_NUMERIC:
+                    raise ShapeError(f"compatibility.{key}: atlas:recordField needs an atlas:name of a field of "
+                                     f"{facets[0]!r} and a numeric atlas:constraint")
+                record["fields"].append(fx)
+            record["fields"].sort(key=lambda fx: (fx["characteristic"] != key, fx["field"]))
+            if not record["fields"] or record["fields"][0]["characteristic"] != key:
+                raise ShapeError(f"compatibility.{key}: an atlas:recordField must compare the characteristic itself")
+            record["select"] = _select_by(r, prop, names, f"compatibility.{key}")
+        elif any(known.get(fk) is not None and known[fk].kind == "record" for fk in facets):
+            raise ShapeError(f"compatibility.{key}: a record facet is compared with atlas:constraint atlas:record")
+        record_filter = None
+        rf = r.one(prop, ATLAS + "recordFilter")
+        if rf is not None:
+            rfk, field_ = r.lit(rf, ATLAS + "facet"), r.lit(rf, ATLAS + "field")
+            names = {x["name"] for x in known[rfk].fields} if rfk in known and known[rfk].kind == "record" else set()
+            if field_ not in names or constraint not in COMPAT_TERMS | COMPAT_NUMERIC:
+                raise ShapeError(f"compatibility.{key}: atlas:recordFilter needs the atlas:facet of a record facet, "
+                                 f"one of its fields as atlas:field, on a rule compared by value or number")
+            record_filter = {"facet": rfk, "field": field_, "select": _select_by(r, rf, names, f"compatibility.{key}")}
+            if record_filter["select"] is None:
+                raise ShapeError(f"compatibility.{key}: atlas:recordFilter needs atlas:selectBy")
+        braking = None
+        if constraint == "brakingDistance":
+            braking = {"speed_facets": sorted(o.value for o in r.objs(prop, ATLAS + "speedFacet") if isinstance(o, ox.Literal)),
+                       "speed_from": r.lit(prop, ATLAS + "speedFrom"),
+                       "caveat_facets": sorted(o.value for o in r.objs(prop, ATLAS + "caveatFacet") if isinstance(o, ox.Literal))}
+            if not braking["speed_facets"] or any(known.get(fk) is None or known[fk].kind != "range"
+                                                  for fk in facets + braking["speed_facets"]):
+                raise ShapeError(f"compatibility.{key}: atlas:brakingDistance compares range facets and needs "
+                                 f"atlas:speedFacet (a range facet)")
+            if any(known.get(fk) is None or known[fk].kind != "boolean" for fk in braking["caveat_facets"]):
+                raise ShapeError(f"compatibility.{key}: atlas:caveatFacet must be a boolean facet")
         for fk in facets:
             if fk not in known:
-                raise ShapeError(f"compatibility.{key}: facet {fk!r} is not defined for {applies} classes")
-            if (known[fk].kind == "range") != (constraint in COMPAT_NUMERIC and not term_values):
-                raise ShapeError(f"compatibility.{key}: sh:{constraint} does not fit the {known[fk].kind} facet {fk!r}")
+                raise ShapeError(f"compatibility.{key}: facet {fk!r} is not defined for {linked_class or applies} classes")
+            want = ("record" if constraint == "record" else "boolean" if constraint == "requires"
+                    else "range" if constraint in COMPAT_NUMERIC | {"brakingDistance"} and not term_values else None)
+            if want and known[fk].kind != want or not want and known[fk].kind in ("range", "record"):
+                raise ShapeError(f"compatibility.{key}: {constraint} does not fit the {known[fk].kind} facet {fk!r}")
         dt = _iri(r.one(prop, SH + "datatype"))
-        kind = ("number" if constraint in COMPAT_NUMERIC
-                else "boolean" if dt == XSD + "boolean" or known[facets[0]].kind == "boolean" else "terms")
+        kind = ("number" if constraint in COMPAT_NUMERIC | {"record", "brakingDistance", "input"}
+                else "boolean" if constraint == "requires" or dt == XSD + "boolean" or known[facets[0]].kind == "boolean"
+                else "terms")
+        options = []
+        for on in r.objs(prop, ATLAS + "option"):
+            o = {"value": _iri(r.one(on, ATLAS + "value")), "label": r.label(on, RDFS + "label"),
+                 "matches": sorted(x for x in (_iri(m) for m in r.objs(on, ATLAS + "matches")) if x),
+                 "maybe": sorted(x for x in (_iri(m) for m in r.objs(on, ATLAS + "maybe")) if x),
+                 "any": r.lit(on, ATLAS + "anyTrack") == "true", "order": int(r.lit(on, SH + "order", "100"))}
+            pv = r.one(on, ATLAS + "pathValue")
+            o["path_value"] = _term(pv) if isinstance(pv, (ox.NamedNode, ox.Literal)) else None
+            if not o["value"] or not o["label"] or kind != "terms" or not (o["any"] or o["matches"]):
+                raise ShapeError(f"compatibility.{key}: atlas:option needs an atlas:value IRI, rdfs:label and "
+                                 f"atlas:matches (or atlas:anyTrack true), on a rule compared by value")
+            options.append(o)
+        options.sort(key=lambda o: (o["order"], o["label"]))
         wm = _iri(r.one(prop, ATLAS + "whenMissing"))
         when_missing = {None: "unknown", ATLAS + "Unknown": "unknown", ATLAS + "Incompatible": "incompatible"}.get(wm)
         if when_missing is None:
@@ -611,8 +767,23 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
                                                                or constraint != "hasValue" or not without_matches):
             raise ShapeError(f"compatibility.{key}: atlas:withoutValue must be an IRI, on a sh:hasValue rule "
                              f"compared by value, with atlas:withoutMatches IRIs")
+        combine_over = {None: "all", ATLAS + "AllVehicles": "all", ATLAS + "RaisedPantographs": "pantograph",
+                        ATLAS + "LeadingCab": "leading", ATLAS + "TailVehicle": "tail",
+                        ATLAS + "Train": "train"}.get(_iri(r.one(prop, ATLAS + "combineOver")))
+        combine_by = {None: None, ATLAS + "Sum": "sum", ATLAS + "Max": "max", ATLAS + "Min": "min",
+                      ATLAS + "Intersection": "intersection", ATLAS + "Union": "union",
+                      ATLAS + "All": "all", ATLAS + "PantographSpacing": "spacing"}.get(
+                          _iri(r.one(prop, ATLAS + "combineBy")), "bad")
+        if combine_over is None or combine_by == "bad":
+            raise ShapeError(f"compatibility.{key}: atlas:combineOver must be atlas:AllVehicles, "
+                             f"atlas:RaisedPantographs, atlas:LeadingCab, atlas:TailVehicle or atlas:Train; "
+                             f"atlas:combineBy atlas:Sum, atlas:Max, atlas:Min, atlas:Intersection, atlas:Union or atlas:All")
+        vehicle_default = r.lit(prop, ATLAS + "vehicleDefault")
+        if (combine_by in ("sum", "max", "min", "spacing") and kind != "number"
+                or combine_by in ("intersection", "union") and kind != "terms"):
+            raise ShapeError(f"compatibility.{key}: atlas:combineBy does not fit a {kind} characteristic")
         section_facets = []
-        if applies == "track":
+        if applies == "track" and not linked_class:
             on_section = facet_keys([section_class])
             section_facets = [fk for fk in facets if fk in on_section]
         rules.append(CompatRule(
@@ -624,8 +795,19 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             without_value=without_value, without_label=r.label(prop, ATLAS + "withoutLabel"),
             without_matches=without_matches if without_value else [], term_values=term_values, implied=implied,
             path_factor=float(r.lit(prop, ATLAS + "pathFactor")) if r.lit(prop, ATLAS + "pathFactor") else None,
+            options=options, record=record, record_filter=record_filter, braking=braking, linked_class=linked_class,
+            combine_over=combine_over, combine_by=combine_by, group=r.label(prop, ATLAS + "group"),
+            vehicle_default=_number_or_error(vehicle_default, f"compatibility.{key}: atlas:vehicleDefault"),
+            length_from=r.lit(prop, ATLAS + "lengthFrom"),
             source=rule_turtle(st, node, prop)))
     by_rule = {x.key: x for x in rules}
+    for x in rules:
+        refs = [f["characteristic"] for f in (x.record or {}).get("fields", [])[1:]]
+        refs += [s["characteristic"] for s in ((x.record or {}).get("select"), (x.record_filter or {}).get("select")) if s]
+        refs += [x.braking["speed_from"]] if x.braking and x.braking["speed_from"] else []
+        for ref in refs:
+            if ref not in by_rule or by_rule[ref].kind != "number":
+                raise ShapeError(f"compatibility.{x.key}: characteristic {ref!r} must be a numeric characteristic")
     for x in rules:
         if x.none_from and not (x.none_from in by_rule and by_rule[x.none_from].none_value):
             raise ShapeError(f"compatibility.{x.key}: atlas:noneFrom {x.none_from!r} must name a rule with atlas:noneValue")

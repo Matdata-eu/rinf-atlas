@@ -37,8 +37,9 @@ What you can do with it:
   country, and see where the lines meet the requirements of Regulation (EU)
   2024/1679 on the map and in a requirements table. Views are SHACL files in
   [`shapes/views/`](shapes/views/), so adding one needs no code.
-- **Vehicle check**: fill in a vehicle profile and see which sections of line
-  it is compatible with, with an explanation per track.
+- **Vehicle check**: fill in a vehicle profile, or compose a complete train of
+  vehicles, and see which sections of line it is compatible with, with an
+  explanation per track.
 - **Data quality**: every dataset is validated against ERA's SHACL shapes;
   features with issues can be shown on the map.
 - **Export** the results as CSV, Excel or Turtle, or open them in a desktop

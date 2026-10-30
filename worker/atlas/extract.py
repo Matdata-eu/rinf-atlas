@@ -128,6 +128,24 @@ class Extractor:
             if isinstance(r["s"], ox.NamedNode):
                 yield r["s"].value, r["v"]
 
+    def records(self, cls: ClassShape, f: Facet):
+        """(subject, {field: value}) per node a record facet's path reaches."""
+        opt = " ".join(f"OPTIONAL {{ ?n {x['path']} ?f_{x['name']} }}" for x in f.fields)
+        found: dict[tuple, dict] = {}
+        for r in self.q(f"SELECT ?s ?n {' '.join('?f_' + x['name'] for x in f.fields)} "
+                        f"WHERE {{ ?s a <{cls.class_iri}> . ?s {f.path} ?n . {opt} }}"):
+            if not isinstance(r["s"], ox.NamedNode):
+                continue
+            rec = found.setdefault((r["s"].value, str(r["n"])), {})
+            for x in f.fields:
+                t = r.get("f_" + x["name"])
+                v = _val(t, x["kind"]) if t is not None else None
+                if v is not None and x["name"] not in rec:
+                    rec[x["name"]] = v
+        for (s, _), rec in sorted(found.items()):
+            if rec:
+                yield s, rec
+
     def simple_batch(self, cls: ClassShape, preds: list[str]):
         vals = " ".join(f"<{p}>" for p in preds)
         for r in self.q(f"SELECT ?s ?p ?v WHERE {{ ?s a <{cls.class_iri}> . VALUES ?p {{ {vals} }} ?s ?p ?v }}"):
@@ -143,6 +161,10 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
     rows = []
     links = []
     iris_for_labels: set[str] = set()
+    if shapes.compat:  # concepts the vehicle check names (options, line categories), in the data or not
+        for r in shapes.compat.rules:
+            iris_for_labels |= {x for o in r.options for x in o["matches"] + o["maybe"] + [o["value"]]}
+            iris_for_labels |= set(r.term_values) | set(r.without_matches)
 
     shaped = {c.class_iri for c in shapes.classes}
     narrower: dict[str, list[str]] = defaultdict(list)
@@ -161,7 +183,7 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
         texts: dict[str, list[str]] = defaultdict(list)
 
         def add(s: str, f: Facet, term):
-            v = _val(term, f.kind)
+            v = term if f.kind == "record" else _val(term, f.kind)
             if v is None or s not in subset:
                 return
             if f.kind == "text":
@@ -184,7 +206,10 @@ def extract_graph(conn: psycopg.Connection, store: ox.Store, env: str, graph: st
                 for f in by_pred[p]:
                     add(s, f, term)
         for f in facets:
-            if not f.simple:
+            if f.kind == "record":
+                for s, rec in ex.records(cls, f):
+                    add(s, f, rec)
+            elif not f.simple:
                 for s, term in ex.pairs(cls, f.path):
                     add(s, f, term)
 
@@ -378,8 +403,8 @@ def refresh_facet_cache(conn: psycopg.Connection, env: str) -> None:
             SELECT f.env, f.class, kv.key, v.value, count(*)
             FROM feature f, jsonb_each(f.facets) kv, jsonb_array_elements(kv.value) v
             WHERE f.env = %s
-              -- link facets (feature IRIs) are never counted as filter values
-              AND NOT EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.kind = 'link')
+              -- link facets (feature IRIs) and records are never counted as filter values
+              AND NOT EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.kind IN ('link', 'record'))
             GROUP BY 1, 2, 3, 4
         """, (env,))
         # a section of line also counts once per value of its tracks' facets it does

@@ -298,8 +298,13 @@ def cmd_check_shapes(a) -> None:
                              f"  noneFrom={r.none_from}" if r.none_from else "",
                              f"  without={r.without_value}" if r.without_value else "",
                              f"  termValues={len(r.term_values)}" if r.term_values else "",
-                             f"  section={','.join(r.section_facets)}" if r.section_facets else ""])
-            print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}{extra}")
+                             f"  section={','.join(r.section_facets)}" if r.section_facets else "",
+                             f"  options={len(r.options)}" if r.options else "",
+                             f"  linked={r.linked_class}" if r.linked_class else "",
+                             f"  over={r.combine_over}" if r.combine_over != "all" else "",
+                             f"  by={r.combine_by}" if r.combine_by else ""])
+            c = ("atlas:" if r.constraint in ("requires", "record", "brakingDistance", "input") else "sh:") + r.constraint
+            print(f"  {r.key:32} {c:19} {r.applies_to:7} {', '.join(r.facets)}{extra}")
     for v in shapes.views:
         print(f"view {v.key}: {', '.join(v.classes) or 'every class'}, group by {v.group_by or '-'}, "
               f"{len(v.params)} parameters, {len(v.checks)} checks on {', '.join(v.check_classes) or '-'}"

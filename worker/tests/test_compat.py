@@ -52,6 +52,10 @@ def test_repo_rule_facets_are_indexed_on_every_track_class():
     for r in shapes.compat.rules:
         if r.applies_to != "track":
             continue
+        if r.linked_class:  # compared with the features linked to the track (tunnels)
+            keys = {f.key for f in shapes.all_facets(by_key[r.linked_class])}
+            assert set(r.facets) <= keys, f"{r.key}: {r.linked_class} does not index {r.facets}"
+            continue
         for c in shapes.compat.track_classes:
             keys = {f.key for f in shapes.all_facets(by_key[c])}
             assert set(r.facets) <= keys, f"{r.key}: {c} does not index {r.facets}"
@@ -283,7 +287,8 @@ def test_repo_etcs_not_applicable_counts_as_no_etcs():
 def test_implied_value_is_pooled_with_the_track_values():
     rule = dict(ETCS[0], implied=[{"facet": "na", "when": "http://etcs", "value": "http://N"}])
     (c,), _ = cx.compile_profile([rule], {"l": ["http://N"]})
-    assert "facets -> %s, '[]'::jsonb) ? %s THEN jsonb_build_array(%s::text)" in c.sql
-    assert c.sql.count("%s") == len(c.params) and ["na", "http://etcs", "http://N"] == c.params[1:4]
+    # the value goes in as JSON, so a literal (true, a number) can be implied as well
+    assert "facets -> %s, '[]'::jsonb) ? %s THEN jsonb_build_array(%s::jsonb)" in c.sql
+    assert c.sql.count("%s") == len(c.params) and ["na", "http://etcs", '"http://N"'] == c.params[1:4]
     assert cx.implied_values(rule, {"na": ["http://etcs"]}) == ["http://N"]
     assert cx.implied_values(rule, {"na": ["http://other"]}) == []

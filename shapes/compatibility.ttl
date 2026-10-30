@@ -55,6 +55,65 @@
 #                      values: the track values a vehicle without the system runs
 #                      on (e.g. no ETCS, level 0, NTC). A track that only has
 #                      other values (it requires the system) is not compatible
+#   atlas:group        heading the characteristic is listed under
+#
+# More constraints (atlas:constraint):
+#   atlas:requires     a boolean facet saying the track requires something the
+#                      vehicle may lack (e.g. train integrity confirmed on board):
+#                      a vehicle with "Yes" is compatible everywhere, one with
+#                      "No" is not compatible with a track whose value is true
+#   atlas:record       compared with a record facet (atlas:kind "record"): each
+#                      atlas:recordField [ atlas:name ; atlas:constraint ;
+#                      atlas:characteristic (default: this one) ] compares a
+#                      field of the row with a characteristic of the vehicle.
+#                      atlas:selectBy [ atlas:name ; atlas:characteristic ] picks
+#                      the row that applies: the one with the lowest value of that
+#                      field at least the vehicle's (e.g. the speed); a row
+#                      without it applies at any value. Without the vehicle's
+#                      value every row must allow it (some rows: unknown)
+#   atlas:brakingDistance  the number is a mean deceleration a (m/s²): the
+#                      braking distance (v/3.6)²/2a from v = the lower of the
+#                      highest atlas:speedFacet value of the track and the
+#                      vehicle's atlas:speedFrom characteristic must not exceed
+#                      the compared facet. A track whose boolean
+#                      atlas:caveatFacet is true is unknown
+#   atlas:input true   (no atlas:constraint, no atlas:compareTo) a value only
+#                      read by other rules, e.g. the maximum speed
+# and, with any constraint:
+#   atlas:option       [ atlas:value <IRI> ; rdfs:label ; sh:order ;
+#                      atlas:matches <track values> ; atlas:maybe <track values> ;
+#                      atlas:anyTrack true ; atlas:pathValue true|false ]: the
+#                      vehicle picks one of these instead of track values. It is
+#                      compatible with the matches, unknown with the maybe values
+#                      (allowed under conditions); anyTrack: with every value.
+#                      pathValue is the boolean ERA records at sh:path (Turtle)
+#   atlas:recordFilter [ atlas:facet <record facet> ; atlas:field <name> ;
+#                      atlas:selectBy [...] ]: with the vehicle's value for
+#                      selectBy, only the field of the rows that apply is
+#                      compared (e.g. the line categories at the train's speed)
+#   atlas:linkedClass  compare the facets of the features of this class that are
+#                      part of the track (its tunnels) instead of the track; a
+#                      track without one is compatible
+#
+# A train: its vehicle groups front to back, with a count and the roles leading
+# cab and pantograph raised. Each characteristic says which vehicles count
+#   atlas:combineOver  atlas:AllVehicles (default) | atlas:RaisedPantographs |
+#                      atlas:LeadingCab | atlas:TailVehicle | atlas:Train (a value
+#                      entered for the whole train, not per vehicle)
+# and how their values make the train's
+#   atlas:combineBy    atlas:Sum | atlas:Max | atlas:Min | atlas:Intersection |
+#                      atlas:Union | atlas:All | atlas:PantographSpacing. Default:
+#                      the most demanding vehicle counts (the highest value for
+#                      sh:minInclusive, the lowest for sh:maxInclusive, the values
+#                      all have for terms, the most demanding option, yes only
+#                      when all have it)
+#   atlas:vehicleDefault  a vehicle in scope without a value counts as this
+#                      (e.g. one raised pantograph per unit), once the train has
+#                      two such vehicles or one has a value
+#   atlas:lengthFrom   the characteristic holding each vehicle's length, for
+#                      atlas:PantographSpacing (the distance between the centres
+#                      of the units with a pantograph raised)
+# A characteristic is not checked when a vehicle that counts has no value.
 #
 # Shape-level: atlas:trackClass (repeatable) and atlas:sectionClass name the
 # indexed classes (shape keys) that are evaluated.
@@ -65,7 +124,8 @@
 # for how tracks are aggregated into a status per section of line.
 #
 # These rules are deliberately simple (one characteristic against one facet).
-# Edit them freely; the worker publishes changes within a minute, no reindex.
+# Edit them freely; the worker publishes changes within a minute, no reindex
+# (a new facet they compare, such as a record facet, is indexed once).
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX shape: <https://rinf-atlas.matdata.eu/shapes/>
 PREFIX sh:    <http://www.w3.org/ns/shacl#>
@@ -73,6 +133,11 @@ PREFIX era:   <http://data.europa.eu/949/>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
 PREFIX lclc:  <http://data.europa.eu/949/concepts/load-capability-line-categories/>
+PREFIX mb:    <http://data.europa.eu/949/concepts/magnetic-braking/>
+PREFIX ecb:   <http://data.europa.eu/949/concepts/eddy-current-braking/>
+PREFIX regb:  <http://data.europa.eu/949/concepts/regenerative-braking/>
+PREFIX scl:   <http://data.europa.eu/949/concepts/safe-consist-length/>
+PREFIX rsf:   <http://data.europa.eu/949/concepts/rolling-stock-fire/>
 
 shape:vehicle-compatibility
     a sh:NodeShape ;
@@ -91,6 +156,7 @@ shape:vehicle-compatibility
         rdfs:comment "Track gauge(s) the wheelsets run on." ;
         atlas:compareTo "wheelSetGauge" ;
         atlas:constraint sh:hasValue ;
+        atlas:group "Gauge and dimensions" ;
         sh:order 10 ;
     ] ;
     sh:property [
@@ -100,6 +166,7 @@ shape:vehicle-compatibility
         rdfs:comment "Gauging profiles of the lines the vehicle fits on (a G1 vehicle: G1, GA, GB, GC …); the track must list one of them." ;
         atlas:compareTo "gaugingProfile" ;
         atlas:constraint sh:hasValue ;
+        atlas:group "Gauge and dimensions" ;
         sh:order 20 ;
     ] ;
     sh:property [
@@ -115,6 +182,9 @@ shape:vehicle-compatibility
         atlas:whenMissing atlas:Incompatible ;
         atlas:noneValue <http://data.europa.eu/949/concepts/contact-line-systems/40> ;
         atlas:missingReason "No contact line" ;
+        # in a train: what every unit with a raised pantograph accepts
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:group "Energy" ;
         sh:order 30 ;
     ] ;
     sh:property [
@@ -127,6 +197,8 @@ shape:vehicle-compatibility
         atlas:whenMissing atlas:Incompatible ;
         atlas:noneFrom "energySupplySystem" ;
         atlas:missingReason "No contact line" ;
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:group "Energy" ;
         sh:order 40 ;
     ] ;
     sh:property [
@@ -141,6 +213,8 @@ shape:vehicle-compatibility
         atlas:missingReason "No contact line" ;
         sh:datatype xsd:double ;
         atlas:unit "M" ;
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:group "Energy" ;
         sh:order 50 ;
     ] ;
     sh:property [
@@ -155,6 +229,8 @@ shape:vehicle-compatibility
         atlas:missingReason "No contact line" ;
         sh:datatype xsd:double ;
         atlas:unit "M" ;
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:group "Energy" ;
         sh:order 60 ;
     ] ;
     sh:property [
@@ -169,6 +245,10 @@ shape:vehicle-compatibility
         atlas:missingReason "No contact line" ;
         sh:datatype xsd:integer ;
         atlas:unit "A" ;
+        # in a train: the sum of the units with a raised pantograph
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:combineBy atlas:Sum ;
+        atlas:group "Energy" ;
         sh:order 65 ;
     ] ;
     sh:property [
@@ -193,6 +273,8 @@ shape:vehicle-compatibility
         atlas:withoutMatches <http://data.europa.eu/949/concepts/etcs-levels/10>,
             <http://data.europa.eu/949/concepts/etcs-levels/50>,
             <http://data.europa.eu/949/concepts/etcs-levels/60> ;
+        atlas:combineOver atlas:LeadingCab ;
+        atlas:group "Signalling" ;
         sh:order 70 ;
     ] ;
     sh:property [
@@ -202,6 +284,8 @@ shape:vehicle-compatibility
         rdfs:comment "Legacy (class B) train protection systems fitted; the track must have one of them." ;
         atlas:compareTo "protectionLegacySystem" ;
         atlas:constraint sh:hasValue ;
+        atlas:combineOver atlas:LeadingCab ;
+        atlas:group "Signalling" ;
         sh:order 80 ;
     ] ;
     sh:property [
@@ -211,6 +295,7 @@ shape:vehicle-compatibility
         rdfs:comment "Train detection systems the vehicle is compatible with; every system on the track must be one of them." ;
         atlas:compareTo "trainDetectionSystem.trainDetectionSystemType" ;
         atlas:constraint sh:in ;
+        atlas:group "Signalling" ;
         sh:order 90 ;
     ] ;
     sh:property [
@@ -220,13 +305,21 @@ shape:vehicle-compatibility
         rdfs:comment "EN 15528 line categories the vehicle may run on (a C2 vehicle: C2, C3, C4, D2 …); the track must have one of them." ;
         atlas:compareTo "trackLoadCapability.loadCapabilityLineCategory" ;
         atlas:constraint sh:hasValue ;
+        # with a maximum speed: only the categories whose load capability speed is at least
+        # that speed (a category without a speed counts at any speed)
+        atlas:recordFilter [
+            atlas:facet "trackLoadCapability" ;
+            atlas:field "category" ;
+            atlas:selectBy [ atlas:name "speed" ; atlas:characteristic "maxSpeed" ] ;
+        ] ;
+        atlas:group "Load" ;
         sh:order 100 ;
     ] ;
     # EN 15528 line categories (ERA SKOS load-capability-line-categories) with
     # their limits: maximum axle load (t) and mass per metre (t/m). A, B1 … E5;
     # D4xL as D4. The UK route availability (RA) and HS17 categories are not
     # listed, so a track with only those is unknown. The speed of the load
-    # capability is not taken into account.
+    # capability counts when the maximum speed is filled in (atlas:recordFilter).
     sh:property [
         sh:path era:staticAxleLoadNormalPayload ;
         atlas:characteristic "axleLoad" ;
@@ -251,6 +344,14 @@ shape:vehicle-compatibility
         atlas:unit "TONNE" ;
         # ERA gives the static axle load in kg
         atlas:pathFactor 1000 ;
+        # with a maximum speed: only the categories whose load capability speed is at least
+        # that speed (a category without a speed counts at any speed)
+        atlas:recordFilter [
+            atlas:facet "trackLoadCapability" ;
+            atlas:field "category" ;
+            atlas:selectBy [ atlas:name "speed" ; atlas:characteristic "maxSpeed" ] ;
+        ] ;
+        atlas:group "Load" ;
         sh:order 102 ;
     ] ;
     sh:property [
@@ -276,6 +377,14 @@ shape:vehicle-compatibility
             [ atlas:term lclc:120 ; atlas:value 8.8 ] ;
         sh:datatype xsd:double ;
         atlas:unit "TONNE-PER-M" ;
+        # with a maximum speed: only the categories whose load capability speed is at least
+        # that speed (a category without a speed counts at any speed)
+        atlas:recordFilter [
+            atlas:facet "trackLoadCapability" ;
+            atlas:field "category" ;
+            atlas:selectBy [ atlas:name "speed" ; atlas:characteristic "maxSpeed" ] ;
+        ] ;
+        atlas:group "Load" ;
         sh:order 104 ;
     ] ;
     sh:property [
@@ -287,6 +396,8 @@ shape:vehicle-compatibility
         atlas:constraint sh:minInclusive ;
         sh:datatype xsd:double ;
         atlas:unit "M" ;
+        atlas:combineBy atlas:Sum ;
+        atlas:group "Gauge and dimensions" ;
         sh:order 110 ;
     ] ;
     sh:property [
@@ -298,5 +409,223 @@ shape:vehicle-compatibility
         atlas:constraint sh:maxInclusive ;
         sh:datatype xsd:integer ;
         atlas:unit "MilliM" ;
+        atlas:group "Gauge and dimensions" ;
         sh:order 120 ;
+    ] ;
+    # ---- speed and braking ----
+    sh:property [
+        sh:path ( era:vehicleTypeMaximumSpeedAndCantDeficiency era:vehicleTypeMaximumSpeed ) ;
+        atlas:characteristic "maxSpeed" ;
+        rdfs:label "Maximum speed" ;
+        rdfs:comment "Highest speed of the vehicle or train. Not checked on its own: the raised pantograph, load capability and braking checks use it." ;
+        atlas:input true ;
+        sh:datatype xsd:integer ;
+        atlas:unit "KiloM-PER-HR" ;
+        atlas:group "Speed and braking" ;
+        sh:order 200 ;
+    ] ;
+    sh:property [
+        sh:path era:maximumAverageDeceleration ;
+        atlas:characteristic "brakingDeceleration" ;
+        rdfs:label "Mean braking deceleration" ;
+        rdfs:comment "Mean deceleration of the train in a full service brake application (m/s²). The braking distance from the line speed (or the train's maximum speed, if lower) must not exceed the track's maximum braking distance." ;
+        atlas:constraint atlas:brakingDistance ;
+        atlas:compareTo "maximumBrakingDistance" ;
+        atlas:speedFacet "maximumPermittedSpeed" ;
+        atlas:speedFrom "maxSpeed" ;
+        # the IM publishes more braking requirements: the result is unknown, not compatible
+        atlas:caveatFacet "hasAdditionalBrakingInformation" ;
+        # braking is a property of the whole train: entered for the train, not per vehicle
+        atlas:combineOver atlas:Train ;
+        sh:datatype xsd:double ;
+        atlas:unit "M-PER-SEC2" ;
+        atlas:group "Speed and braking" ;
+        sh:order 210 ;
+    ] ;
+    sh:property [
+        # ERA has no vehicle type property for it
+        sh:path atlas:maximumDeceleration ;
+        atlas:characteristic "maxDeceleration" ;
+        rdfs:label "Maximum deceleration" ;
+        rdfs:comment "Highest deceleration of the train when braking (m/s²); the track's maximum train deceleration must not be below it." ;
+        atlas:compareTo "maximumTrainDeceleration" ;
+        atlas:constraint sh:minInclusive ;
+        atlas:combineOver atlas:Train ;
+        sh:datatype xsd:double ;
+        atlas:unit "M-PER-SEC2" ;
+        atlas:group "Speed and braking" ;
+        sh:order 220 ;
+    ] ;
+    sh:property [
+        sh:path ( era:configDependentParameter era:numberOfPantographsInContactWithOCL ) ;
+        atlas:characteristic "raisedPantographs" ;
+        rdfs:label "Raised pantographs" ;
+        rdfs:comment "Number of pantographs in contact with the contact line. The track's requirement for its speed (the row for the lowest speed at least the maximum speed) must allow that many, at least the spacing between them." ;
+        atlas:constraint atlas:record ;
+        atlas:compareTo "trackRaisedPantographsDistanceAndSpeed" ;
+        atlas:recordField [ atlas:name "number" ; atlas:constraint sh:minInclusive ] ,
+            [ atlas:name "distance" ; atlas:constraint sh:maxInclusive ; atlas:characteristic "pantographSpacing" ] ;
+        atlas:selectBy [ atlas:name "speed" ; atlas:characteristic "maxSpeed" ] ;
+        # in a train: the units with a raised pantograph, one each unless filled in
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:combineBy atlas:Sum ;
+        atlas:vehicleDefault 1 ;
+        sh:datatype xsd:integer ;
+        atlas:group "Energy" ;
+        sh:order 66 ;
+    ] ;
+    sh:property [
+        sh:path ( era:configDependentParameter era:shortestDistanceBetweenPantographsInContactWithOCL ) ;
+        atlas:characteristic "pantographSpacing" ;
+        rdfs:label "Shortest distance between raised pantographs" ;
+        rdfs:comment "With two raised pantographs or more: the shortest distance between them (m). Read by the raised pantographs check." ;
+        atlas:input true ;
+        # in a train: also the distance between the units with a raised pantograph (their centres)
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:combineBy atlas:PantographSpacing ;
+        atlas:lengthFrom "trainLength" ;
+        sh:datatype xsd:double ;
+        atlas:unit "M" ;
+        atlas:group "Energy" ;
+        sh:order 67 ;
+    ] ;
+
+    # ---- equipment the track may require ----
+    sh:property [
+        sh:path era:hasTrainIntegrityConfirmation ;
+        atlas:characteristic "trainIntegrity" ;
+        rdfs:label "Train integrity confirmed on board" ;
+        rdfs:comment "Whether the train confirms its integrity on board (not the driver). A track that requires it is not compatible with a train without it." ;
+        atlas:constraint atlas:requires ;
+        atlas:compareTo "etcs.trainIntegrityOnBoardRequired" ;
+        atlas:combineOver atlas:LeadingCab ;
+        atlas:group "Equipment the track may require" ;
+        sh:order 300 ;
+    ] ;
+    sh:property [
+        # ERA has no vehicle type property for it
+        sh:path atlas:safeConsistLength ;
+        atlas:characteristic "safeConsistLength" ;
+        rdfs:label "Safe consist length information on board" ;
+        rdfs:comment "Whether the on-board equipment gives safe consist length information, and at which safety integrity level." ;
+        atlas:compareTo "safeConsistLengthInformationNecessary" ;
+        atlas:constraint sh:in ;
+        atlas:option [ atlas:value atlas:SafeConsistLengthNone ; rdfs:label "Not available" ; sh:order 1 ;
+                atlas:matches scl:00 ] ,
+            [ atlas:value atlas:SafeConsistLengthSil2 ; rdfs:label "SIL 2" ; sh:order 2 ;
+                atlas:matches scl:00, scl:02 ] ,
+            [ atlas:value atlas:SafeConsistLengthSil4 ; rdfs:label "SIL 4" ; sh:order 3 ;
+                atlas:matches scl:00, scl:02, scl:04 ] ;
+        atlas:combineOver atlas:LeadingCab ;
+        atlas:group "Equipment the track may require" ;
+        sh:order 310 ;
+    ] ;
+    sh:property [
+        # ERA has no vehicle type property for it
+        sh:path atlas:currentLimitation ;
+        atlas:characteristic "currentLimitation" ;
+        rdfs:label "Current or power limitation on board" ;
+        rdfs:comment "Whether the vehicle limits the current or power it draws. A track that requires it is not compatible with a vehicle without it." ;
+        atlas:constraint atlas:requires ;
+        atlas:compareTo "contactLineSystem.currentLimitationRequired" ;
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:group "Equipment the track may require" ;
+        sh:order 320 ;
+    ] ;
+    sh:property [
+        # ERA has no vehicle type property for it
+        sh:path atlas:steadyRedTailLights ;
+        atlas:characteristic "redTailLights" ;
+        rdfs:label "Steady red tail lights" ;
+        rdfs:comment "Whether the end of the train shows steady red lights. In a train: the last vehicle." ;
+        atlas:constraint atlas:requires ;
+        atlas:compareTo "redLightsRequired" ;
+        atlas:impliedValue [ atlas:facet "notApplicable" ; atlas:when era:redLightsRequired ; atlas:value false ] ;
+        atlas:combineOver atlas:TailVehicle ;
+        atlas:group "Equipment the track may require" ;
+        sh:order 330 ;
+    ] ;
+    sh:property [
+        # ERA has no vehicle type property for it (it has the noise levels)
+        sh:path atlas:quietVehicle ;
+        atlas:characteristic "quiet" ;
+        rdfs:label "Quiet vehicle (TSI NOI)" ;
+        rdfs:comment "Whether the vehicle complies with the noise limits for quieter routes (TSI NOI). A train is quiet only when every vehicle is." ;
+        atlas:constraint atlas:requires ;
+        atlas:compareTo "isQuietRoute" ;
+        atlas:group "Equipment the track may require" ;
+        sh:order 340 ;
+    ] ;
+    sh:property [
+        sh:path era:fireSafetyCategory ;
+        atlas:characteristic "fireCategory" ;
+        rdfs:label "Fire safety category" ;
+        rdfs:comment "Fire safety category of passenger rolling stock (TSI SRT), compared with the category the track's tunnels require. A track without a tunnel is compatible." ;
+        atlas:compareTo "rollingStockFireCategory" ;
+        atlas:linkedClass "tunnel" ;
+        atlas:constraint sh:in ;
+        atlas:impliedValue [ atlas:facet "notApplicable" ; atlas:when era:rollingStockFireCategory ; atlas:value rsf:30 ] ;
+        atlas:option [ atlas:value rsf:eratv\/20 ; rdfs:label "Category B" ; sh:order 1 ;
+                atlas:matches rsf:10, rsf:20, rsf:30 ] ,
+            [ atlas:value rsf:eratv\/10 ; rdfs:label "Category A" ; sh:order 2 ;
+                atlas:matches rsf:10, rsf:30 ] ,
+            [ atlas:value <http://data.europa.eu/949/concepts/rolling-stock-fire/eratv/no-category-acceptable-in-unnels-shorter-then-1km> ;
+                rdfs:label "No category" ; sh:order 3 ; atlas:matches rsf:30 ] ;
+        atlas:group "Equipment the track may require" ;
+        sh:order 350 ;
+    ] ;
+
+    # ---- brakes ----
+    # ERA SKOS magnetic-braking: 10 allowed, 20 allowed under conditions, 30 allowed under
+    # conditions only for the emergency brake, 40 allowed only for the emergency brake,
+    # 50 not allowed. eddy-current-braking and regenerative-braking: 10 allowed, 20 under
+    # conditions, 30 only for the emergency brake, 40 under conditions only for the
+    # emergency brake, 50 not allowed. "Under conditions" makes the result unknown.
+    sh:property [
+        sh:path era:hasMagneticBrake ;
+        atlas:characteristic "magneticBrake" ;
+        rdfs:label "Magnetic track brake" ;
+        rdfs:comment "How the vehicle uses a magnetic track brake, compared with its use the track allows." ;
+        atlas:compareTo "magneticBraking" ;
+        atlas:constraint sh:in ;
+        atlas:option [ atlas:value atlas:BrakeNotFitted ; rdfs:label "Not fitted" ; sh:order 1 ;
+                atlas:anyTrack true ; atlas:pathValue false ] ,
+            [ atlas:value atlas:BrakeEmergencyOnly ; rdfs:label "Emergency brake only" ; sh:order 2 ;
+                atlas:matches mb:10, mb:40 ; atlas:maybe mb:20, mb:30 ; atlas:pathValue true ] ,
+            [ atlas:value atlas:BrakeService ; rdfs:label "Service and emergency brake" ; sh:order 3 ;
+                atlas:matches mb:10 ; atlas:maybe mb:20 ; atlas:pathValue true ] ;
+        atlas:group "Brakes" ;
+        sh:order 400 ;
+    ] ;
+    sh:property [
+        sh:path era:hasEddyCurrentBrake ;
+        atlas:characteristic "eddyCurrentBrake" ;
+        rdfs:label "Eddy current brake" ;
+        rdfs:comment "How the vehicle uses an eddy current brake, compared with its use the track allows." ;
+        atlas:compareTo "eddyCurrentBraking" ;
+        atlas:constraint sh:in ;
+        atlas:option [ atlas:value atlas:BrakeNotFitted ; rdfs:label "Not fitted" ; sh:order 1 ;
+                atlas:anyTrack true ; atlas:pathValue false ] ,
+            [ atlas:value atlas:BrakeEmergencyOnly ; rdfs:label "Emergency brake only" ; sh:order 2 ;
+                atlas:matches ecb:10, ecb:30 ; atlas:maybe ecb:20, ecb:40 ; atlas:pathValue true ] ,
+            [ atlas:value atlas:BrakeService ; rdfs:label "Service and emergency brake" ; sh:order 3 ;
+                atlas:matches ecb:10 ; atlas:maybe ecb:20 ; atlas:pathValue true ] ;
+        atlas:group "Brakes" ;
+        sh:order 410 ;
+    ] ;
+    sh:property [
+        sh:path era:hasRegenerativeBrake ;
+        atlas:characteristic "regenerativeBrake" ;
+        rdfs:label "Regenerative brake" ;
+        rdfs:comment "Whether the vehicle feeds braking energy back into the contact line, compared with the permission of the track's contact line system." ;
+        atlas:compareTo "contactLineSystem.conditionalRegenerativeBrake" ;
+        atlas:constraint sh:in ;
+        atlas:noneFrom "energySupplySystem" ;
+        atlas:option [ atlas:value atlas:BrakeNotFitted ; rdfs:label "Not used" ; sh:order 1 ;
+                atlas:anyTrack true ; atlas:pathValue false ] ,
+            [ atlas:value atlas:BrakeService ; rdfs:label "Used" ; sh:order 2 ;
+                atlas:matches regb:10 ; atlas:maybe regb:20 ; atlas:pathValue true ] ;
+        atlas:combineOver atlas:RaisedPantographs ;
+        atlas:group "Brakes" ;
+        sh:order 420 ;
     ] .
