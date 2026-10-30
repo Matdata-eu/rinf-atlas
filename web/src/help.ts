@@ -46,6 +46,7 @@ export function openHelp() {
         section('Views', false,
           ['A ', b('View'), ' at the top of the filters opens a ready-made lens, such as the European transport corridors: ',
             'its classes, filters and map colours, with its parameters listed first.'],
+          ['Views show sections of line. A filter on a track property, such as the ETCS level, keeps the sections with at least one matching track.'],
           ['Pick a corridor or country to zoom to it. ', b('Show every class and filter'), ' brings the other filters back.'],
           ['Some views check requirements, for example those of the TEN-T Regulation. Each track gets ', b('Meets the requirement'), ', ',
             b('Data missing'), ' (RINF does not say) or ', b('Does not meet the requirement'), '; a section of line meets one when one of its tracks does.'],

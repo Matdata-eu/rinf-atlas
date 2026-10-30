@@ -35,7 +35,10 @@ export function openView(key: string | null) {
   const s = store.get();
   const v = key ? s.meta?.views?.find((x) => x.key === key) : null;
   if (!v) {
-    const patch: Partial<AppState> = { lens: null };
+    // back to the default view: the view's classes, filters and colours go too
+    const patch: Partial<AppState> = s.lens
+      ? { lens: null, classes: [], filters: {}, colorBy: null, colorHidden: [], theme: null }
+      : { lens: null };
     if (profileRowsSet && s.profileRows === profileRowsSet) patch.profileRows = null;
     profileRowsSet = null;
     store.set(patch);
@@ -114,7 +117,7 @@ function renderBar() {
   if (!v) { bar.replaceChildren(); return; }
   const parts: (HTMLElement | null)[] = [
     h('div', { class: 'view-head' }, h('strong', { class: 'view-title', title: v.comment ?? '' }, v.label),
-      h('button', { type: 'button', class: 'icon-btn', title: 'Back to the default view (filters stay)', 'aria-label': 'Close the view', onclick: () => openView(null) }, '×')),
+      h('button', { type: 'button', class: 'icon-btn', title: 'Back to the default view', 'aria-label': 'Close the view', onclick: () => openView(null) }, '×')),
   ];
   if (v.group_by) parts.push(groupPicker(s, v));
   const tools: HTMLElement[] = [];
