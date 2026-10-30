@@ -87,7 +87,8 @@ function download(format: 'csv' | 'xlsx' | 'ttl') {
     msg.hidden = false;
     return;
   }
-  const a = h('a', { href: api.exportUrl(queryState(s), format), download: '' });
+  const viewCols = s.lens && format !== 'ttl' && document.querySelector<HTMLInputElement>('#export-view-cols input')?.checked;
+  const a = h('a', { href: api.exportUrl(queryState(s), format, viewCols ? s.lens : null), download: '' });
   document.body.append(a);
   a.click();
   a.remove();
@@ -100,6 +101,7 @@ export function initResults() {
   document.getElementById('export-gis')!.addEventListener('click', openGis);
   document.getElementById('export-ttl')!.addEventListener('click', () => download('ttl'));
   store.subscribe((s, prev) => {
+    if (changed(s, prev, 'lens')) (document.getElementById('export-view-cols') as HTMLElement).hidden = !s.lens;
     if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) {
       reload();
       (document.getElementById('export-msg') as HTMLParagraphElement).hidden = true;

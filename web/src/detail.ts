@@ -1,5 +1,6 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
 import { api, ApiError, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
+import { checkColour, viewKeys, viewMeta } from './checks';
 import { openShapes } from './shapes';
 import { compatBlock } from './compat';
 import type { GraphHandle } from './graph';
@@ -152,14 +153,17 @@ function renderProperties(body: HTMLElement) {
   if (!feature) { body.append(h('p', { class: 'muted loading-text' }, 'Loading…')); return; }
   const f = feature;
   const facetMeta = new Map((store.get().meta?.facets ?? []).map((m) => [m.key, m]));
-  const rows = Object.entries(f.facets)
-    .sort(([a], [b]) => (facetMeta.get(a)?.position ?? 999) - (facetMeta.get(b)?.position ?? 999))
-    .map(([k, vals]) => h('tr', {},
+  // With a view open, its parameters and checks come first, in the view's order.
+  const view = viewMeta();
+  const inView = view ? viewKeys(view) : [];
+  const toRow = ([k, vals]: [string, typeof f.facets[string]]) => h('tr', {},
       h('th', {}, facetMeta.get(k)?.label ?? f.facet_labels?.[k] ?? k),
       h('td', {}, ...vals.map((v) => {
         const unit = facetMeta.get(k)?.unit;
         const text = v.label ?? (typeof v.value === 'boolean' ? (v.value ? 'Yes' : 'No')
           : typeof v.value === 'number' && unit ? `${fmt.format(v.value)} ${unitLabel(unit)}` : String(v.value));
+        const colour = checkColour(v.value);
+        if (colour) return h('div', {}, h('span', { class: 'swatch', style: `background:${colour}`, 'aria-hidden': 'true' }), text);
         // link facets point at other indexed features: open them here
         if (f.facet_kinds?.[k] === 'link' && typeof v.value === 'string') {
           const iri = v.value;
@@ -168,9 +172,16 @@ function renderProperties(body: HTMLElement) {
         return typeof v.value === 'string' && /^https?:\/\//.test(v.value)
           ? h('div', {}, h('a', { href: v.value, target: '_blank', rel: 'noopener', title: v.value }, text))
           : h('div', {}, text);
-      }))));
+      })));
+  const rows = Object.entries(f.facets).filter(([k]) => !inView.includes(k))
+    .sort(([a], [b]) => (facetMeta.get(a)?.position ?? 999) - (facetMeta.get(b)?.position ?? 999))
+    .map(toRow);
+  const viewRows = inView.filter((k) => f.facets[k]).map((k) => toRow([k, f.facets[k]]));
   body.append(
     compatBlock(f) ?? '',
+    view && viewRows.length ? h('section', { class: 'view-props', 'aria-label': `In the view ${view.label}` },
+      h('h3', {}, view.label), h('table', { class: 'kv' }, h('tbody', {}, ...viewRows)),
+      h('h3', {}, 'Every property')) : '',
     h('table', { class: 'kv' }, h('tbody', {},
       ...rows,
       h('tr', {}, h('th', {}, 'Graph'), h('td', {}, h('code', { class: 'small' }, f.graph_iri))))),
@@ -348,7 +359,7 @@ export function initDetail() {
         setSelectionGeometry(null);
       }
     } else if (changed(s, prev, 'detailTab', 'describe') && s.selected) render();
-    else if (changed(s, prev, 'meta') && s.selected) {
+    else if (changed(s, prev, 'meta', 'lens') && s.selected) {
       panel.querySelector('.kicker')?.replaceWith(kicker()); // class label/colour arrive with meta
       if (s.detailTab === 'properties') render();
     }

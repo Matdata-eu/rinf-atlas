@@ -152,6 +152,7 @@ export const URL_DEFAULTS: Partial<AppState> = {
   classes: [], filters: {}, graphs: [], q: '', limitToView: false, orm: false, layers: [], qa: false, allZoom: [],
   selected: null, detailTab: 'properties', describe: null, sideTab: 'filters',
   colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, vehicleOpen: false,
+  lens: null,
 };
 
 /** The state a hash describes; only the parameters present (see URL_DEFAULTS for the rest). */
@@ -160,6 +161,7 @@ export function parseHash(hash: string): Partial<AppState> {
   const get = (k: string) => p.get(k) ?? '';
   const out: Partial<AppState> = {};
   if (get('env')) out.env = get('env');
+  if (get('vw')) out.lens = get('vw');
   const view = decView(get('map'));
   if (view) out.view = view;
   if (get('c')) out.classes = get('c').split(',').filter(Boolean);
@@ -205,6 +207,7 @@ export function hashParams(s: AppState): [string, string][] {
   const p: [string, string][] = [];
   if (s.env) p.push(['env', s.env]);
   p.push(['map', encView(s.view)]);
+  if (s.lens) p.push(['vw', s.lens]);
   if (s.classes.length) p.push(['c', s.classes.join(',')]);
   const f = encFilters(s.filters);
   if (f) p.push(['f', f]);
@@ -253,7 +256,7 @@ export const buildHash = (s: AppState) => '#' + hashParams(s).map(([k, v]) => `$
 /** What Back should step through: a change here pushes a history entry, anything else replaces it. */
 function navSignature(s: AppState): string {
   const d = s.selected ? describeOf(s) : null;
-  return JSON.stringify([s.env, s.classes, encFilters(s.filters), s.graphs, s.q, s.selected, s.selected ? s.detailTab : null,
+  return JSON.stringify([s.env, s.lens, s.classes, encFilters(s.filters), s.graphs, s.q, s.selected, s.selected ? s.detailTab : null,
     d && [d.path, d.dir], s.colorBy, s.qa, s.allZoom, s.profileOpen, s.profile, s.vehicleOpen, s.vehicle?.name ?? null]);
 }
 
