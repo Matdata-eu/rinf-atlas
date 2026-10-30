@@ -50,6 +50,12 @@ test('a result opens its details, which close again', async ({ page, errors: _ }
   await expect(detail.locator('.kicker')).toContainText('Operational Point');
   await expect(detail.locator('a.iri')).toHaveAttribute('href', /^http/);
   await expect(page).toHaveURL(/[#&]sel=/);
+  // The IRI has a copy button next to it.
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const copy = detail.getByRole('button', { name: 'Copy IRI' });
+  await copy.click();
+  await expect(detail.getByRole('button', { name: 'IRI copied' })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await detail.locator('a.iri').getAttribute('href'));
   // The properties tab lists the feature's values.
   await expect(detail.locator('.detail-body')).not.toBeEmpty();
 
