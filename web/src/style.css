@@ -299,6 +299,7 @@ body.side-resizing { cursor: col-resize; user-select: none; }
   display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
 }
 .btn:hover { background: var(--surface-2); }
+a.btn { color: inherit; text-decoration: none; } /* links that act as buttons look like the buttons next to them */
 .btn:disabled { opacity: 0.6; cursor: progress; }
 .btn-small { padding: 3px 8px; font-size: 12px; }
 .btn-block { width: 100%; justify-content: center; margin-top: 8px; }
