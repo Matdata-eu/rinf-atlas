@@ -18,6 +18,9 @@
 # include_graphs / exclude_graphs: optional Python regexes on graph IRIs.
 #                The environment variable ATLAS_ONLY_GRAPHS (comma separated
 #                IRIs or IM codes) overrides include_graphs, handy for tests.
+# describe_url:  optional; where this environment's "Full describe" links point,
+#                with {iri} and {env} filled in. Overrides ATLAS_DESCRIBE_URL;
+#                an empty value hides the link for this environment only.
 # quality:       optional; overrides keys of the global `quality:` block below
 #                for this environment, e.g. {shapes_tag: v3.3.4, max_triples: 20000000}.
 #

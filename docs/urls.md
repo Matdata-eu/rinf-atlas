@@ -132,6 +132,25 @@ browser storage. What a link leaves out comes from the recipient's own
 settings: theme, saved profiles, and default profile rows when `lpr` is
 absent.
 
+## Outgoing links
+
+Besides ERA's own pages (the resource IRI, the portal), the detail panel can
+link to a page-style description of a resource elsewhere, for example
+[RINF Describe](https://github.com/Matdata-eu/rinf-describe). The deployment
+sets the address with `ATLAS_DESCRIBE_URL` (or `describe_url` per
+environment in `config/environments.yaml`), a template in which `{iri}` and
+`{env}` are replaced:
+
+```
+ATLAS_DESCRIBE_URL=https://describe.example.org/describe?uri={iri}&env={env}
+```
+
+Both values are URL encoded (`encodeURIComponent`), so IRIs with `#`, `?` or
+`&` survive. `{env}` is the Atlas environment key (`prod`, `uat`). With a
+template set, **Full describe ↗** shows in the Properties tab for the selected
+feature and in the Describe tab for the IRI at the end of the breadcrumb.
+Without one, there is no link.
+
 ## History
 
 - **Push.** A new history entry is added for navigation, so Back undoes it.

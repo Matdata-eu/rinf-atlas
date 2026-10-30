@@ -43,6 +43,10 @@ EXPORT_MAX_ENTITIES = int(os.environ.get("ATLAS_EXPORT_MAX_ENTITIES") or 0)
 # A shacl-report instance (https://github.com/Matdata-eu/shacl-report) the UI links to for
 # exploring a downloaded report; empty hides the link.
 SHACL_REPORT_URL = os.environ.get("ATLAS_SHACL_REPORT_URL", "https://shacl-report.matdata.eu/").strip() or None
+# Where the UI's "Full describe" links point, e.g. a RINF Describe instance
+# (https://github.com/Matdata-eu/rinf-describe): {iri} and {env} are filled in by the UI.
+# An environment's `describe_url` overrides it; empty hides the link.
+DESCRIBE_URL = os.environ.get("ATLAS_DESCRIBE_URL", "").strip() or None
 
 SH = "http://www.w3.org/ns/shacl#"
 SEVERITY_NAME = {3: "violation", 2: "warning", 1: "info"}
@@ -139,10 +143,18 @@ def health():
     return {"ok": True}
 
 
+def describe_url(e: dict) -> str | None:
+    """The environment's "Full describe" URL template: its own `describe_url` (empty = none), else the global one."""
+    if "describe_url" in e:
+        return (e["describe_url"] or "").strip() or None
+    return DESCRIBE_URL
+
+
 @app.get("/api/envs")
 def envs():
     return [{"key": k, "label": e.get("label", k.upper()), "sparql": e["sparql"],
-             "portal": e.get("portal"), "default": bool(e.get("default"))} for k, e in _envs.items()]
+             "portal": e.get("portal"), "describe_url": describe_url(e), "default": bool(e.get("default"))}
+            for k, e in _envs.items()]
 
 
 @app.get("/api/meta")

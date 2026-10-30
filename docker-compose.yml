@@ -68,6 +68,7 @@ services:
       ATLAS_EXPORT_MAX_ENTITIES: ${ATLAS_EXPORT_MAX_ENTITIES:-}
       ATLAS_EXPORT_QUEUE: ${ATLAS_EXPORT_QUEUE:-20}
       ATLAS_SHACL_REPORT_URL: ${ATLAS_SHACL_REPORT_URL-https://shacl-report.matdata.eu/}
+      ATLAS_DESCRIBE_URL: ${ATLAS_DESCRIBE_URL:-}
     # Keys of the extra map layers in config/layers.yaml (ATLAS_LAYER_* in .env, docs/layers.md).
     # Only the api container gets them; it proxies those layers' tiles.
     env_file:

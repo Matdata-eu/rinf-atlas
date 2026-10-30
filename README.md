@@ -229,6 +229,7 @@ default).
 | `ATLAS_QUALITY` | `1` | `0` turns data quality validation off |
 | `ATLAS_QUALITY_MAX_TRIPLES`, `ATLAS_QUALITY_MINUTES`, `ATLAS_QUALITY_SHAPES_TAG` | `environments.yaml` | size limit, time budget per dataset and pinned shapes tag; one value or `prod=…,uat=…` ([docs/datasets.md](docs/datasets.md#data-quality)) |
 | `ATLAS_SHACL_REPORT_URL` | `https://shacl-report.matdata.eu/` | shacl-report instance the UI links to (empty = no link) |
+| `ATLAS_DESCRIBE_URL` | empty | "Full describe" link template, e.g. `https://describe.example.org/describe?uri={iri}&env={env}` for [RINF Describe](https://github.com/Matdata-eu/rinf-describe) (empty = no link; `describe_url` in `environments.yaml` overrides it per environment, [docs/urls.md](docs/urls.md#outgoing-links)) |
 | `ATLAS_LAYER_*` | | keys of the extra map layers ([docs/layers.md](docs/layers.md)) |
 | `ATLAS_IMAGE`, `ATLAS_VERSION` | `ghcr.io/matdata-eu/rinf-atlas`, `latest` | published images to run |
 
