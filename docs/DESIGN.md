@@ -208,6 +208,33 @@ PostGIS is read.
   exported / imported as JSON or as Turtle with `era:VehicleType` instances.
   When ERATV (the register of authorised vehicle types) is published as linked
   data, profiles could be imported from it instead of typed by hand.
+## Views and requirement checks (issue #56)
+
+- A view (`shapes/views/*.ttl`) bundles what used to be a hand-made link:
+  classes, filters, colouring and the parameters listed first. It is generic,
+  so the corridors view is one file among others (rail freight corridors,
+  ERTMS, electrification).
+- Corridor membership comes from RINF only (`era:europeanTransportCorridor`,
+  directly or under `era:partOfTENT`, and `era:railFreightCorridor`): no
+  curated list. Where an IM does not declare it, the view says so ("No
+  corridor declared") instead of guessing. On PROD (2026-10-24) about 138k
+  tracks have a TEN-T level, but only about 2.7k from 6 datasets declare a
+  corridor; corridors 01 and 03 have no data.
+- Checks compare facets that are already indexed, so they run in SQL after
+  every index update (`worker/atlas/views.py`) and a changed check needs no
+  reindex (`index_state.views_hash`). Results are stored as facet values, so
+  filters, colouring, exports and the detail panel need nothing new.
+- Three results, not two: a parameter RINF does not declare is "Data missing",
+  not a failure, except where a missing value means the system is absent
+  (no contact line = not electrified). A section of line meets a requirement
+  when one of its tracks does, as in the vehicle check; the summary is the
+  worst result of the checks that apply.
+- The TEN-T requirements follow Regulation (EU) 2024/1679 (electrification,
+  ERTMS, 22.5 t, 740 m, 100 km/h for freight, 160 km/h for passengers, P400),
+  each limited to the network levels and traffic types the article names.
+  Exemptions and the one-route-per-corridor rule for P400 are not modelled:
+  the table shows the state of the data, not legal compliance.
+
 ## Data quality
 
 ERA publishes the SHACL shapes RINF data must conform to in the repository
