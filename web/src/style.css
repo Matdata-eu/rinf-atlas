@@ -957,7 +957,10 @@ thead .te-rule { z-index: 2; }
 .te-num-wrap { display: inline-flex; align-items: center; gap: 4px; }
 .te-num { width: 7.5em; height: 28px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); padding: 0 6px; }
 .te-terms summary { cursor: pointer; max-width: 240px; }
-.te-terms-list { display: flex; flex-direction: column; max-height: 220px; overflow: auto; margin-top: 4px; }
+.te-terms-list { display: flex; flex-direction: column; max-height: 220px; overflow: hidden auto; margin-top: 4px; }
+/* no negative margin (.check) inside the scrolling list: it made the list scroll sideways */
+.te-terms-list .check { margin: 0; grid-template-columns: auto 1fr; }
+.te-terms-list .lbl { white-space: normal; }
 .te-cell.out > :first-child { opacity: 0.5; }
 .te-cell.sets { box-shadow: inset 3px 0 0 var(--accent); }
 .te-cell.missing { box-shadow: inset 3px 0 0 var(--danger); }

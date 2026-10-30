@@ -11,7 +11,7 @@ import psycopg
 
 from . import era, mirror, quality
 from .config import Env, Settings
-from .extract import derive_geometry, extract_graph, refresh_facet_cache, update_term_labels
+from .extract import derive_geometry, extract_graph, refresh_facet_cache, update_compat_values, update_term_labels
 from .shapes import ShapeSet, position_rules
 
 log = logging.getLogger(__name__)
@@ -207,6 +207,8 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
             cur.execute("SELECT iri FROM term WHERE env=%s", (env.key,))
             iris = {r[0] for r in cur.fetchall()} - {IM_ROLE.format(code=c) for c in published}
         update_term_labels(conn, store, env.key, iris, only_missing=False)
+    # the code lists the vehicle check offers (cheap: a query per rule on the vocabularies)
+    update_compat_values(conn, store, env.key, shapes)
 
     derived = 0
     if new or changed or removed:
@@ -257,6 +259,7 @@ def reindex_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: 
             _set_status(conn, env.key, g, "failed", str(e)[:2000])
     derive_geometry(conn, env.key)
     refresh_facet_cache(conn, env.key)
+    update_compat_values(conn, store, env.key, shapes)
     with conn.cursor() as cur:
         cur.execute("""INSERT INTO index_state (env, shapes_hash) VALUES (%s,%s)
                        ON CONFLICT (env) DO UPDATE SET shapes_hash=EXCLUDED.shapes_hash, updated_at=now()""",

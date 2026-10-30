@@ -335,6 +335,52 @@ def update_term_labels(conn: psycopg.Connection, store: ox.Store, env: str, iris
     return len(found)
 
 
+ERA_SCHEME = "http://data.europa.eu/949/inSkosConceptScheme"
+SKOS_IN_SCHEME = "http://www.w3.org/2004/02/skos/core#inScheme"
+OWL_DEPRECATED = "http://www.w3.org/2002/07/owl#deprecated"
+
+
+def _last_predicate(path: str) -> str | None:
+    """The last IRI of a SPARQL property path (<a>/<b> -> b)."""
+    iris = re.findall(r"<([^<>]+)>", path)
+    return iris[-1] if iris else None
+
+
+def compat_code_lists(store: ox.Store, shapes: ShapeSet) -> dict[str, list[str]]:
+    """Per terms rule, every concept of the code lists of the facets it compares (the
+    era:inSkosConceptScheme of each facet's last property), deprecated ones left out."""
+    if not shapes.compat:
+        return {}
+    facets = {f.key: f for c in shapes.classes for f in shapes.all_facets(c)}
+    out: dict[str, list[str]] = {}
+    for r in shapes.compat.rules:
+        if r.kind != "terms" or r.options or r.constraint in ("input", "requires", "record", "brakingDistance"):
+            continue
+        preds = {p for fk in r.facets if fk in facets for p in [_last_predicate(facets[fk].path)] if p}
+        if not preds:
+            continue
+        vals = " ".join(f"<{p}>" for p in sorted(preds) if ">" not in p and " " not in p)
+        q = f"""SELECT DISTINCT ?c WHERE {{ VALUES ?p {{ {vals} }} ?p <{ERA_SCHEME}> ?s . ?c <{SKOS_IN_SCHEME}> ?s .
+                FILTER NOT EXISTS {{ ?c <{OWL_DEPRECATED}> true }} }}"""
+        iris = sorted({row["c"].value for row in select(store, q, union=True) if isinstance(row["c"], ox.NamedNode)})
+        if iris:
+            out[r.key] = iris
+    return out
+
+
+def update_compat_values(conn: psycopg.Connection, store: ox.Store, env: str, shapes: ShapeSet) -> int:
+    """Stores compat_code_lists for the API, so the vehicle check can offer values no track
+    has yet; their labels go to the term table. Returns the number of rules."""
+    out = compat_code_lists(store, shapes)
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM compat_value WHERE env=%s", (env,))
+        cur.executemany("INSERT INTO compat_value (env, key, iris) VALUES (%s,%s,%s)",
+                        [(env, k, json.dumps(v)) for k, v in out.items()])
+    conn.commit()
+    update_term_labels(conn, store, env, {x for v in out.values() for x in v})
+    return len(out)
+
+
 def derive_geometry(conn: psycopg.Connection, env: str, max_rounds: int = 6) -> int:
     """Fill geometry for features without one from linked features, repeating
     so chains (platform -> track -> section of line -> operational points) resolve."""
