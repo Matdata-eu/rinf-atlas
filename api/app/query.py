@@ -61,14 +61,32 @@ def _jsonpath_key(key: str) -> str:
     return '"' + key.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+# Line classes whose features are made of the features of other classes (feature_link
+# rule 'from'): a plain filter on a facet of the parts also narrows these, to the
+# features with a matching part. A section of line with an ETCS level 2 running track
+# matches "ETCS level 2", as in map colouring and the vehicle check.
+ROLLUP: dict[str, tuple[str, ...]] = {"section-of-line": ("running-track", "track")}
+
+
+def rollup_parts(cls: str, owners: set[str], rollup: dict[str, tuple[str, ...]] = ROLLUP) -> list[str]:
+    """The part classes through which a facet owned by `owners` reaches `cls` (none when
+    `cls` owns it itself or is not a rollup class)."""
+    if "*" in owners or cls in owners:
+        return []
+    return sorted(set(rollup.get(cls, ())) & owners)
+
+
 class Where:
     """Builds the WHERE clause. facet_classes maps facet key -> class keys having
     that facet ('*' means every class): a filter only constrains those classes,
-    so "operational points of type station + all tunnels" works."""
+    so "operational points of type station + all tunnels" works. Plain (unscoped)
+    filters also constrain the ROLLUP classes through their parts."""
 
-    def __init__(self, state: QueryState, facet_classes: dict[str, set[str]]):
+    def __init__(self, state: QueryState, facet_classes: dict[str, set[str]],
+                 rollup: dict[str, tuple[str, ...]] | None = None):
         self.state = state
         self.facet_classes = facet_classes
+        self.rollup = ROLLUP if rollup is None else rollup
 
     def build(self, *, exclude_facet: str | None = None, with_classes: bool = True,
               with_bbox: bool = True, alias: str = "f") -> tuple[str, list]:
@@ -107,8 +125,19 @@ class Where:
                 continue
             owners = {scope} if scope else self.facet_classes.get(fkey, set())
             if "*" not in owners and owners:
-                cond = f"({a}class <> ALL(%s) OR {cond})"
-                cp = [sorted(owners)] + cp
+                via = {} if scope else {r: rollup_parts(r, owners, self.rollup) for r in self.rollup}
+                via = {r: pcs for r, pcs in via.items() if pcs and (not s.classes or r in s.classes)}
+                ors, op = [], []
+                for r, part_classes in via.items():
+                    pc, pp = self._facet_cond(fkey, val, "p.")
+                    t = alias or "feature"
+                    ors.append(f"({t}.class = %s AND EXISTS (SELECT 1 FROM feature_link l JOIN feature p "
+                               f"ON p.env = l.env AND p.iri = l.iri AND p.class = l.class "
+                               f"WHERE l.env = {t}.env AND l.target = {t}.iri AND l.rule = 'from' "
+                               f"AND l.class = ANY(%s) AND {pc}))")
+                    op += [r, part_classes] + pp
+                cond = f"({a}class <> ALL(%s) OR {cond}{''.join(' OR ' + o for o in ors)})"
+                cp = [sorted(owners | set(via))] + cp + op
             parts.append(cond)
             params += cp
         return " AND ".join(parts), params
