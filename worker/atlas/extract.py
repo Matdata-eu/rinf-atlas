@@ -13,6 +13,10 @@ import pyoxigraph as ox
 from .mirror import select
 from .shapes import ClassShape, Facet, ShapeSet
 
+# Line classes counted per value of their parts' facets (feature_link rule 'from'); keep
+# in step with ROLLUP in api/app/query.py, which filters them the same way.
+ROLLUP: dict[str, tuple[str, ...]] = {"section-of-line": ("running-track", "track")}
+
 log = logging.getLogger(__name__)
 
 SKOS_PREF = "http://www.w3.org/2004/02/skos/core#prefLabel"
@@ -378,6 +382,21 @@ def refresh_facet_cache(conn: psycopg.Connection, env: str) -> None:
               AND NOT EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.kind = 'link')
             GROUP BY 1, 2, 3, 4
         """, (env,))
+        # a section of line also counts once per value of its tracks' facets it does
+        # not have itself, as the API's filters narrow it by them (api/app/query.py ROLLUP)
+        for cls, parts in ROLLUP.items():
+            cur.execute("""
+                INSERT INTO facet_cache (env, class, key, value, n)
+                SELECT s.env, s.class, kv.key, v.value, count(DISTINCT s.id)
+                FROM feature s
+                JOIN feature_link l ON l.env = s.env AND l.target = s.iri AND l.rule = 'from' AND l.class = ANY(%s)
+                JOIN feature p ON p.env = l.env AND p.iri = l.iri AND p.class = l.class,
+                     jsonb_each(p.facets) kv, jsonb_array_elements(kv.value) v
+                WHERE s.env = %s AND s.class = %s
+                  AND EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.class = p.class AND d.kind <> 'link')
+                  AND NOT EXISTS (SELECT 1 FROM facet_def d WHERE d.key = kv.key AND d.class IN (s.class, '*'))
+                GROUP BY 1, 2, 3, 4
+            """, (list(parts), env, cls))
         cur.execute("""INSERT INTO index_state (env) VALUES (%s) ON CONFLICT (env)
                        DO UPDATE SET updated_at = now()""", (env,))
     conn.commit()
