@@ -47,6 +47,8 @@ test('opening a view sets its classes, filters and colours, and the link keeps i
   await expect(page.locator('#view-bar')).toBeHidden();
   await expect(page.locator('#view-select')).toHaveValue('');
   await expect(page).not.toHaveURL(/vw=/);
+  // the view's classes, filters and colours are cleared with it
+  await expect(page).not.toHaveURL(/[#&](c|f|col)=/);
 });
 
 test('the requirements table counts every check per corridor', async ({ page, errors: _ }) => {

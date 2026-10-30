@@ -126,7 +126,9 @@ function render() {
       h('div', { class: 'detail-title' },
         kicker(),
         h('h2', {}, title),
-        h('a', { class: 'iri', href: s.selected, target: '_blank', rel: 'noopener', title: 'Open IRI' }, s.selected)),
+        h('div', { class: 'iri-line' },
+          h('a', { class: 'iri', href: s.selected, target: '_blank', rel: 'noopener', title: 'Open IRI' }, s.selected),
+          copyIriButton(s.selected))),
       zoomButton(),
       h('button', { class: 'icon-btn', 'aria-label': 'Close details', onclick: close }, '×')),
     h('div', { class: 'tabs detail-tabs', role: 'tablist' }, ...tabs.map(([k, label]) =>
@@ -138,6 +140,26 @@ function render() {
   if (s.detailTab === 'properties') renderProperties(body);
   else if (s.detailTab === 'describe') renderDescribe(body);
   else renderGraph(body);
+}
+
+const COPY_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.75 3.5V3.25a1.5 1.5 0 0 0-1.5-1.5h-5a1.5 1.5 0 0 0-1.5 1.5v5a1.5 1.5 0 0 0 1.5 1.5h.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+const COPIED_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/** Copies the IRI to the clipboard; a tick confirms it for a moment. */
+function copyIriButton(iri: string): HTMLElement {
+  const label = 'Copy IRI';
+  const b = h('button', { class: 'icon-btn copy-iri', title: label, 'aria-label': label });
+  b.innerHTML = COPY_ICON;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(iri); } catch { window.prompt('Copy this IRI:', iri); return; }
+    b.innerHTML = COPIED_ICON;
+    b.classList.add('copied');
+    b.setAttribute('aria-label', 'IRI copied');
+    clearTimeout(timer);
+    timer = setTimeout(() => { b.innerHTML = COPY_ICON; b.classList.remove('copied'); b.setAttribute('aria-label', label); }, 1500);
+  });
+  return b;
 }
 
 function zoomButton(): HTMLElement {

@@ -36,7 +36,7 @@ view:corridors
     rdfs:label "European transport corridors" ;
     rdfs:comment "TEN-T lines and the nine European transport corridors of Regulation (EU) 2024/1679, as declared in RINF, with the parameters the Regulation sets requirements for." ;
     sh:order 10 ;
-    atlas:viewClass "section-of-line", "running-track" ;
+    atlas:viewClass "section-of-line" ;
     atlas:groupBy "corridor" ;
     atlas:groupLabel "Corridor" ;
     atlas:filter [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 level:03 ) ] ;

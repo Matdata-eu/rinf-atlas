@@ -260,6 +260,13 @@ PostGIS is read.
   corridor declared") instead of guessing. On PROD (2026-10-24) about 138k
   tracks have a TEN-T level, but only about 2.7k from 6 datasets declare a
   corridor; corridors 01 and 03 have no data.
+- Views select sections of line only. Their track parameters still filter:
+  a plain filter on a track facet narrows a section of line to those with a
+  matching track (`api/app/query.py` `ROLLUP`), and facet counts count each
+  section once per value of its tracks (also in the worker's `facet_cache`).
+  This holds outside views too.
+- Leaving a view (back to the default view) clears its classes, filters and
+  colours.
 - Checks compare facets that are already indexed, so they run in SQL after
   every index update (`worker/atlas/views.py`) and a changed check needs no
   reindex (`index_state.views_hash`). Results are stored as facet values, so

@@ -31,7 +31,7 @@ from . import compat as cx
 from . import export as xp
 from . import profile as pf
 from .export import record_label
-from .query import QueryState, SearchRequest, ThemeRequest, Where, split_key
+from .query import ROLLUP, QueryState, SearchRequest, ThemeRequest, Where, rollup_parts, split_key
 from .theme import MIXED, Themes
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://atlas:atlas@db:5432/atlas")
@@ -269,27 +269,64 @@ def _compute_facets(state: QueryState) -> dict:
     unfiltered = not state.filters and not (state.q and state.q.strip()) and not state.bbox and not state.graphs
     out: dict[str, dict] = {}
 
-    def run(keys_: list[str], where_sql: str, params: list) -> dict:
+    # plain facets of the parts also count the rollup classes (a section of line per
+    # value of its tracks), as the filters narrow them (query.ROLLUP)
+    rollups = [r for r in ROLLUP if not state.classes or r in state.classes]
+
+    def via(keys_: list[str]) -> list[tuple[str, list[str], list[str]]]:
+        """(rollup class, part classes, keys) for the keys reaching a rollup class through its parts."""
+        out_: dict[tuple[str, tuple[str, ...]], list[str]] = defaultdict(list)
+        for r in rollups:
+            for k in keys_:
+                parts = rollup_parts(r, d["owners"].get(k, set()))
+                if parts:
+                    out_[(r, tuple(parts))].append(k)
+        return [(r, list(parts), ks) for (r, parts), ks in out_.items()]
+
+    def run(keys_: list[str], where_sql: str, params: list, scope: str | None = None) -> dict:
         res: dict[str, dict] = {}
         terms = [k for k in keys_ if d["kinds"][k] in ("terms", "boolean")]
         ranges = [k for k in keys_ if d["kinds"][k] == "range"]
+        parts_from = ("feature f JOIN feature_link l ON l.env = f.env AND l.target = f.iri AND l.rule = 'from' "
+                      "AND l.class = ANY(%s) JOIN feature p ON p.env = l.env AND p.iri = l.iri AND p.class = l.class")
+        rolled = [] if scope else via(keys_)
         if terms:
             rows = _q(f"""SELECT k.key, v.value AS value, count(*) AS n
                           FROM feature f CROSS JOIN unnest(%s::text[]) k(key)
                           CROSS JOIN LATERAL jsonb_array_elements(f.facets -> k.key) v
                           WHERE {where_sql} GROUP BY 1, 2""", [terms] + params)
-            vals: dict[str, list] = defaultdict(list)
+            for r, parts, ks in rolled:
+                ks = [k for k in ks if k in terms]
+                if ks:
+                    rows += _q(f"""SELECT k.key, v.value AS value, count(DISTINCT f.id) AS n
+                                   FROM {parts_from} CROSS JOIN unnest(%s::text[]) k(key)
+                                   CROSS JOIN LATERAL jsonb_array_elements(p.facets -> k.key) v
+                                   WHERE {where_sql} AND f.class = %s GROUP BY 1, 2""", [parts, ks] + params + [r])
+            vals: dict[str, dict] = defaultdict(dict)
             for r in rows:
-                vals[r["key"]].append((r["value"], r["n"]))
+                key = json.dumps(r["value"])
+                prev = vals[r["key"]].get(key)
+                vals[r["key"]][key] = (r["value"], (prev[1] if prev else 0) + r["n"])
             for k in terms:
-                vs = sorted(vals.get(k, []), key=lambda x: (-x[1], str(x[0])))
+                vs = sorted(vals.get(k, {}).values(), key=lambda x: (-x[1], str(x[0])))
                 res[k] = {"kind": d["kinds"][k], "values": vs, "more": len(vs) > TERMS_LIMIT}
         if ranges:
             rows = _q(f"""SELECT k.key, min(v.value::numeric) AS lo, max(v.value::numeric) AS hi, count(DISTINCT f.id) AS n
                           FROM feature f CROSS JOIN unnest(%s::text[]) k(key)
                           CROSS JOIN LATERAL jsonb_array_elements(f.facets -> k.key) v
                           WHERE {where_sql} AND jsonb_typeof(v.value) = 'number' GROUP BY 1""", [ranges] + params)
-            got = {r["key"]: r for r in rows}
+            for r, parts, ks in rolled:
+                ks = [k for k in ks if k in ranges]
+                if ks:
+                    rows += _q(f"""SELECT k.key, min(v.value::numeric) AS lo, max(v.value::numeric) AS hi, count(DISTINCT f.id) AS n
+                                   FROM {parts_from} CROSS JOIN unnest(%s::text[]) k(key)
+                                   CROSS JOIN LATERAL jsonb_array_elements(p.facets -> k.key) v
+                                   WHERE {where_sql} AND f.class = %s AND jsonb_typeof(v.value) = 'number'
+                                   GROUP BY 1""", [parts, ks] + params + [r])
+            got: dict[str, dict] = {}
+            for r in rows:
+                g = got.setdefault(r["key"], {"lo": r["lo"], "hi": r["hi"], "n": 0})
+                g["lo"], g["hi"], g["n"] = min(g["lo"], r["lo"]), max(g["hi"], r["hi"]), g["n"] + r["n"]
             for k in ranges:
                 r = got.get(k)
                 res[k] = {"kind": "range", "min": float(r["lo"]) if r else None,
@@ -337,11 +374,11 @@ def _compute_facets(state: QueryState) -> dict:
             jobs.append(_executor.submit(scoped(full, scope, lambda ks, sc=scope: run_cached(ks, sc))))
         else:
             sql_all, p_all = class_cond(*w.build(), scope)
-            jobs.append(_executor.submit(scoped(full, scope, lambda ks, s_=sql_all, p_=p_all: run(ks, s_, p_))))
+            jobs.append(_executor.submit(scoped(full, scope, lambda ks, s_=sql_all, p_=p_all, sc=scope: run(ks, s_, p_, sc))))
     for k in active:  # a facet's own selection doesn't narrow its own counts
         scope = split_key(k)[0]
         s_k, p_k = class_cond(*w.build(exclude_facet=k), scope)
-        jobs.append(_executor.submit(scoped([k], scope, lambda ks, s_=s_k, p_=p_k: run(ks, s_, p_))))
+        jobs.append(_executor.submit(scoped([k], scope, lambda ks, s_=s_k, p_=p_k, sc=scope: run(ks, s_, p_, sc))))
     class_rows = jobs[0].result()
     by_class = {r["class"]: r["n"] for r in class_rows}
     unlocated = {r["class"]: r["u"] for r in class_rows if r["u"]}

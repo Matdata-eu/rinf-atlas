@@ -19,7 +19,7 @@ view:ertms
     rdfs:label "ERTMS deployment" ;
     rdfs:comment "Where ETCS and GSM-R are in service, and which class B train protection systems remain, per country." ;
     sh:order 30 ;
-    atlas:viewClass "section-of-line", "running-track" ;
+    atlas:viewClass "section-of-line" ;
     atlas:groupBy "country" ;
     atlas:groupLabel "Country" ;
     atlas:colorBy "ertms.etcs" ;
