@@ -30,6 +30,7 @@ from starlette.background import BackgroundTask
 from . import compat as cx
 from . import export as xp
 from . import profile as pf
+from .export import record_label
 from .query import QueryState, SearchRequest, ThemeRequest, Where, split_key
 from .theme import MIXED, Themes
 
@@ -59,7 +60,7 @@ _envs: dict[str, dict] = {}
 _defs_cache: dict = {"t": 0.0}
 # Facet kinds that are stored but never offered as filters: text (search only) and
 # link (IRIs of other features, e.g. a section's start and end operational point).
-HIDDEN_KINDS = ("text", "link")
+HIDDEN_KINDS = ("text", "link", "record")
 # The values the worker gives a view's requirement checks (worker/atlas/shapes.py).
 ATLAS = "https://rinf-atlas.matdata.eu/ns#"
 CHECK_RESULTS = {"meets": ATLAS + "Meets", "no_data": ATLAS + "NoData", "fails": ATLAS + "DoesNotMeet"}
@@ -613,12 +614,14 @@ def feature(env: str, iri: str | None = None, id: int | None = None):
     d = _defs()
     facet_labels = {f["key"]: f["label"] for f in d["facets"]}
     iris = {v for vs in r["facets"].values() for v in vs if isinstance(v, str)}
+    iris |= {x for vs in r["facets"].values() for v in vs if isinstance(v, dict) for x in v.values() if isinstance(x, str)}
     labels = _labels(env, iris)
     facets_out = {}
     for k, vs in r["facets"].items():
         if k == "quality":
             continue  # shown as `quality` below
         facets_out[k] = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str) else
+                          record_label(v, labels) if isinstance(v, dict) else
                           ("Yes" if v is True else "No" if v is False else str(v))} for v in vs]
     return {"iri": r["iri"], "label": r["label"], "classes": [x["class"] for x in rows],
             "class_iri": r["class_iri"], "graph_iri": r["graph_iri"], "provider": r["provider"],
@@ -701,13 +704,30 @@ def compatibility_rules(env: str):
     out = []
     iris: set[str] = set()
     for r in cdef["rules"]:
-        classes = cdef["track_classes"] if r["applies_to"] == "track" else [cdef["section_class"]]
+        classes = ([r["linked_class"]] if r.get("linked_class") else cdef["track_classes"] if r["applies_to"] == "track"
+                   else [cdef["section_class"]])
         rows = _q("""SELECT value, sum(n)::bigint AS n FROM facet_cache
                      WHERE env=%s AND key = ANY(%s) AND class = ANY(%s) GROUP BY 1""", [env, r["facets"], classes])
         item = {k: r.get(k) for k in ("key", "label", "comment", "path", "constraint", "kind", "datatype", "unit",
                                       "facets", "applies_to", "when_missing", "none_value", "none_from",
                                       "missing_reason", "without_value", "without_label", "without_matches",
-                                      "term_values", "path_factor", "implied")}
+                                      "term_values", "path_factor", "implied", "options", "record",
+                                      "record_filter", "braking", "linked_class", "combine_over", "group",
+                                      "vehicle_default", "length_from")}
+        item["combine_by"] = cx.combine_by(r)
+        item["combine_text"] = cx.combine_phrase(r)
+        if r.get("options"):
+            # the vehicle's choices, each with the tracks it suits (its matches; every track for "any")
+            counts = {x["value"]: x["n"] for x in rows}
+            for o in item["options"]:
+                o["count"] = sum(counts.values()) if o.get("any") else sum(counts.get(m, 0) for m in o["matches"])
+            iris |= {m for o in r["options"] for m in o["matches"] + o["maybe"]}
+            out.append(item)
+            continue
+        if r["constraint"] in ("input", "record", "brakingDistance"):
+            item["range"] = None  # not a value of the compared facets
+            out.append(item)
+            continue
         # for explaining the rule: what it compares (facet, RINF path, classes) and its Turtle
         item["section_facets"] = r.get("section_facets") or []
         item["infra"] = r.get("infra") or [{"key": fk, "label": fk, "path": None, "classes": classes} for fk in r["facets"]]
@@ -758,14 +778,38 @@ def compatibility_rules(env: str):
 _compat_cache: dict[str, tuple[str, dict]] = {}
 
 
+def _profile_of(cdef: dict, req: cx.CompatRequest) -> tuple[dict, dict | None]:
+    """The profile to check: the request's, or its train combined into one (with where each
+    value comes from)."""
+    if req.train is None:
+        return req.profile, None
+    try:
+        return cx.combine(cdef["rules"], req.train)
+    except cx.ProfileError as e:
+        raise HTTPException(400, f"bad train: {e}")
+
+
+@app.post("/api/compatibility/combine")
+def compatibility_combine(req: cx.CombineRequest):
+    """A train's vehicles combined into one profile (what the check uses), and per
+    characteristic how and from which vehicles (indexes of train.vehicles) its value comes."""
+    cdef = _compat_def()
+    try:
+        profile, sources = cx.combine(cdef["rules"], req.train)
+    except cx.ProfileError as e:
+        raise HTTPException(400, f"bad train: {e}")
+    return {"profile": profile, "sources": sources}
+
+
 @app.post("/api/compatibility")
 def compatibility(req: cx.CompatRequest):
-    """Status of every section of line for a vehicle profile: ids per colour."""
+    """Status of every section of line for a vehicle profile (or a train): ids per colour."""
     _env(req.env)
     cdef = _compat_def()
-    checks, ignored = _compile(cdef, req.profile)
+    profile, sources = _profile_of(cdef, req)
+    checks, ignored = _compile(cdef, profile)
     version = _data_version(req.env)
-    ckey = json.dumps([req.env, req.profile, cdef], sort_keys=True)
+    ckey = json.dumps([req.env, profile, cdef], sort_keys=True)
     hit = _compat_cache.get(ckey)
     if hit and hit[0] == version:
         return hit[1]
@@ -778,6 +822,8 @@ def compatibility(req: cx.CompatRequest):
     out = {"env": req.env, "version": hashlib.sha1(version.encode()).hexdigest()[:12],
            "checked": [c.key for c in checks], "ignored": ignored,
            "counts": {k: len(v) for k, v in ids.items()}, **ids}
+    if sources is not None:
+        out = {**out, "profile": profile, "sources": sources}
     if len(_compat_cache) > 200:
         _compat_cache.clear()
     _compat_cache[ckey] = (version, out)
@@ -789,7 +835,8 @@ def compatibility_explain(req: cx.ExplainRequest):
     """Why one section of line has its status: each characteristic per track (and section)."""
     _env(req.env)
     cdef = _compat_def()
-    checks, ignored = _compile(cdef, req.profile)
+    profile, sources = _profile_of(cdef, req)
+    checks, ignored = _compile(cdef, profile)
     iri = req.iri
     if not iri and req.id is not None:
         hit = _q("SELECT iri FROM feature WHERE env=%s AND id=%s", [req.env, req.id])
@@ -818,7 +865,8 @@ def compatibility_explain(req: cx.ExplainRequest):
         out = []
         for i, c in enumerate(cs):
             rule = rules[c.key]
-            vals = facet_values(row, rule, rule["facets"])
+            # linked features (tunnels) or a record filter: the values the SQL compared
+            vals = (row.get(f"v{i}") or []) if c.values_sql else facet_values(row, rule, rule["facets"])
             raw = row[f"c{i}"]
             item = {"key": c.key, "result": cx.RESULT[cx.effective(c, raw)], "values": vals}
             # why a track without a value got its result (e.g. "No contact line")
@@ -828,6 +876,14 @@ def compatibility_explain(req: cx.ExplainRequest):
             elif c.bypass and raw != cx.OK:
                 # compatible only because the vehicle can do without the system here
                 item["bypass"] = nr["none_value"]
+            else:
+                note = cx.check_note(rule, row, profile, vals, raw, rules)
+                if note:
+                    item["note"] = note
+            src = (sources or {}).get(c.key)
+            if src and req.train is not None:
+                item["source"] = {"entered": bool(src.get("entered")), "text": cx.combine_phrase(rule),
+                                  "from": [req.train.vehicles[g].name or f"vehicle {g + 1}" for g in src["from"]]}
             out.append(item)
         return out
 
@@ -854,12 +910,16 @@ def compatibility_explain(req: cx.ExplainRequest):
             if x.get("bypass"):
                 x["note"] = f"Compatible in “{labels.get(x['bypass'], _local(x['bypass']))}” mode"
             x["values"] = [{"value": v, "label": labels.get(v, _local(v)) if isinstance(v, str)
+                            else record_label(v, labels) if isinstance(v, dict)
                             else ("Yes" if v is True else "No" if v is False else str(v))} for v in x["values"]]
     for t in tracks:
         lab(t["results"])
     lab(sec)
-    return {"iri": iri, "id": st[0]["id"], "status": cx.STATUS[st[0]["status"]], "checked": [c.key for c in checks],
-            "ignored": ignored, "section": sec, "tracks": tracks}
+    out = {"iri": iri, "id": st[0]["id"], "status": cx.STATUS[st[0]["status"]], "checked": [c.key for c in checks],
+           "ignored": ignored, "section": sec, "tracks": tracks}
+    if sources is not None:
+        out["profile"] = profile
+    return out
 
 
 # --- views (shapes/views/*.ttl) ------------------------------------------------

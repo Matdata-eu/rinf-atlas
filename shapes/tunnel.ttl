@@ -63,6 +63,13 @@ shape:tunnel
         atlas:kind "boolean" ;
         sh:order 50 ;
     ] ;
+    sh:property [  # era:notApplicable: the RINF parameters that do not apply to the tunnel
+        sh:path era:notApplicable ;
+        atlas:facet "notApplicable" ;
+        rdfs:label "Parameters not applicable" ;
+        atlas:kind "terms" ;
+        sh:order 9000 ;
+    ] ;
     sh:property [  # RINF 1.1.1.1.8.9, 12115 instances in data
         sh:path era:hasEmergencyPlan ;
         atlas:facet "hasEmergencyPlan" ;
