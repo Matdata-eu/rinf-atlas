@@ -193,6 +193,14 @@ CREATE TABLE IF NOT EXISTS compat_def (
     def  jsonb NOT NULL
 );
 
+-- Views (shapes/views/*.ttl), JSON of atlas.shapes.View, written by the worker with
+-- facet_def. Their requirement checks are evaluated by the worker into feature.facets.
+CREATE TABLE IF NOT EXISTS view_def (
+    key       text PRIMARY KEY,
+    position  int   NOT NULL DEFAULT 100,
+    def       jsonb NOT NULL
+);
+
 -- Hash of the compiled shapes the features were last indexed with, per env.
 CREATE TABLE IF NOT EXISTS index_state (
     env         text PRIMARY KEY,
@@ -232,6 +240,8 @@ CREATE INDEX IF NOT EXISTS export_status_idx ON export (status, created_at);
 -- pages live from ERA. Instances that ran it get the space back.
 DROP TABLE IF EXISTS describe_triple, describe_doc, describe_def;
 ALTER TABLE index_state DROP COLUMN IF EXISTS describe_hash;
+-- Hash of the view checks last evaluated into feature.facets (atlas.views.apply_checks).
+ALTER TABLE index_state ADD COLUMN IF NOT EXISTS views_hash text;
 
 -- Work requested from the CLI while the poll loop owns the mirror.
 CREATE TABLE IF NOT EXISTS job (

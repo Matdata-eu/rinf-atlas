@@ -53,6 +53,21 @@ def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bo
         cur.execute("DELETE FROM compat_def")
         if shapes.compat:
             cur.execute("INSERT INTO compat_def (id, def) VALUES (1, %s)", (json.dumps(asdict(shapes.compat)),))
+        # Views, and a facet per requirement check on the classes it is evaluated for
+        # (filled by atlas.views.apply_checks, not by extraction).
+        cur.execute("DELETE FROM view_def")
+        for v in shapes.views:
+            cur.execute("INSERT INTO view_def (key, position, def) VALUES (%s,%s,%s)",
+                        (v.key, v.order, json.dumps(asdict(v))))
+            classes = v.check_classes + ([v.section_class] if v.section_class else [])
+            facets = [(c.key, c.label, c.order) for c in v.checks]
+            if v.summary_key:
+                facets.insert(0, (v.summary_key, v.summary_label, 0))
+            for key, label, order in facets:
+                for cls in classes:
+                    cur.execute("""INSERT INTO facet_def (key, class, label, kind, datatype, position, path, unit)
+                                   VALUES (%s,%s,%s,'terms',NULL,%s,NULL,NULL) ON CONFLICT DO NOTHING""",
+                                (key, cls, label, 2000 + order))
     conn.commit()
 
 
@@ -248,6 +263,13 @@ def reindex_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: 
                     (env.key, shapes.digest()))
     conn.commit()
     log.info("%s reindexed %d graphs in %.0fs", env.key, len(graphs), time.time() - t0)
+
+
+def stale_view_envs(conn: psycopg.Connection, shapes: ShapeSet) -> list[str]:
+    """Environments whose view checks were evaluated with other definitions."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT env FROM index_state WHERE views_hash IS DISTINCT FROM %s", (shapes.views_digest(),))
+        return [r[0] for r in cur.fetchall()]
 
 
 def stale_envs(conn: psycopg.Connection, shapes: ShapeSet) -> list[str]:

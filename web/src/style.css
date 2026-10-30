@@ -1082,3 +1082,39 @@ body.profile-open .compat-legend { bottom: calc(var(--profile-h) + 32px); }
 .pos-section ul { margin: 4px 0; padding-left: 18px; }
 .pos-section code { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
 .shapes-pick .btn { text-decoration: none; }
+
+/* ---------- views (shapes/views/*.ttl) ---------- */
+.view-bar { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; margin-bottom: 10px;
+  background: var(--accent-soft); border-radius: var(--radius); }
+.view-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.view-row select { flex: 1; min-width: 0; margin: 0; }
+.view-label { font-size: 12px; font-weight: 600; color: var(--muted); min-width: 4.5em; }
+.view-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.view-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.view-head .icon-btn { width: 24px; height: 24px; }
+.view-about { flex-basis: 100%; }
+.view-about summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.view-about p { margin: 4px 0; }
+.view-pick select { max-width: 220px; }
+@media (max-width: 760px) { .view-pick select { max-width: 160px; } }
+.view-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.view-toggle-all { margin: 6px 0 4px; }
+.terms .lbl .swatch { margin-right: 6px; vertical-align: -1px; }
+.view-props h3 { font-size: 13px; margin: 12px 0 4px; }
+.kv td .swatch { margin-right: 6px; vertical-align: -1px; }
+
+.scorecard-dialog { width: min(1200px, calc(100vw - 32px)); }
+.sc-table th { vertical-align: bottom; }
+.sc-table th small, .sc-deadline { display: block; font-weight: 400; white-space: normal; }
+.sc-table thead th { white-space: normal; min-width: 7em; }
+.sc-table tbody th { font-weight: 500; white-space: nowrap; }
+.sc-table tbody th small { display: inline; }
+.sc-cell { min-width: 7em; }
+.sc-pct { font-variant-numeric: tabular-nums; font-weight: 600; }
+.sc-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 4px; background: var(--surface-2); }
+.sc-bar > span { display: block; height: 100%; }
+.sc-total th, .sc-total td { border-top: 2px solid var(--border); font-weight: 600; }
+.sc-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 4px 0 8px; }
+.sc-notes { margin-top: 12px; font-size: 13px; }
+.sc-notes summary { cursor: pointer; color: var(--accent); }
+.sc-notes li { margin: 4px 0; }

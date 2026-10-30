@@ -362,6 +362,9 @@ def derive_geometry(conn: psycopg.Connection, env: str, max_rounds: int = 6) -> 
 
 
 def refresh_facet_cache(conn: psycopg.Connection, env: str) -> None:
+    # the views' requirement checks are facets computed from other facets: first
+    from .views import apply_checks
+    apply_checks(conn, env)
     t0 = time.time()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_cache WHERE env=%s", (env,))

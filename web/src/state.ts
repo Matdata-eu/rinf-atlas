@@ -47,6 +47,8 @@ export interface AppState {
   vehicle: SharedVehicle | null;
   /** The vehicle check panel is open (the map colouring has its own on/off, kept per browser). */
   vehicleOpen: boolean;
+  /** Key of the open view (shapes/views/*.ttl); null = no view, every filter. */
+  lens: string | null;
   meta: Meta | null; // per-env metadata (not in the URL)
   theme: Theme | null; // legend of the current colouring (not in the URL)
 }
@@ -73,7 +75,7 @@ class Store {
 export const store = new Store({
   env: '', classes: [], filters: {}, graphs: [], q: '', limitToView: false, bbox: null,
   view: EUROPE, selected: null, detailTab: 'properties', describe: null, orm: false, layers: [], qa: false, allZoom: [], sideTab: 'filters', vehicleOpen: false,
-  colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, meta: null, theme: null,
+  colorBy: null, colorHidden: [], profileOpen: false, profile: null, profileRows: null, vehicle: null, lens: null, meta: null, theme: null,
 });
 
 /** Show a class at every zoom, or back from its own min_zoom only. */

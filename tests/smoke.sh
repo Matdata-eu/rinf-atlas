@@ -206,6 +206,17 @@ print(f"OGC geometry types: {len(ids)} collections, running tracks {whole} = poi
 PY
 curl -fsS "$BASE/api/tiles.json?state=$state" | json "d['tiles'][0]" | grep -q '/api/tiles/{z}/{x}/{y}.pbf?state=' || fail "TileJSON"
 curl -fsS "$BASE/api/style.json?env=prod" | json "len(d['layers'])" | grep -qv '^0$' || fail "style.json has no layers"
+# Views: the corridors view is listed, its checks are evaluated on the tracks of the
+# sample (TEN-T levels are declared in Luxembourg) and its requirements table adds up.
+nviews=$(curl -fsS "$BASE/api/meta?env=prod" | json "len(d['views'])")
+echo "views: $nviews"; [ "$nviews" -ge 4 ] || fail "views missing"
+checked=$(post facets '{"env":"prod","classes":["running-track"],"filters":{},"facets":["tent.all"]}' \
+  | json "sum(v['count'] for v in d['facets']['tent.all']['values'])")
+echo "running tracks with a TEN-T result: $checked"; [ "$checked" -gt 0 ] || fail "TEN-T checks not evaluated"
+card=$(post scorecard '{"env":"prod","classes":[],"filters":{},"view":"corridors"}' \
+  | json "d['keys'][0] == 'tent.all' and d['total']['count'] == sum(g['count'] for g in d['groups'])")
+[ "$card" = "True" ] || fail "requirements table does not add up"
+
 # Vehicle compatibility: standard gauge fits every section of the sample, Iberian gauge none.
 nrules=$(curl -fsS "$BASE/api/compatibility/rules?env=prod" | json "len(d['rules'])")
 echo "compatibility rules: $nrules"; [ "$nrules" -ge 5 ] || fail "compatibility rules missing"

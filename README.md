@@ -32,6 +32,11 @@ What you can do with it:
   the distance, with one row per parameter of their tracks (maximum speed,
   electrification, gauge, ETCS level, gauging, line category...; rows are
   configurable), linked to the map and downloadable as CSV.
+- **Views**: open a ready-made lens such as the European transport corridors
+  (TEN-T), rail freight corridors, ERTMS or electrification, pick a corridor or
+  country, and see where the lines meet the requirements of Regulation (EU)
+  2024/1679 on the map and in a requirements table. Views are SHACL files in
+  [`shapes/views/`](shapes/views/), so adding one needs no code.
 - **Vehicle check**: fill in a vehicle profile and see which sections of line
   it is compatible with, with an explanation per track.
 - **Data quality**: every dataset is validated against ERA's SHACL shapes;

@@ -9,6 +9,7 @@
 import type { ExpressionSpecification } from 'maplibre-gl';
 import { api, isAbort, MIXED, type FacetMeta, type RangeBin, type RangeTheme, type TermsTheme, type Theme } from './api';
 import { changed, debounce, fmt, h, queryState, store, toggleAllZoom, unitLabel, type AppState } from './state';
+import { checkColour, viewFacets } from './checks';
 import { isDark, onThemeChange } from './theme';
 
 type Expr = ExpressionSpecification;
@@ -77,7 +78,7 @@ function binIndex(t: RangeTheme): Expr {
   return ['step', vNum, 0, ...t.breaks.flatMap((b, i) => [b, i + 1])] as unknown as Expr;
 }
 
-function slots(t: TermsTheme): string[] { return t.values.filter((v) => v.slot != null).map((v) => v.value); }
+function slots(t: TermsTheme): string[] { return t.values.filter((v) => v.slot != null || checkColour(v.value)).map((v) => v.value); }
 
 function valueColor(t: Theme): Expr | string {
   const n = neutral();
@@ -87,7 +88,8 @@ function valueColor(t: Theme): Expr | string {
     if (t.upper) return ['case', ...t.breaks.flatMap((b, i) => [['<=', vNum, b], cs[i]]), cs[t.breaks.length]] as unknown as Expr;
     return ['step', vNum, cs[0], ...t.breaks.flatMap((b, i) => [b, cs[Math.min(i + 1, cs.length - 1)]])] as unknown as Expr;
   }
-  const pairs = t.values.filter((v) => v.slot != null).flatMap((v) => [v.value, slotColor(v.slot!)]);
+  // a requirement check's results keep their own colours (green / amber / red)
+  const pairs = t.values.filter((v) => v.slot != null || checkColour(v.value)).flatMap((v) => [v.value, checkColour(v.value) ?? slotColor(v.slot!)]);
   return ['match', vStr, ...pairs, MIXED, n.mixed, n.other] as unknown as Expr;
 }
 
@@ -178,7 +180,7 @@ export function describeValue(props: Record<string, unknown>): [string, string] 
   if (v === MIXED) return [neutral().mixed, `${t.label}: mixed (several values)`];
   const tv = t.values.find((x) => x.value === String(v));
   const label = tv?.label ?? String(v).replace(/^.*[/#]/, '');
-  return [tv?.slot != null ? slotColor(tv.slot) : neutral().other, `${t.label}: ${label}`];
+  return [checkColour(String(v)) ?? (tv?.slot != null ? slotColor(tv.slot) : neutral().other), `${t.label}: ${label}`];
 }
 
 // ---------- loading ----------
@@ -246,13 +248,16 @@ function entries(t: Theme): { main: Entry[]; others: Entry[]; extra: Entry[] } {
     }));
   } else {
     for (const v of t.values) {
-      const e: Entry = { key: v.value, label: v.label, color: v.slot != null ? slotColor(v.slot) : n.other, count: v.count, line: 'strong', title: v.value };
-      (v.slot != null ? main : others).push(e);
+      const fixed = checkColour(v.value);
+      const e: Entry = { key: v.value, label: v.label, color: fixed ?? (v.slot != null ? slotColor(v.slot) : n.other), count: v.count, line: 'strong', title: v.value };
+      (v.slot != null || fixed ? main : others).push(e);
     }
     if (t.other > 0) main.push({ key: OTHER, label: `Other values (${others.length}${t.more ? '+' : ''})`, color: n.other, count: t.other, line: 'normal' });
     if (t.mixed > 0) main.push({ key: MIXED, label: 'Mixed (several values)', color: n.mixed, count: t.mixed, line: 'strong' });
   }
-  if (t.nodata > 0 || t.classes.length) extra.push({ key: NODATA, label: 'No data', color: n.nodata, count: t.nodata, line: 'thin' });
+  // a requirement check: a feature without a result is one the requirement does not apply to
+  const isCheck = t.kind !== 'range' && t.values.length > 0 && t.values.every((v) => checkColour(v.value));
+  if (t.nodata > 0 || t.classes.length) extra.push({ key: NODATA, label: isCheck ? 'Requirement does not apply' : 'No data', color: n.nodata, count: t.nodata, line: 'thin' });
   if (t.classes.length) extra.push({ key: FADED, label: 'Other classes (faded)', color: 'var(--muted)', count: null, line: 'thin' });
   return { main, others, extra };
 }
@@ -374,6 +379,8 @@ function options(s: AppState): Option[] {
   const cl = (c: string) => (c === '*' ? 'Every class' : classLabel(c));
   const opt = (f: FacetMeta, group: string): Option => ({ key: keyOf(f), label: f.label, group, hint: `${cl(f.class)} · ${kindText(f)}` });
   const out: Option[] = [{ key: null, label: 'Class colours', group: '', hint: 'one colour per class (default)' }];
+  const view = s.lens ? s.meta?.views?.find((v) => v.key === s.lens) : undefined;
+  if (view) out.push(...viewFacets(s).map((f) => ({ key: f.key, label: f.label, group: `View: ${view.label}`, hint: kindText(f) })));
   const suggested = facets.filter((f) => f.color_by != null).sort((a, b) => a.color_by! - b.color_by!);
   out.push(...suggested.map((f) => opt(f, 'Suggested')));
   const rest = [...facets].sort((a, b) => (a.class === '*' ? -1 : order.get(a.class) ?? 999) - (b.class === '*' ? -1 : order.get(b.class) ?? 999)
@@ -394,7 +401,7 @@ function renderPicker(input: HTMLInputElement, list: HTMLElement, status: HTMLEl
   const toks = normalise(input.value).split(/\s+/).filter(Boolean);
   const match = (o: Option) => toks.every((t) => normalise(`${o.label} ${o.hint} ${o.key ?? ''}`).includes(t));
   // While searching, each facet is listed once (not again under Suggested).
-  shown = toks.length ? pickerOpts.filter((o) => o.group !== 'Suggested' && o.key !== null && match(o)) : pickerOpts;
+  shown = toks.length ? pickerOpts.filter((o) => o.group !== 'Suggested' && !o.group.startsWith('View: ') && o.key !== null && match(o)) : pickerOpts;
   active = Math.min(active, Math.max(shown.length - 1, 0));
   const els: HTMLElement[] = [];
   let group: string | null = null;

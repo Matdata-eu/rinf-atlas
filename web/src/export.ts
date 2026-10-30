@@ -27,6 +27,8 @@ let columns: 'profile' | 'custom' = 'profile';
 let shape: 'wide' | 'long' = 'wide';
 let headers: 'label' | 'rinf' | 'path' = 'label';
 let values: 'label' | 'iri' | 'both' = 'label';
+/** Quick export while a view is open: only the view's parameters and checks as columns. */
+let viewCols = true;
 let parts = false;
 let gzip = false;
 /** Column keys ticked per class in the custom tree (a parent key covers its children). */
@@ -52,7 +54,7 @@ const when = (iso: string | null) => iso ? new Date(iso).toLocaleString(undefine
 /** Quick export of the facet columns: an immediate browser download from the index. */
 function quick(f: 'csv' | 'xlsx') {
   const s = store.get();
-  const a = h('a', { href: api.exportUrl(queryState(s), f), download: '' });
+  const a = h('a', { href: api.exportUrl(queryState(s), f, viewCols && s.lens ? s.lens : null), download: '' });
   document.body.append(a);
   a.click();
   a.remove();
@@ -164,6 +166,9 @@ function render() {
     h('section', { class: 'export-sec' },
       h('h3', {}, 'Quick export'),
       h('p', { class: 'muted small' }, 'The columns you see as facets, straight from the index. Downloads at once.'),
+      s.lens ? h('label', { class: 'export-radio small', title: 'Keep only the columns of the open view' },
+        h('input', { type: 'checkbox', checked: viewCols, onchange: (e: Event) => { viewCols = (e.target as HTMLInputElement).checked; } }),
+        ` Only the parameters and checks of the view “${s.meta?.views?.find((v) => v.key === s.lens)?.label ?? s.lens}”`) : null,
       h('div', { class: 'export-btns' },
         h('button', { class: 'btn btn-small', type: 'button', onclick: () => quick('csv') }, 'CSV'),
         h('button', { class: 'btn btn-small', type: 'button', onclick: () => quick('xlsx') }, 'Excel'))),

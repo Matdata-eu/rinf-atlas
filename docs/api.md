@@ -39,7 +39,7 @@ values are numbers.
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET  | `/api/envs` | | `[{key,label,sparql,portal,default}]` |
-| GET  | `/api/meta?env=` | | `{classes:[{class,class_iri,label,color,geometry,min_zoom,draw_order,count}], facets:[{key,class,label,kind,datatype,unit,position,color_by}], limits:{ttl_export}, datasets:{total,loaded,failed,pending,last_ingest,last_check}, quality:{enabled,validated,violations,warnings,infos,too_large,checked_at,shapes_graph,shapes_loaded_at,shapes,shapes_error,max_triples,shacl_report_url}}` (`draw_order` = the shape's `atlas:drawOrder`: higher is drawn on top among points, lines or areas; `class` `*` = facet applies to every class; `text` facets are search-only and, like `link` facets, not listed). `quality` sums the data quality results of the loaded datasets; `enabled` is false when the worker does not validate (`quality.enabled: false`); `shacl_report_url` is the shacl-report instance the UI links to (`ATLAS_SHACL_REPORT_URL`, null = none); `shapes` = `{kind:"graph"\|"tag", graph, label, url, tag, repo, file, version, modified}`, the SHACL shapes used (ERA's mirrored shapes graph, or a pinned tag of ERA's ontology repository), which the environment validates with now; `shapes_error` says why the configured shapes could not be loaded (an unknown tag, GitLab unreachable); `max_triples` is the size limit and `too_large` the number of datasets above it |
+| GET  | `/api/meta?env=` | | `{classes:[{class,class_iri,label,color,geometry,min_zoom,draw_order,count}], facets:[{key,class,label,kind,datatype,unit,position,color_by}], limits:{ttl_export}, views:[view], check_results:{meets,no_data,fails}, datasets:{total,loaded,failed,pending,last_ingest,last_check}, quality:{enabled,validated,violations,warnings,infos,too_large,checked_at,shapes_graph,shapes_loaded_at,shapes,shapes_error,max_triples,shacl_report_url}}` (`draw_order` = the shape's `atlas:drawOrder`: higher is drawn on top among points, lines or areas; `class` `*` = facet applies to every class; `text` facets are search-only and, like `link` facets, not listed). `quality` sums the data quality results of the loaded datasets; `enabled` is false when the worker does not validate (`quality.enabled: false`); `shacl_report_url` is the shacl-report instance the UI links to (`ATLAS_SHACL_REPORT_URL`, null = none); `shapes` = `{kind:"graph"\|"tag", graph, label, url, tag, repo, file, version, modified}`, the SHACL shapes used (ERA's mirrored shapes graph, or a pinned tag of ERA's ontology repository), which the environment validates with now; `shapes_error` says why the configured shapes could not be loaded (an unknown tag, GitLab unreachable); `max_triples` is the size limit and `too_large` the number of datasets above it. `views` and `check_results`: see [Views](#views) |
 | POST | `/api/facets` | query state | `{total, by_class:{class:count}, unlocated_by_class:{class:count}, facets:{key: {kind:"terms"\|"boolean", values:[{value,label,count}], more} \| {kind:"range", min, max, count}}}` (`unlocated_by_class`: per class, how many of `by_class` have no geometry; classes without any are left out) |
 | POST | `/api/search` | query state + `limit` (≤500), `offset`, optional `color` (facet key) | `{total, unlocated, items:[{id,iri,class,label,lon,lat,qa}]}` (`unlocated`: how many of `total` have no geometry, listed but never drawn on the map; their `lon`/`lat` are null; `qa`: see Data quality below); with `color` every item also has `v`, its display value for that facet (see *Map colouring*) |
 | POST | `/api/theme` | query state + `key` (facet key, plain or `class/key`) | Legend for colouring the map by `key`. Common: `{key, kind, label, unit, classes, rollup, total, nodata}`. Terms/boolean: `values:[{value,label,count,slot}], more, other, mixed`. Range: `breaks:[number], bins:[{min,max,count,label?}], min, max, discrete, upper, datatype`. 400 for a text or unknown facet |
@@ -56,7 +56,8 @@ values are numbers.
 | GET  | `/api/shapes` | | The facet shapes this instance runs with: `[{name, size, classes:[{class, label}]}]`, one entry per file in `shapes/` (as the worker last published them) with the classes it defines |
 | GET  | `/api/shapes/file?name=&download=` | | One of those files, as written (Turtle); `download=true` makes it an attachment. `404` for an unknown name |
 | GET  | `/api/quality/shapes?env=` | | The SHACL shapes the environment validates with (ERA's shapes graph or the pinned tag's file), as Turtle (a download named after the tag or version). The file starts with comments naming the source URL, `owl:versionInfo` and `dct:modified`. `404` before the worker loaded them |
-| GET  | `/api/export?state=&format=csv\|xlsx&values=label\|iri` | `state` = base64url(JSON query state, as for tiles; bbox is honoured) | **Quick export**: every matching feature as a download, with the facet columns. Columns: IRI, label, class, dataset, provider, longitude/latitude (a point on the feature), WKT geometry, then one column per facet of the exported classes (shared facets first). Multiple values are joined with `; `. `values=label` (default) writes labels for IRI values, `iri` keeps the IRIs. **CSV**: one UTF-8 table (with BOM, for Excel), streamed. **XLSX**: one sheet per class plus an `Export` sheet describing the query; cells over Excel's 32 767 character limit (long WKT lines) are left empty. Full exports (RDF, every property, GIS) are jobs: see [Exports](#exports) |
+| GET  | `/api/export?state=&format=csv\|xlsx&values=label\|iri&view=` | `state` = base64url(JSON query state, as for tiles; bbox is honoured) | **Quick export**: every matching feature as a download, with the facet columns. Columns: IRI, label, class, dataset, provider, longitude/latitude (a point on the feature), WKT geometry, then one column per facet of the exported classes (shared facets first). Multiple values are joined with `; `. `values=label` (default) writes labels for IRI values, `iri` keeps the IRIs. **CSV**: one UTF-8 table (with BOM, for Excel), streamed. **XLSX**: one sheet per class plus an `Export` sheet describing the query; cells over Excel's 32 767 character limit (long WKT lines) are left empty. `view=` (a view key): the columns are that view's parameters and checks only. Full exports (RDF, every property, GIS) are jobs: see [Exports](#exports) |
+| POST | `/api/scorecard` | query state + `view` (view key) | The view's requirements table, see [Views](#views). 404 for an unknown view, 400 for a view without checks |
 | GET  | `/api/compatibility/rules?env=` | | Vehicle compatibility rules (from `shapes/compatibility.ttl`): `{track_classes, section_class, class_labels:{class:label}, rules:[{key,label,comment,path:[IRI],constraint,kind,datatype,unit,facets:[key],applies_to,when_missing,none_value,none_from,missing_reason,without_value,without_label,without_matches:[IRI],term_values:{IRI:number},path_factor,section_facets:[key], infra:[{key,label,path,classes,kind,unit}], source, explanation:{vehicle_path,steps:[{topic,text}]}, values:[{value,label,count,none?,without?}] \| range:{min,max,count}}]}`. `kind` is `terms`, `boolean` or `number`; `values` / `range` describe the indexed infrastructure data for the compared facets (for value pickers). `when_missing` (`unknown` or `incompatible`) is what a track without a value gives; a rule with `none_value` (e.g. "not electrified") lists it first in `values` with `none: true` and `count` = the tracks without a value, and a vehicle that has it is compatible with them (also for the rules whose `none_from` names it). A rule with `without_value` (e.g. "No ETCS installed") lists it first with `without: true`, labelled `without_label`, and `count` = the tracks with one of its `without_matches` values: a vehicle that has it is compared with those values instead (the track values a vehicle without the system runs on), so a track with only other values is not compatible. A numeric rule with `term_values` (e.g. axle load) is compared with a facet of concepts (e.g. line categories) through the number each concept stands for; its `range` is that of the numbers of the concepts in the data. `path_factor`: the ERA property along `path` holds the value times this factor (Turtle import / export). For explaining a rule ("How is this checked?"): `infra` lists each compared facet with its label, the RINF property path it is read from (prefixed, e.g. `era:contactLineSystem/era:energySupplySystem`) and the classes indexing it; `source` is the rule as Turtle (`null` until the worker has republished its definitions); `explanation` is generated from the rule's annotations, `vehicle_path` the prefixed vehicle property path and `steps` one plain-language sentence per topic `compare` (the constraint), `missing` (a track without a value), `none` (the vehicle's "none" option), `without` (the vehicle's "does not have the system" option), `fallback` (the section of line's value), `rollup` (how tracks make the section's colour) and `empty`, in that order, each present only when it applies. 404 when no rules are configured |
 | POST | `/api/compatibility` | `{env, profile:{key: [values] \| number}}` | Status of every section of line for a vehicle profile: `{env, version, checked:[key], ignored:[key], counts:{green,yellow,red}, green:[id], yellow:[id], red:[id]}`. Ids are feature ids (the MVT feature id of the tiles); a feature keeps its id when its graph is indexed again. `version` identifies the indexed data: add it to the tile URL (`&v=`) of the layer you colour, so cached tiles from an older index are not reused. 400 when no filled-in characteristic has a rule or a value has the wrong type |
 | POST | `/api/compatibility/explain` | `{env, profile, iri}` (or `id`) of a section of line | Why it has its status: `{iri, id, status, checked, ignored, section:[check], tracks:[{id,iri,label,class,status,results:[check]}]}` with `check = {key, result: "ok"\|"unknown"\|"fail", values:[{value,label}], note?, bypass?}` (the infrastructure values compared; `note` says why a track without a value got its result, e.g. "No contact line", or that it is compatible only because the vehicle has the rule's `none_value` and can do without the system, e.g. "Compatible in “Not electrified” mode"; `bypass` is that none value IRI) |
@@ -286,6 +287,43 @@ query state, so filtering never repaints a value:
 
 The counts follow the query state (classes, filters, datasets, search text,
 bbox) like `/api/facets`.
+
+## Views
+
+A view (`shapes/views/*.ttl`, vocabulary in `shapes/atlas.ttl`) is a named
+lens: classes, filters, map colouring, the parameters listed first and, when it
+has any, **requirement checks**. `/api/meta` lists them:
+
+```
+views: [{key, label, comment, classes, group_by, group_label, color_by,
+         filters: {facet key: [values]}, params: [facet key],
+         check_classes, section_class, summary_key, summary_label, file,
+         checks: [{key, label, comment, deadline, constraint, facets, values,
+                   unit, applies_when: [{facet, values}], when_missing}]}]
+check_results: {meets: IRI, no_data: IRI, fails: IRI}
+```
+
+The worker evaluates the checks on the index after every update and stores the
+result as a terms facet under the check's key: one of the three
+`check_results` IRIs (`atlas:Meets`, `atlas:NoData`, `atlas:DoesNotMeet`). A
+feature the check does not apply to has no value. So checks work everywhere a
+facet does: filters, `/api/facets`, colouring, the feature's `facets`, exports.
+`summary_key` holds the worst result of the checks that apply; the
+`section_class` holds, per key, the best result of its tracks. `file` is the
+view's file name for `/api/shapes/file`.
+
+`POST /api/scorecard` (query state + `view`) counts the view's section class
+per group (`group_by` values, ignoring any filter on that facet) and check:
+
+```
+{view, group_by, classes, keys: [summary key, check keys...],
+ groups: [{value, label, count, km,
+           checks: {key: {meets|no_data|fails|not_applicable: {count, km}}}}],
+ total: {count, km, checks}}
+```
+
+Sections without a group value form one group with `value` null. `km` is the
+length of the sections.
 
 ## Data quality
 

@@ -661,6 +661,13 @@ shape:track
         atlas:kind "boolean" ;
         sh:order 850 ;
     ] ;
+    sh:property [  # RINF Atlas: either way RINF gives the corridor (issue #56)
+        sh:path [ sh:alternativePath ( ( era:partOfTENT era:europeanTransportCorridor ) era:europeanTransportCorridor ) ] ;
+        atlas:facet "corridor" ;
+        rdfs:label "European transport corridor" ;
+        atlas:kind "terms" ;
+        sh:order 855 ;
+    ] ;
     sh:property [  # 737 instances in data
         sh:path ( era:partOfTENT era:europeanTransportCorridor ) ;
         atlas:facet "partOfTENT.europeanTransportCorridor" ;
@@ -774,14 +781,16 @@ shape:track
         sh:order 990 ;
     ] ;
     sh:property [  # 1049 instances in data
-        sh:path ( era:partOfTENT era:tentNetworkLevel ) ;
+        # also when the provider puts it on the track itself
+        sh:path [ sh:alternativePath ( ( era:partOfTENT era:tentNetworkLevel ) era:tentNetworkLevel ) ] ;
         atlas:facet "partOfTENT.tentNetworkLevel" ;
         rdfs:label "TEN-T network level (part of TEN-T)" ;
         atlas:kind "terms" ;
         sh:order 1000 ;
     ] ;
     sh:property [  # 1049 instances in data
-        sh:path ( era:partOfTENT era:typeOfTraffic ) ;
+        # also when the provider puts it on the track itself
+        sh:path [ sh:alternativePath ( ( era:partOfTENT era:typeOfTraffic ) era:typeOfTraffic ) ] ;
         atlas:facet "partOfTENT.typeOfTraffic" ;
         rdfs:label "Type of traffic (part of TEN-T)" ;
         atlas:kind "terms" ;

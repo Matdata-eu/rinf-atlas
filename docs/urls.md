@@ -51,6 +51,7 @@ Back / Forward, every parameter that is absent is reset to its default.
 | `vehn` | Name of that vehicle | `Shared vehicle` |
 | `vp` | `1` = the Vehicle check panel is open | closed |
 | `orm` | `1` = OpenRailwayMap overlay | off |
+| `vw` | Open [view](api.md#views) (its key, e.g. `corridors`): the filter panel lists its parameters and checks first | none |
 | `lyr` | ids of the instance's extra map layers that are on, `,` separated ([layers.md](layers.md)); unknown ids are dropped | none |
 
 `tab`, `nav` and `dir` are read only with `sel`; `colh` only with `col`;

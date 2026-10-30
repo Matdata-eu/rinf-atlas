@@ -12,6 +12,7 @@ import { initFacets } from './facets';
 import { fitBbox, initMap, jumpToView, resizeMap, TILE_MODE } from './map';
 import { initResults } from './results';
 import { initThematic } from './thematic';
+import { initViews } from './views';
 import { maybeOpenTour } from './tour';
 import { setTheme, themePref, type ThemePref } from './theme';
 import { changed, debounce, h, isFilterEmpty, queryState, store, type AppState, type SideTab } from './state';
@@ -46,6 +47,7 @@ function toast(text: string, ms = 3200) {
 /** What the link carries besides the map and filters, for the confirmation. */
 function linkExtras(s: AppState): string[] {
   const x: string[] = [];
+  if (s.lens) x.push(`view “${s.meta?.views?.find((v) => v.key === s.lens)?.label ?? s.lens}”`);
   if (s.selected) x.push('the selected feature');
   if (s.colorBy) x.push('map colours');
   if (s.profileOpen && s.profile) x.push('the line profile');
@@ -280,6 +282,7 @@ async function main() {
   store.set({ ...fromHash, env: '' });
   initMap($('map'));
   initFacets();
+  initViews();
   initThematic(document.querySelector('.map-wrap') as HTMLElement);
   initResults();
   initDetail();

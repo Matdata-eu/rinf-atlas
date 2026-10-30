@@ -50,6 +50,10 @@
         <span class="sr-only">Environment</span>
         <select id="env-select" aria-label="Environment"></select>
       </label>
+      <label class="env view-pick" hidden>
+        <span class="sr-only">View</span>
+        <select id="view-select" aria-label="View" title="Views: ready-made sets of classes, filters and map colours"></select>
+      </label>
       <div class="search">
         <input id="q" type="search" placeholder="Search labels, codes…" autocomplete="off" aria-label="Full-text search" />
       </div>
@@ -71,6 +75,7 @@
         </div>
         <div class="side-body">
           <section id="pane-filters" class="pane">
+            <div id="view-bar" class="view-bar" hidden></div>
             <div id="chips" class="chips"></div>
             <label class="toggle"><input id="limit-view" type="checkbox" /> Limit to map view</label>
             <h2 class="section-title" id="colorby-title">Map colours</h2>
@@ -78,10 +83,17 @@
               <button id="colorby-btn" class="colorby-btn" type="button" aria-haspopup="dialog" aria-describedby="colorby-title"></button>
               <button id="colorby-clear" class="icon-btn colorby-clear" type="button" title="Back to class colours" aria-label="Back to class colours" hidden>×</button>
             </div>
-            <h2 class="section-title">Classes</h2>
-            <ul id="class-list" class="class-list"></ul>
-            <h2 class="section-title">Filters for every class</h2>
-            <div id="facets"></div>
+            <div id="view-section" hidden>
+              <h2 class="section-title">Parameters of this view</h2>
+              <div id="view-facets"></div>
+              <button id="view-toggle-all" class="link small view-toggle-all" type="button" aria-controls="all-filters" aria-expanded="false">Show every class and filter</button>
+            </div>
+            <div id="all-filters">
+              <h2 class="section-title">Classes</h2>
+              <ul id="class-list" class="class-list"></ul>
+              <h2 class="section-title">Filters for every class</h2>
+              <div id="facets"></div>
+            </div>
           </section>
           <section id="pane-results" class="pane" hidden>
             <div class="export-bar">
