@@ -226,7 +226,8 @@ default).
 | `ATLAS_ONLY_GRAPHS` | all | graphs to index (IM codes like `0088,0084` or graph IRIs) |
 | `ATLAS_POLL_MINUTES` | `30` | how often the worker checks for new datasets |
 | `ATLAS_PUBLIC_URL` | from the request | public address behind a TLS proxy (e.g. `https://rinf-atlas.example.org`), used in the OGC API and TileJSON links |
-| `ATLAS_TTL_EXPORT_MAX` | `20000` | most entities in one Turtle export (fetched live from ERA) |
+| `ATLAS_EXPORT_WORKERS`, `ATLAS_EXPORT_RETENTION_HOURS` | `2`, `24` | export jobs run in parallel by the worker, and how long their files are kept ([docs/export.md](docs/export.md)) |
+| `ATLAS_EXPORT_MAX_ENTITIES`, `ATLAS_EXPORT_QUEUE` | no cap, `20` | most entities in one export, and most queued plus running jobs |
 | `ATLAS_QUALITY` | `1` | `0` turns data quality validation off |
 | `ATLAS_QUALITY_MAX_TRIPLES`, `ATLAS_QUALITY_MINUTES`, `ATLAS_QUALITY_SHAPES_TAG` | `environments.yaml` | size limit, time budget per dataset and pinned shapes tag; one value or `prod=…,uat=…` ([docs/datasets.md](docs/datasets.md#data-quality)) |
 | `ATLAS_SHACL_REPORT_URL` | `https://shacl-report.matdata.eu/` | shacl-report instance the UI links to (empty = no link) |

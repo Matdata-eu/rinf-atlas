@@ -1,5 +1,24 @@
 [
   {
+    "version": "1.6.0",
+    "date": "2026-10-30",
+    "new": [
+      "Full exports with every RINF property, in Turtle, JSON-LD, CSV, Excel, GeoJSON or GeoPackage, prepared in the background from Export…",
+      "Views: open the TEN-T corridors, rail freight corridors, ERTMS or electrification view, with TEN-T requirement checks and a requirements table per corridor or country.",
+      "Check a complete train: build it from your vehicles in the train editor and the vehicle check covers pantographs, braking, train length and more.",
+      "Copy an element's IRI with one click.",
+      "Instances can link each element to a full description page, such as RINF Describe."
+    ],
+    "improved": [
+      "A filter on a track parameter also finds the sections of line with a matching track.",
+      "The vehicle check offers every value of the ERA code list, also those no track has yet."
+    ],
+    "fixed": [
+      "Tracks are drawn over operational points everywhere, instead of switching from one map tile to the next.",
+      "Leaving a view clears its classes, filters and colours."
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-10-30",
     "new": [
