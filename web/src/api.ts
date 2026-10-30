@@ -358,7 +358,9 @@ export interface CompatRule {
   comment: string | null;
   /** ERA ontology path from era:VehicleType to the characteristic (predicate IRIs). */
   path: string[];
-  /** SHACL constraint component applied to the infrastructure values: hasValue, in, minInclusive... */
+  /** SHACL constraint component applied to the infrastructure values: hasValue, in, minInclusive...;
+   * or input (not compared, read by other rules, e.g. the maximum speed), requires (a track whose
+   * value is true requires what the vehicle may lack), record, brakingDistance. */
   constraint: string;
   kind: CompatKind;
   datatype: string | null;
@@ -394,7 +396,41 @@ export interface CompatRule {
   explanation?: { vehicle_path: string; steps: { topic: string; text: string }[] };
   values?: TermCount[];
   range?: { min: number | null; max: number | null; count: number };
+  /** A choice per vehicle, each standing for the track values it suits (e.g. how it uses a magnetic brake). */
+  options?: CompatOption[];
+  /** Heading the characteristic is listed under. */
+  group?: string | null;
+  /** Which vehicles of a train count: all, the units with a raised pantograph, the leading cab,
+   * the last vehicle, or a value entered for the whole train. */
+  combine_over?: CompatOver;
+  /** How their values make the train's. */
+  combine_by?: string;
+  /** The two above in words, e.g. "the sum over all vehicles". */
+  combine_text?: string;
+  /** A unit in scope with no value counts as this (e.g. one raised pantograph). */
+  vehicle_default?: number | null;
+  /** The tunnels of the track are compared, not the track. */
+  linked_class?: string | null;
 }
+export type CompatOver = 'all' | 'pantograph' | 'leading' | 'tail' | 'train';
+export interface CompatOption {
+  value: string; label: string; order: number;
+  /** Suits any track value (e.g. not fitted). */
+  any: boolean;
+  matches: string[]; maybe: string[];
+  /** The boolean the rule's ERA property has for this option (Turtle export / import). */
+  path_value?: boolean | null;
+  /** Tracks whose values make this option compatible. */
+  count?: number;
+}
+/** A train for the check: its vehicles front to back, identical ones grouped with a count. */
+export interface TrainVehicle { name: string; count: number; roles: ('leading' | 'pantograph')[]; values: VehicleValues }
+export interface Train { name: string; vehicles: TrainVehicle[]; values: VehicleValues }
+/** Where a train's value of a characteristic comes from (indexes of Train.vehicles). */
+export interface CompatSource { by: string; over: CompatOver; from: number[]; missing: number[]; entered?: boolean }
+export interface CompatCombined { profile: VehicleValues; sources: Record<string, CompatSource> }
+/** What is checked: one vehicle's values, or a train the API combines. */
+export type CompatInput = { profile: VehicleValues } | { train: Train };
 export interface CompatInfra { key: string; label: string; path: string | null; classes: string[]; unit?: string | null }
 export interface CompatRules {
   track_classes: string[]; section_class: string; rules: CompatRule[];
@@ -411,9 +447,15 @@ export interface CompatResponse {
   checked: string[]; ignored: string[];
   counts: Record<CompatColour, number>;
   green: (number | string)[]; yellow: (number | string)[]; red: (number | string)[];
+  /** For a train: its values as combined, and where they come from. */
+  profile?: VehicleValues; sources?: Record<string, CompatSource>;
 }
 export type CompatResult = 'ok' | 'unknown' | 'fail';
-export interface CompatCheck { key: string; result: CompatResult; values: { value: TermValue; label: string }[]; note?: string; bypass?: string }
+export interface CompatCheck {
+  key: string; result: CompatResult; values: { value: TermValue; label: string }[]; note?: string; bypass?: string;
+  /** For a train: how its value was found and the vehicles that set it. */
+  source?: { entered: boolean; text: string; from: string[] };
+}
 export interface CompatExplain {
   iri: string; id: number | string; status: CompatColour; checked: string[]; ignored: string[];
   section: CompatCheck[];
@@ -510,10 +552,12 @@ export const api = {
   datasets: (env: string) => request<Dataset[]>(`/datasets?${qs({ env })}`),
   compatRules: (env: string, signal?: AbortSignal) => request<CompatRules>(`/compatibility/rules?${qs({ env })}`, { signal }),
   /** Status of every section of line for a vehicle profile (ids per colour). */
-  compat: (env: string, profile: VehicleValues, signal?: AbortSignal) =>
-    post<CompatResponse>('/compatibility', { env, profile }, signal),
-  compatExplain: (env: string, profile: VehicleValues, iri: string, signal?: AbortSignal) =>
-    post<CompatExplain>('/compatibility/explain', { env, profile, iri }, signal),
+  compat: (env: string, input: CompatInput, signal?: AbortSignal) =>
+    post<CompatResponse>('/compatibility', { env, ...input }, signal),
+  compatExplain: (env: string, input: CompatInput, iri: string, signal?: AbortSignal) =>
+    post<CompatExplain>('/compatibility/explain', { env, ...input, iri }, signal),
+  /** A train's vehicles combined into the values the check uses, and where each comes from. */
+  compatCombine: (train: Train, signal?: AbortSignal) => post<CompatCombined>('/compatibility/combine', { train }, signal),
   lines: (env: string, q: string, signal?: AbortSignal) => request<LineHit[]>(`/lines?${qs({ env, q })}`, { signal }),
   profile: (env: string, spec: ProfileSpec, params: string[] | null, signal?: AbortSignal) => {
     const { mode: _mode, ...rest } = spec;

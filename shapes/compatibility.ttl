@@ -55,6 +55,65 @@
 #                      values: the track values a vehicle without the system runs
 #                      on (e.g. no ETCS, level 0, NTC). A track that only has
 #                      other values (it requires the system) is not compatible
+#   atlas:group        heading the characteristic is listed under
+#
+# More constraints (atlas:constraint):
+#   atlas:requires     a boolean facet saying the track requires something the
+#                      vehicle may lack (e.g. train integrity confirmed on board):
+#                      a vehicle with "Yes" is compatible everywhere, one with
+#                      "No" is not compatible with a track whose value is true
+#   atlas:record       compared with a record facet (atlas:kind "record"): each
+#                      atlas:recordField [ atlas:name ; atlas:constraint ;
+#                      atlas:characteristic (default: this one) ] compares a
+#                      field of the row with a characteristic of the vehicle.
+#                      atlas:selectBy [ atlas:name ; atlas:characteristic ] picks
+#                      the row that applies: the one with the lowest value of that
+#                      field at least the vehicle's (e.g. the speed); a row
+#                      without it applies at any value. Without the vehicle's
+#                      value every row must allow it (some rows: unknown)
+#   atlas:brakingDistance  the number is a mean deceleration a (m/s²): the
+#                      braking distance (v/3.6)²/2a from v = the lower of the
+#                      highest atlas:speedFacet value of the track and the
+#                      vehicle's atlas:speedFrom characteristic must not exceed
+#                      the compared facet. A track whose boolean
+#                      atlas:caveatFacet is true is unknown
+#   atlas:input true   (no atlas:constraint, no atlas:compareTo) a value only
+#                      read by other rules, e.g. the maximum speed
+# and, with any constraint:
+#   atlas:option       [ atlas:value <IRI> ; rdfs:label ; sh:order ;
+#                      atlas:matches <track values> ; atlas:maybe <track values> ;
+#                      atlas:anyTrack true ; atlas:pathValue true|false ]: the
+#                      vehicle picks one of these instead of track values. It is
+#                      compatible with the matches, unknown with the maybe values
+#                      (allowed under conditions); anyTrack: with every value.
+#                      pathValue is the boolean ERA records at sh:path (Turtle)
+#   atlas:recordFilter [ atlas:facet <record facet> ; atlas:field <name> ;
+#                      atlas:selectBy [...] ]: with the vehicle's value for
+#                      selectBy, only the field of the rows that apply is
+#                      compared (e.g. the line categories at the train's speed)
+#   atlas:linkedClass  compare the facets of the features of this class that are
+#                      part of the track (its tunnels) instead of the track; a
+#                      track without one is compatible
+#
+# A train: its vehicle groups front to back, with a count and the roles leading
+# cab and pantograph raised. Each characteristic says which vehicles count
+#   atlas:combineOver  atlas:AllVehicles (default) | atlas:RaisedPantographs |
+#                      atlas:LeadingCab | atlas:TailVehicle | atlas:Train (a value
+#                      entered for the whole train, not per vehicle)
+# and how their values make the train's
+#   atlas:combineBy    atlas:Sum | atlas:Max | atlas:Min | atlas:Intersection |
+#                      atlas:Union | atlas:All | atlas:PantographSpacing. Default:
+#                      the most demanding vehicle counts (the highest value for
+#                      sh:minInclusive, the lowest for sh:maxInclusive, the values
+#                      all have for terms, the most demanding option, yes only
+#                      when all have it)
+#   atlas:vehicleDefault  a vehicle in scope without a value counts as this
+#                      (e.g. one raised pantograph per unit), once the train has
+#                      two such vehicles or one has a value
+#   atlas:lengthFrom   the characteristic holding each vehicle's length, for
+#                      atlas:PantographSpacing (the distance between the centres
+#                      of the units with a pantograph raised)
+# A characteristic is not checked when a vehicle that counts has no value.
 #
 # Shape-level: atlas:trackClass (repeatable) and atlas:sectionClass name the
 # indexed classes (shape keys) that are evaluated.
@@ -65,7 +124,8 @@
 # for how tracks are aggregated into a status per section of line.
 #
 # These rules are deliberately simple (one characteristic against one facet).
-# Edit them freely; the worker publishes changes within a minute, no reindex.
+# Edit them freely; the worker publishes changes within a minute, no reindex
+# (a new facet they compare, such as a record facet, is indexed once).
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX shape: <https://rinf-atlas.matdata.eu/shapes/>
 PREFIX sh:    <http://www.w3.org/ns/shacl#>

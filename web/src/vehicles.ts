@@ -1,6 +1,7 @@
-// Vehicle profiles for the compatibility check: kept in this browser (localStorage),
-// exported / imported as JSON or as Turtle using era:VehicleType (ERA ontology).
-import type { CompatRule, VehicleValues } from './api';
+// Vehicle profiles and trains for the compatibility check: kept in this browser (localStorage),
+// exported / imported as JSON or (vehicles) as Turtle using era:VehicleType (ERA ontology).
+// A train lists vehicle profiles front to back; its vehicles' values stay in the profiles.
+import type { CompatRule, Train, VehicleValues } from './api';
 
 export interface VehicleProfile {
   id: string;
@@ -11,8 +12,26 @@ export interface VehicleProfile {
   values: VehicleValues;
 }
 
+export type Role = 'leading' | 'pantograph';
+/** Identical vehicles in a row: a vehicle profile, how many, and what they do in the train. */
+export interface TrainGroup { profile: string; count: number; roles: Role[] }
+export interface TrainProfile {
+  id: string;
+  name: string;
+  note?: string;
+  example?: boolean;
+  /** Front to back (the first group runs at the front, the last one is the tail). */
+  groups: TrainGroup[];
+  /** Values entered for the whole train (e.g. its braking deceleration). */
+  values: VehicleValues;
+}
+export type Mode = 'vehicle' | 'train';
+
 interface Saved {
-  version: 1; profiles: VehicleProfile[]; active: string | null; show: boolean;
+  version: 2; profiles: VehicleProfile[]; active: string | null; show: boolean;
+  trains: TrainProfile[]; activeTrain: string | null;
+  /** What the check is run for: the active vehicle profile or the active train. */
+  mode: Mode;
   /** Ids of the examples already offered, so new examples appear once and deleted ones stay deleted. */
   seen?: string[];
 }
@@ -43,6 +62,7 @@ export const KNOWN_LABELS: Record<string, string> = {
 };
 
 const FIRST_EXAMPLES = ['example-emu-25kv', 'example-loco-3kv', 'example-iberian', 'example-15kv'];
+const A = 'https://rinf-atlas.matdata.eu/ns#';
 
 /** Illustrative starting points, not authorised vehicle types. */
 export function exampleProfiles(): VehicleProfile[] {
@@ -68,6 +88,9 @@ export function exampleProfiles(): VehicleProfile[] {
         energySupplySystem: [`${C}energy-supply-systems/DC30`],
         pantographHead: [`${C}compliant-pantograph-heads/20`, `${C}other-pantograph-heads/20`, `${C}other-pantograph-heads/40`],
         lineCategory: ['90', '100', '110', '120'].map((n) => `${C}load-capability-line-categories/${n}`),
+        gaugingProfile: [g('40'), g('10'), g('20')],
+        trainLength: 18.9, maxSpeed: 140, axleLoad: 21.5, maxTrainCurrent: 1800,
+        magneticBrake: [`${A}BrakeNotFitted`], redTailLights: [true],
       },
     },
     {
@@ -130,7 +153,52 @@ export function exampleProfiles(): VehicleProfile[] {
         trainLength: 160,
       },
     },
+    {
+      id: 'example-container-wagon', example: true, name: 'Example: loaded container wagon',
+      note: 'Illustrative values for a four-axle container wagon at full load, for composing a freight train. Not an authorised vehicle type.',
+      values: {
+        wheelSetGauge: [`${C}nominal-track-gauges/30`],
+        gaugingProfile: [g('40'), g('10'), g('20'), g('30')],
+        lineCategory: ['90', '100', '110', '120'].map((n) => `${C}load-capability-line-categories/${n}`),
+        trainLength: 19.7, maxSpeed: 100, axleLoad: 22.5, minWheelDiameter: 840,
+        quiet: [false], magneticBrake: [`${A}BrakeNotFitted`], redTailLights: [true],
+      },
+    },
   ];
+}
+
+/** Illustrative trains made of the example vehicles. */
+export function exampleTrains(): TrainProfile[] {
+  return [
+    {
+      id: 'example-train-freight', example: true, name: 'Example freight: 2 × 3 kV locomotive + 18 wagons',
+      note: 'Two locomotives in multiple, both with a pantograph raised, and 18 loaded container wagons. Not an authorised train.',
+      groups: [
+        { profile: 'example-loco-3kv', count: 1, roles: ['leading', 'pantograph'] },
+        { profile: 'example-loco-3kv', count: 1, roles: ['pantograph'] },
+        { profile: 'example-container-wagon', count: 18, roles: [] },
+      ],
+      values: { brakingDeceleration: 0.5 },
+    },
+    {
+      id: 'example-train-emu-double', example: true, name: 'Example: two 25 kV EMUs coupled',
+      note: 'Two 200 m multiple units in multiple, each with its own pantograph raised. Not an authorised train.',
+      groups: [{ profile: 'example-emu-25kv', count: 1, roles: ['leading', 'pantograph'] },
+        { profile: 'example-emu-25kv', count: 1, roles: ['pantograph'] }],
+      values: {},
+    },
+  ];
+}
+
+/** The train as the API takes it: each group with its profile's name and values. Groups whose
+ * profile no longer exists are left out. */
+export function trainRequest(t: TrainProfile, profiles: VehicleProfile[]): Train {
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  const vehicles = t.groups.filter((g) => byId.has(g.profile)).map((g) => {
+    const p = byId.get(g.profile)!;
+    return { name: p.name.replace(/^Example: /, ''), count: g.count, roles: g.roles, values: filledValues(p) };
+  });
+  return { name: t.name, vehicles, values: filledValues(t) };
 }
 
 // ---------- browser storage ----------
@@ -138,21 +206,31 @@ export function loadSaved(): Saved {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const s = JSON.parse(raw) as Saved;
+      // version 1 had no trains
+      const s = JSON.parse(raw) as Omit<Saved, 'version'> & { version?: number };
       if (s && Array.isArray(s.profiles)) {
         const profiles = s.profiles.map(clean).filter((p): p is VehicleProfile => !!p);
+        const trains = (Array.isArray(s.trains) ? s.trains : []).map(cleanTrain).filter((t): t is TrainProfile => !!t);
         // Storage from before `seen` was offered the first four examples.
         const seen = new Set(Array.isArray(s.seen) ? s.seen : FIRST_EXAMPLES);
         const ex = exampleProfiles();
+        const exT = exampleTrains();
         profiles.push(...ex.filter((x) => !seen.has(x.id) && !profiles.some((p) => p.id === x.id)));
-        const out: Saved = { version: 1, profiles, active: s.active ?? null, show: !!s.show, seen: ex.map((x) => x.id) };
-        if (ex.some((x) => !seen.has(x.id))) save(out);  // so a new example deleted later stays deleted
+        trains.push(...exT.filter((x) => !seen.has(x.id) && !trains.some((t) => t.id === x.id)));
+        const out: Saved = {
+          version: 2, profiles, active: s.active ?? null, show: !!s.show, trains,
+          activeTrain: s.activeTrain ?? trains[0]?.id ?? null, mode: s.mode === 'train' ? 'train' : 'vehicle',
+          seen: [...ex, ...exT].map((x) => x.id),
+        };
+        if ([...ex, ...exT].some((x) => !seen.has(x.id))) save(out);  // so a new example deleted later stays deleted
         return out;
       }
     }
   } catch { /* private mode, blocked storage or bad JSON: start from the examples */ }
   const profiles = exampleProfiles();
-  return { version: 1, profiles, active: profiles[0].id, show: false, seen: profiles.map((x) => x.id) };
+  const trains = exampleTrains();
+  return { version: 2, profiles, active: profiles[0].id, show: false, trains, activeTrain: trains[0].id, mode: 'vehicle',
+    seen: [...profiles, ...trains].map((x) => x.id) };
 }
 
 export function save(s: Saved) {
@@ -161,22 +239,48 @@ export function save(s: Saved) {
 
 export const newId = () => `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-/** Validates one profile from storage or an import; drops values of the wrong shape. */
-function clean(p: unknown): VehicleProfile | null {
-  if (!p || typeof p !== 'object') return null;
-  const o = p as Record<string, unknown>;
-  if (typeof o.name !== 'string') return null;
+function cleanValues(raw: unknown): VehicleValues {
   const values: VehicleValues = {};
-  for (const [k, v] of Object.entries((o.values as Record<string, unknown>) ?? {})) {
+  for (const [k, v] of Object.entries((raw as Record<string, unknown>) ?? {})) {
     if (typeof v === 'number' && Number.isFinite(v)) values[k] = v;
     else if (Array.isArray(v)) {
       const xs = v.filter((x): x is string | boolean => typeof x === 'string' || typeof x === 'boolean');
       if (xs.length) values[k] = xs;
     }
   }
+  return values;
+}
+
+/** Validates one profile from storage or an import; drops values of the wrong shape. */
+function clean(p: unknown): VehicleProfile | null {
+  if (!p || typeof p !== 'object') return null;
+  const o = p as Record<string, unknown>;
+  if (typeof o.name !== 'string') return null;
   return {
     id: typeof o.id === 'string' && o.id ? o.id : newId(), name: o.name.slice(0, 200),
-    note: typeof o.note === 'string' ? o.note.slice(0, 2000) : undefined, example: o.example === true || undefined, values,
+    note: typeof o.note === 'string' ? o.note.slice(0, 2000) : undefined, example: o.example === true || undefined,
+    values: cleanValues(o.values),
+  };
+}
+
+const ROLES: Role[] = ['leading', 'pantograph'];
+
+function cleanTrain(t: unknown): TrainProfile | null {
+  if (!t || typeof t !== 'object') return null;
+  const o = t as Record<string, unknown>;
+  if (typeof o.name !== 'string' || !Array.isArray(o.groups)) return null;
+  const groups = o.groups.flatMap((g): TrainGroup[] => {
+    if (!g || typeof g !== 'object') return [];
+    const x = g as Record<string, unknown>;
+    if (typeof x.profile !== 'string') return [];
+    const count = typeof x.count === 'number' && Number.isFinite(x.count) ? Math.min(500, Math.max(1, Math.round(x.count))) : 1;
+    const roles = Array.isArray(x.roles) ? ROLES.filter((r) => (x.roles as unknown[]).includes(r)) : [];
+    return [{ profile: x.profile, count, roles }];
+  }).slice(0, 200);
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : newId(), name: o.name.slice(0, 200),
+    note: typeof o.note === 'string' ? o.note.slice(0, 2000) : undefined, example: o.example === true || undefined,
+    groups, values: cleanValues(o.values),
   };
 }
 
@@ -184,23 +288,32 @@ export function isFilled(v: VehicleValues[string] | undefined): boolean {
   return typeof v === 'number' ? Number.isFinite(v) : Array.isArray(v) && v.length > 0;
 }
 
-export function filledValues(p: VehicleProfile | undefined): VehicleValues {
+export function filledValues(p: { values: VehicleValues } | undefined): VehicleValues {
   return Object.fromEntries(Object.entries(p?.values ?? {}).filter(([, v]) => isFilled(v)));
 }
 
 // ---------- JSON ----------
-export function toJson(profiles: VehicleProfile[]): string {
+/** Profiles and trains as JSON; a train's vehicle profiles must be among `profiles`. */
+export function toJson(profiles: VehicleProfile[], trains: TrainProfile[] = []): string {
   return JSON.stringify({
-    format: JSON_FORMAT, version: 1, exported: new Date().toISOString(),
-    profiles: profiles.map(({ id, name, note, values }) => ({ id, name, note, values: filledValues({ id, name, values }) })),
+    format: JSON_FORMAT, version: trains.length ? 2 : 1, exported: new Date().toISOString(),
+    profiles: profiles.map(({ id, name, note, values }) => ({ id, name, note, values: filledValues({ values }) })),
+    ...(trains.length ? {
+      trains: trains.map(({ id, name, note, groups, values }) => ({ id, name, note, groups, values: filledValues({ values }) })),
+    } : {}),
   }, null, 2);
 }
 
-function fromJson(text: string): VehicleProfile[] {
+export interface Imported { profiles: VehicleProfile[]; trains: TrainProfile[] }
+
+function fromJson(text: string): Imported {
   const d = JSON.parse(text) as unknown;
-  const list = Array.isArray(d) ? d : d && typeof d === 'object' && Array.isArray((d as { profiles?: unknown }).profiles)
-    ? (d as { profiles: unknown[] }).profiles : [d];
-  return list.map(clean).filter((p): p is VehicleProfile => !!p);
+  const o = d && typeof d === 'object' && !Array.isArray(d) ? d as { profiles?: unknown; trains?: unknown } : null;
+  const list = Array.isArray(d) ? d : o && Array.isArray(o.profiles) ? o.profiles : o && Array.isArray(o.trains) ? [] : [d];
+  return {
+    profiles: list.map(clean).filter((p): p is VehicleProfile => !!p),
+    trains: (o && Array.isArray(o.trains) ? o.trains : []).map(cleanTrain).filter((t): t is TrainProfile => !!t),
+  };
 }
 
 // ---------- Turtle (era:VehicleType) ----------
@@ -241,8 +354,15 @@ export function toTurtle(profiles: VehicleProfile[], rules: CompatRule[]): strin
     if (p.note) direct.push(`rdfs:comment ${ttlString(p.note)}`);
     const nested = new Map<string, string[]>();
     for (const r of rules) {
-      const v = p.values[r.key];
+      let v = p.values[r.key];
       if (!isFilled(v)) continue;
+      if (r.options?.length) {
+        // a choice stands for the boolean ERA records (e.g. era:hasMagneticBrake); atlas: paths keep the choice
+        const bools = [...new Set(r.options.filter((o) => (v as unknown[]).includes(o.value) && typeof o.path_value === 'boolean')
+          .map((o) => o.path_value as boolean))];
+        if (bools.length) v = bools;
+        else if (r.path[0]?.startsWith(ERA)) continue;
+      }
       const objs = (Array.isArray(v) ? v : [v as number]).map((x) => ttlValue(x, r)).join(', ');
       if (r.path.length === 1) direct.push(`${ttlIri(r.path[0])} ${objs}`);
       else {
@@ -387,7 +507,12 @@ function fromTurtle(text: string, rules: CompatRule[]): VehicleProfile[] {
         const n = Number(nodes[0].v) / (r.path_factor || 1);
         if (Number.isFinite(n)) values[r.key] = n;
       } else if (r.kind === 'boolean') values[r.key] = [...new Set(nodes.map((n) => n.v === 'true' || n.v === '1'))];
-      else values[r.key] = [...new Set(nodes.map((n) => n.v))];
+      else if (r.options?.length && nodes.every((n) => n.t === 'lit')) {
+        // ERA's boolean: the most restrictive choice with that value (e.g. true: used as a service brake)
+        const want = nodes.some((n) => n.v === 'true' || n.v === '1');
+        const pick = r.options.filter((o) => o.path_value === want).sort((a, b) => b.order - a.order)[0];
+        if (pick) values[r.key] = [pick.value];
+      } else values[r.key] = [...new Set(nodes.map((n) => n.v))];
     }
     const lit = (p: string) => objs(s, p).find((o) => o.t === 'lit')?.v;
     const urn = s.t === 'iri' && s.v.startsWith('urn:rinf-atlas:vehicle-type:') ? decodeURIComponent(s.v.slice(28)) : undefined;
@@ -396,9 +521,9 @@ function fromTurtle(text: string, rules: CompatRule[]): VehicleProfile[] {
 }
 
 /** Parses an export (JSON from this app, or Turtle with era:VehicleType instances). */
-export function importProfiles(text: string, rules: CompatRule[]): VehicleProfile[] {
+export function importProfiles(text: string, rules: CompatRule[]): Imported {
   const t = text.trim();
-  const list = t.startsWith('{') || t.startsWith('[') ? fromJson(t) : fromTurtle(t, rules);
-  if (!list.length) throw new Error('no vehicle profiles found');
-  return list;
+  const out = t.startsWith('{') || t.startsWith('[') ? fromJson(t) : { profiles: fromTurtle(t, rules), trains: [] };
+  if (!out.profiles.length && !out.trains.length) throw new Error('no vehicle profiles found');
+  return out;
 }
