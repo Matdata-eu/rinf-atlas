@@ -66,6 +66,9 @@ class Settings:
     tmp_dir: Path
     quality: Quality = field(default_factory=Quality)
     shapes_cache: Path = Path("/data/shapes-cache")
+    # Describe index for RINF Describe (worker/atlas/describe.py): off unless ATLAS_DESCRIBE is set.
+    describe: bool = False
+    describe_shapes_dir: Path = Path("/app/describe-shapes")
 
     def env(self, key: str) -> Env:
         if key not in self.envs:
@@ -127,6 +130,8 @@ def settings() -> Settings:
         tmp_dir=Path(os.environ.get("ATLAS_TMP", "/data/tmp")),
         quality=quality,
         shapes_cache=Path(os.environ.get("ATLAS_SHAPES_CACHE", "/data/shapes-cache")),
+        describe=_flag(os.environ.get("ATLAS_DESCRIBE"), bool((raw.get("describe") or {}).get("enabled", False))),
+        describe_shapes_dir=Path(os.environ.get("ATLAS_DESCRIBE_SHAPES", "/app/describe-shapes")),
     )
 
 

@@ -15,7 +15,8 @@ server and is hosted on a best-effort basis, so expect occasional downtime.
 Documentation: [how datasets are updated](docs/datasets.md),
 [architecture](docs/architecture.md), [HTTP API](docs/api.md),
 [shareable links](docs/urls.md), [design notes](docs/DESIGN.md),
-[extra map layers](docs/layers.md), [privacy statement](docs/privacy.md).
+[extra map layers](docs/layers.md), [describe index](docs/describe.md),
+[privacy statement](docs/privacy.md).
 
 ![RINF Atlas: operational points and sections of line in Belgium](docs/screenshots/overview.png)
 

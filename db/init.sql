@@ -200,11 +200,48 @@ CREATE TABLE IF NOT EXISTS index_state (
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Describe index (worker/atlas/describe.py), only filled when ATLAS_DESCRIBE is on.
+-- Shapes of RINF Describe the describe rows were last built with (NULL: never).
+ALTER TABLE index_state ADD COLUMN IF NOT EXISTS describe_hash text;
+
+-- Every triple of each provider graph: All properties, incoming links, graph view, exports.
+CREATE TABLE IF NOT EXISTS describe_triple (
+    env        text    NOT NULL,
+    graph_iri  text    NOT NULL,
+    s          text    NOT NULL,
+    p          text    NOT NULL,
+    o          text    NOT NULL,       -- IRI or literal lexical form
+    o_iri      boolean NOT NULL,
+    datatype   text,                   -- NULL for xsd:string and language-tagged literals
+    lang       text
+);
+CREATE INDEX IF NOT EXISTS describe_triple_s_idx ON describe_triple (env, s);
+CREATE INDEX IF NOT EXISTS describe_triple_o_idx ON describe_triple (env, o) WHERE o_iri;
+CREATE INDEX IF NOT EXISTS describe_triple_g_idx ON describe_triple (env, graph_iri);
+
+-- One evaluated page per resource and describe shape (rows, summaries, tables, data status).
+CREATE TABLE IF NOT EXISTS describe_doc (
+    env        text  NOT NULL,
+    iri        text  NOT NULL,
+    shape      text  NOT NULL,         -- IRI of the describe node shape
+    graph_iri  text  NOT NULL,
+    doc        jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS describe_doc_iri_idx ON describe_doc (env, iri);
+CREATE INDEX IF NOT EXISTS describe_doc_g_idx   ON describe_doc (env, graph_iri);
+
+-- Compiled describe shapes (layout: groups, rows, viewers), written by the worker.
+CREATE TABLE IF NOT EXISTS describe_def (
+    shape      text  PRIMARY KEY,
+    class_iri  text  NOT NULL,
+    def        jsonb NOT NULL
+);
+
 -- Work requested from the CLI while the poll loop owns the mirror.
 CREATE TABLE IF NOT EXISTS job (
     id          bigserial PRIMARY KEY,
     env         text,                   -- null = every environment
-    kind        text NOT NULL,          -- sync|reindex|resync
+    kind        text NOT NULL,          -- sync|reindex|resync|validate|revalidate|generate[-force]|describe-reindex[-triples]
     created_at  timestamptz NOT NULL DEFAULT now(),
     started_at  timestamptz,
     finished_at timestamptz,
