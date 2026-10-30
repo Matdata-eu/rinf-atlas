@@ -15,6 +15,9 @@ import { changed, debounce, fmt, h, isFilterEmpty, queryState, store, type AppSt
 const bar = document.getElementById('view-bar') as HTMLElement;
 const section = document.getElementById('view-section') as HTMLElement;
 const allFilters = document.getElementById('all-filters') as HTMLElement;
+const pickerSelect = document.getElementById('view-select') as HTMLSelectElement;
+const picker = pickerSelect.closest('label') as HTMLElement;
+pickerSelect.addEventListener('change', () => openView(pickerSelect.value || null));
 
 /** Every class and filter shown under the view's parameters (per visit, not in the link). */
 let showAll = false;
@@ -96,28 +99,29 @@ const loadGroupsSoon = debounce(loadGroups, 80);
 function renderBar() {
   const s = store.get();
   const views = s.meta?.views ?? [];
-  bar.hidden = views.length === 0;
   const v = viewMeta(s);
+  // the picker sits in the header, next to the environment
+  picker.hidden = views.length === 0;
+  pickerSelect.replaceChildren(
+    h('option', { value: '', selected: !v }, 'Default view'),
+    ...views.map((x) => h('option', { value: x.key, selected: v?.key === x.key, title: x.comment ?? '' }, x.label)));
+  // the block above the filters only while a view is open
+  bar.hidden = !v;
   section.hidden = !v;
   allFilters.hidden = !!v && !showAll;
   document.getElementById('view-toggle-all')?.replaceChildren(showAll ? 'Hide the other classes and filters' : 'Show every class and filter');
   document.getElementById('view-toggle-all')?.setAttribute('aria-expanded', String(showAll));
-  if (!views.length) return;
-  const select = h('select', { id: 'view-select', 'aria-label': 'View', onchange: (e: Event) => openView((e.target as HTMLSelectElement).value || null) },
-    h('option', { value: '', selected: !v }, 'All classes and filters'),
-    ...views.map((x) => h('option', { value: x.key, selected: v?.key === x.key, title: x.comment ?? '' }, x.label)));
+  if (!v) { bar.replaceChildren(); return; }
   const parts: (HTMLElement | null)[] = [
-    h('div', { class: 'view-row' }, h('label', { class: 'view-label', for: 'view-select' }, 'View'), select,
-      v ? h('button', { type: 'button', class: 'icon-btn', title: 'Close the view (filters stay)', 'aria-label': 'Close the view', onclick: () => openView(null) }, '×') : null),
+    h('div', { class: 'view-head' }, h('strong', { class: 'view-title', title: v.comment ?? '' }, v.label),
+      h('button', { type: 'button', class: 'icon-btn', title: 'Back to the default view (filters stay)', 'aria-label': 'Close the view', onclick: () => openView(null) }, '×')),
   ];
-  if (v) {
-    if (v.comment) parts.push(h('p', { class: 'muted small view-comment' }, v.comment));
-    if (v.group_by) parts.push(groupPicker(s, v));
-    const tools: HTMLElement[] = [];
-    if (v.checks.length) tools.push(h('button', { type: 'button', class: 'btn btn-small', id: 'scorecard-btn', onclick: () => openScorecard() }, 'Requirements table'));
-    if (v.file) tools.push(h('button', { type: 'button', class: 'link small', title: 'The SHACL file that defines this view', onclick: () => openShapes(v.file!) }, v.file));
-    if (tools.length) parts.push(h('div', { class: 'view-tools' }, ...tools));
-  }
+  if (v.group_by) parts.push(groupPicker(s, v));
+  const tools: HTMLElement[] = [];
+  if (v.checks.length) tools.push(h('button', { type: 'button', class: 'btn btn-small', id: 'scorecard-btn', onclick: () => openScorecard() }, 'Requirements table'));
+  if (v.comment) tools.push(h('details', { class: 'view-about small' }, h('summary', {}, 'About this view'), h('p', { class: 'muted' }, v.comment),
+    v.file ? h('button', { type: 'button', class: 'link small', title: 'The SHACL file that defines this view', onclick: () => openShapes(v.file!) }, v.file) : null));
+  if (tools.length) parts.push(h('div', { class: 'view-tools' }, ...tools));
   bar.replaceChildren(...parts.filter(Boolean) as HTMLElement[]);
 }
 
