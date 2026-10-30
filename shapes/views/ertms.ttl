@@ -1,0 +1,44 @@
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX view:  <https://rinf-atlas.matdata.eu/views/>
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX era:   <http://data.europa.eu/949/>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX level: <http://data.europa.eu/949/concepts/ten-t-network-levels/>
+PREFIX traffic: <http://data.europa.eu/949/concepts/traffic-types/>
+PREFIX cls:   <http://data.europa.eu/949/concepts/contact-line-systems/>
+PREFIX etcs:  <http://data.europa.eu/949/concepts/etcs-levels/>
+PREFIX lclc:  <http://data.europa.eu/949/concepts/load-capability-line-categories/>
+PREFIX pst:   <http://data.europa.eu/949/concepts/profile-num-semi-trailers/>
+
+# ERTMS deployment per country: ETCS levels and baselines, GSM-R and the class B systems
+# still in place, with a check of where ETCS is in service.
+
+view:ertms
+    a sh:NodeShape ;
+    atlas:view "ertms" ;
+    rdfs:label "ERTMS deployment" ;
+    rdfs:comment "Where ETCS and GSM-R are in service, and which class B train protection systems remain, per country." ;
+    sh:order 30 ;
+    atlas:viewClass "section-of-line", "running-track" ;
+    atlas:groupBy "country" ;
+    atlas:groupLabel "Country" ;
+    atlas:colorBy "ertms.etcs" ;
+    atlas:checkClass "running-track", "track" ;
+    atlas:checkSection "section-of-line" ;
+    sh:property [ atlas:facet "etcs.etcsLevelType" ; sh:order 10 ] ;
+    sh:property [ atlas:facet "etcs.etcsBaseline" ; sh:order 20 ] ;
+    sh:property [ atlas:facet "etcs.etcsMVersion" ; sh:order 30 ] ;
+    sh:property [ atlas:facet "gsmRVersion" ; sh:order 40 ] ;
+    sh:property [ atlas:facet "gprsForETCS" ; sh:order 50 ] ;
+    sh:property [ atlas:facet "protectionLegacySystem" ; sh:order 60 ] ;
+    sh:property [ atlas:facet "trainDetectionSystem.trainDetectionSystemType" ; sh:order 70 ] ;
+    sh:property [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:order 80 ] ;
+    sh:property [
+        atlas:check "ertms.etcs" ;
+        rdfs:label "ETCS in service" ;
+        rdfs:comment "The track has ETCS level 1, 2 or 3. ETCS declared not applicable counts as no ETCS." ;
+        atlas:compareTo "etcs.etcsLevelType" ;
+        sh:hasValue etcs:20, etcs:30, etcs:40 ;
+        atlas:impliedValue [ atlas:facet "notApplicable" ; atlas:when era:etcs ; atlas:value etcs:10 ] ;
+        sh:order 10 ;
+    ] .

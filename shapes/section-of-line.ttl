@@ -24,6 +24,36 @@ shape:section-of-line
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:lineBetween ( era:opStart era:opEnd ) ;
+    # RINF gives these on the tracks of a section of line; the section takes its tracks'
+    # values so that a filter on them (and a view on TEN-T corridors) selects sections too.
+    sh:property [
+        sh:path ( [ sh:alternativePath ( era:hasPart [ sh:inversePath era:isPartOf ] ) ] [ sh:alternativePath ( ( era:partOfTENT era:europeanTransportCorridor ) era:europeanTransportCorridor ) ] ) ;
+        atlas:facet "corridor" ;
+        rdfs:label "European transport corridor" ;
+        atlas:kind "terms" ;
+        sh:order 600 ;
+    ] ;
+    sh:property [
+        sh:path ( [ sh:alternativePath ( era:hasPart [ sh:inversePath era:isPartOf ] ) ] [ sh:alternativePath ( ( era:partOfTENT era:tentNetworkLevel ) era:tentNetworkLevel ) ] ) ;
+        atlas:facet "partOfTENT.tentNetworkLevel" ;
+        rdfs:label "TEN-T network level (part of TEN-T)" ;
+        atlas:kind "terms" ;
+        sh:order 610 ;
+    ] ;
+    sh:property [
+        sh:path ( [ sh:alternativePath ( era:hasPart [ sh:inversePath era:isPartOf ] ) ] [ sh:alternativePath ( ( era:partOfTENT era:typeOfTraffic ) era:typeOfTraffic ) ] ) ;
+        atlas:facet "partOfTENT.typeOfTraffic" ;
+        rdfs:label "Type of traffic (part of TEN-T)" ;
+        atlas:kind "terms" ;
+        sh:order 620 ;
+    ] ;
+    sh:property [
+        sh:path ( [ sh:alternativePath ( era:hasPart [ sh:inversePath era:isPartOf ] ) ] era:freightCorridor ) ;
+        atlas:facet "freightCorridor" ;
+        rdfs:label "Part of a Railway Freight Corridor" ;
+        atlas:kind "terms" ;
+        sh:order 630 ;
+    ] ;
     sh:property [  # RINF 1.1.0.0.0.2, 63747 instances in data
         sh:path ( era:nationalLine era:lineId ) ;
         atlas:facet "nationalLine.lineId" ;

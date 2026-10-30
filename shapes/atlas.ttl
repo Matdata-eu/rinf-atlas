@@ -88,6 +88,54 @@
 #                       value elsewhere stays unknown
 #   atlas:missingReason short text shown for a track where the system is absent
 #   rdfs:label, rdfs:comment, sh:datatype, sh:order, atlas:enabled false
+#
+# Views (shapes/views/*.ttl): a named lens on the map, picked from the top of the
+# filter panel. One sh:NodeShape per view with
+#   atlas:view          view key, used in links (vw=) and the API (required)
+#   rdfs:label, rdfs:comment, sh:order, atlas:enabled false
+#   atlas:viewClass     class key(s) the view selects
+#   atlas:groupBy       facet key whose values the view is split by (corridor,
+#                       country): the group picker and the rows of the
+#                       requirements table
+#   atlas:groupLabel    name of one group ("Corridor")
+#   atlas:filter        [ atlas:facet key ; sh:in ( values ) ] filter set when
+#                       the view opens (repeatable)
+#   atlas:colorBy       facet or check key the map is coloured by
+#   sh:property [ atlas:facet key ; sh:order n ]  the parameters listed first
+#                       in the filter panel (existing facets, in this order)
+# Requirement checks of a view: they compare facets the worker already indexed
+# and are evaluated in PostgreSQL after every index update (no reindex when only
+# a check changes). The result is stored as a facet of its own: atlas:Meets,
+# atlas:NoData or atlas:DoesNotMeet; a feature the check does not apply to gets
+# no value. So a check can be filtered on, colour the map and is exported.
+#   atlas:checkClass    class key(s) checked on their own values (the tracks)
+#   atlas:checkSection  class key whose features get the best result of their
+#                       parts (atlas:geometryFrom links): a section of line meets
+#                       a requirement when one of its tracks does
+#   atlas:summaryCheck  key of the summary: the worst result of the checks that
+#                       apply (default "<view>.all"; only with two checks or more)
+#   atlas:summaryLabel  its label
+# and per check, sh:property [ atlas:check key ; ... ] with
+#   atlas:compareTo     facet key(s) compared (values pooled)
+#   sh:hasValue v, ...  meets when one value is one of these
+#   sh:in ( ... )       meets when every value is one of these
+#   atlas:notIn ( ... ) meets when a value is none of these
+#   sh:minInclusive | sh:maxInclusive | sh:minExclusive | sh:maxExclusive
+#                       meets when no number breaks the bound; with
+#                       atlas:termValue [ atlas:term IRI ; atlas:value n ] the
+#                       compared values are concepts standing for a number, and
+#                       it meets when one of them satisfies the bound
+#   atlas:impliedValue  [ atlas:facet key ; atlas:when IRI ; atlas:value IRI ]:
+#                       a feature whose facet holds `when` also has `value`
+#                       (ETCS declared not applicable = no ETCS)
+#   atlas:appliesWhen   [ atlas:facet key ; sh:in ( values ) ]: the check applies
+#                       only to features with one of these values (repeatable,
+#                       all must hold)
+#   atlas:whenMissing   atlas:NoData (default) | atlas:DoesNotMeet: the result
+#                       for a feature without a value
+#   atlas:deadline      free text shown with the check ("core 2030")
+#   atlas:unit          unit of the bound
+#   rdfs:label, rdfs:comment, sh:order
 PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
 PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl:   <http://www.w3.org/2002/07/owl#>
@@ -100,3 +148,12 @@ atlas:Unknown a rdfs:Resource ;
 atlas:Incompatible a rdfs:Resource ;
     rdfs:label "Incompatible" ;
     rdfs:comment "atlas:whenMissing value: a track without a value is not compatible (red)." .
+atlas:Meets a rdfs:Resource ;
+    rdfs:label "Meets the requirement" ;
+    rdfs:comment "Result of a view check (shapes/views): the feature meets the requirement." .
+atlas:NoData a rdfs:Resource ;
+    rdfs:label "Data missing" ;
+    rdfs:comment "Result of a view check: RINF does not declare the compared parameter. Also the default atlas:whenMissing of a check." .
+atlas:DoesNotMeet a rdfs:Resource ;
+    rdfs:label "Does not meet the requirement" ;
+    rdfs:comment "Result of a view check: the feature does not meet the requirement. As atlas:whenMissing: a feature without a value does not meet it." .

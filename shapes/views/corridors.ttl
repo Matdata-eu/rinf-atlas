@@ -1,0 +1,189 @@
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX view:  <https://rinf-atlas.matdata.eu/views/>
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX era:   <http://data.europa.eu/949/>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX level: <http://data.europa.eu/949/concepts/ten-t-network-levels/>
+PREFIX traffic: <http://data.europa.eu/949/concepts/traffic-types/>
+PREFIX cls:   <http://data.europa.eu/949/concepts/contact-line-systems/>
+PREFIX etcs:  <http://data.europa.eu/949/concepts/etcs-levels/>
+PREFIX lclc:  <http://data.europa.eu/949/concepts/load-capability-line-categories/>
+PREFIX pst:   <http://data.europa.eu/949/concepts/profile-num-semi-trailers/>
+
+# European transport corridors (TEN-T, Regulation (EU) 2024/1679)
+#
+# The nine corridors of the TEN-T Regulation, as the infrastructure managers declare
+# them in RINF (era:partOfTENT / era:europeanTransportCorridor on the tracks), with the
+# parameters the Regulation sets requirements for and a check of those requirements.
+#
+# Only RINF is used: where a provider does not say which corridor a track is on, it is in
+# no corridor here (the TEN-T network level is filled far more often than the corridor).
+#
+# The checks follow Articles 15, 16 and 18 of the Regulation, per running track:
+#   - every requirement applies to the network levels it names (the track's TEN-T network
+#     level); freight requirements to tracks whose TEN-T type of traffic is freight, the
+#     passenger speed to passenger tracks;
+#   - the Regulation sets some of them per section between nodes, on 75 % of its length,
+#     or on one route per corridor and Member State (P400). Atlas checks each track, so a
+#     red track does not by itself mean that the Member State misses the requirement.
+#   - the deadlines (2030, 2040, 2050) are shown, not applied: the check tells whether a
+#     track meets the requirement today.
+# Exemptions granted by the Commission (Art. 15(7), 16(11), 18(8)) are not in RINF.
+
+view:corridors
+    a sh:NodeShape ;
+    atlas:view "corridors" ;
+    rdfs:label "European transport corridors" ;
+    rdfs:comment "TEN-T lines and the nine European transport corridors of Regulation (EU) 2024/1679, as declared in RINF, with the parameters the Regulation sets requirements for." ;
+    sh:order 10 ;
+    atlas:viewClass "section-of-line", "running-track" ;
+    atlas:groupBy "corridor" ;
+    atlas:groupLabel "Corridor" ;
+    atlas:filter [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 level:03 ) ] ;
+    atlas:colorBy "tent.all" ;
+    atlas:checkClass "running-track", "track" ;
+    atlas:checkSection "section-of-line" ;
+    atlas:summaryCheck "tent.all" ;
+    atlas:summaryLabel "Meets every TEN-T requirement" ;
+
+    sh:property [ atlas:facet "corridor" ; sh:order 10 ] ;
+    sh:property [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:order 20 ] ;
+    sh:property [ atlas:facet "partOfTENT.typeOfTraffic" ; sh:order 30 ] ;
+    sh:property [ atlas:facet "contactLineSystem.energySupplySystem" ; sh:order 40 ] ;
+    sh:property [ atlas:facet "etcs.etcsLevelType" ; sh:order 50 ] ;
+    sh:property [ atlas:facet "trackLoadCapability.loadCapabilityLineCategory" ; sh:order 60 ] ;
+    sh:property [ atlas:facet "maximumPermittedSpeed" ; sh:order 70 ] ;
+    sh:property [ atlas:facet "maxPermittedTrainLength" ; sh:order 80 ] ;
+    sh:property [ atlas:facet "profileNumberSemiTrailers" ; sh:order 90 ] ;
+    sh:property [ atlas:facet "wheelSetGauge" ; sh:order 100 ] ;
+    sh:property [ atlas:facet "freightCorridor" ; sh:order 110 ] ;
+
+    sh:property [
+        atlas:check "tent.electrification" ;
+        rdfs:label "Electrified" ;
+        rdfs:comment "Full electrification of the running tracks (Art. 15(2)(a), 16(1) and 16(6)): the track has an energy supply system other than “not electrified”. A track without one has no contact line." ;
+        atlas:deadline "core 2030, extended core 2040, comprehensive 2050" ;
+        atlas:compareTo "contactLineSystem.energySupplySystem" ;
+        atlas:notIn ( cls:40 ) ;
+        atlas:whenMissing atlas:DoesNotMeet ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 level:03 ) ] ;
+        sh:order 10 ;
+    ] ;
+    sh:property [
+        atlas:check "tent.ertms" ;
+        rdfs:label "ERTMS" ;
+        rdfs:comment "ERTMS deployed (Art. 18(1) and 18(2)): the track has ETCS level 1, 2 or 3. ETCS declared not applicable counts as no ETCS." ;
+        atlas:deadline "core 2030, extended core 2040, comprehensive 2050" ;
+        atlas:compareTo "etcs.etcsLevelType" ;
+        sh:hasValue etcs:20, etcs:30, etcs:40 ;
+        atlas:impliedValue [ atlas:facet "notApplicable" ; atlas:when era:etcs ; atlas:value etcs:10 ] ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 level:03 ) ] ;
+        sh:order 20 ;
+    ] ;
+    sh:property [
+        atlas:check "tent.axleLoad" ;
+        rdfs:label "22.5 t axle load" ;
+        rdfs:comment "Freight lines allow an axle load of at least 22.5 t (Art. 15(2)(b), 16(2)(a) and 16(6)(a)): one of the track's EN 15528 line categories allows 22.5 t (D2 and up)." ;
+        atlas:deadline "core 2030, extended core 2040" ;
+        atlas:compareTo "trackLoadCapability.loadCapabilityLineCategory" ;
+        sh:minInclusive 22.5 ;
+        atlas:unit "TONNE" ;
+        atlas:termValue
+            [ atlas:term lclc:10 ; atlas:value 16.0 ],
+            [ atlas:term lclc:20 ; atlas:value 18.0 ],
+            [ atlas:term lclc:30 ; atlas:value 18.0 ],
+            [ atlas:term lclc:40 ; atlas:value 20.0 ],
+            [ atlas:term lclc:50 ; atlas:value 20.0 ],
+            [ atlas:term lclc:60 ; atlas:value 20.0 ],
+            [ atlas:term lclc:70 ; atlas:value 22.5 ],
+            [ atlas:term lclc:80 ; atlas:value 22.5 ],
+            [ atlas:term lclc:90 ; atlas:value 22.5 ],
+            [ atlas:term lclc:100 ; atlas:value 22.5 ],
+            [ atlas:term lclc:110 ; atlas:value 25.0 ],
+            [ atlas:term lclc:120 ; atlas:value 25.0 ] ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 ) ] ,
+            [ atlas:facet "partOfTENT.typeOfTraffic" ; sh:hasValue traffic:02 ] ;
+        sh:order 30 ;
+    ] ;
+    sh:property [
+        atlas:check "tent.trainLength" ;
+        rdfs:label "740 m trains" ;
+        rdfs:comment "Freight lines take trains of at least 740 m including locomotives (Art. 15(2)(c), 16(2)(b) and 16(6)(a)): the track's maximum permitted train length is 740 m or more." ;
+        atlas:deadline "core 2030, extended core 2040" ;
+        atlas:compareTo "maxPermittedTrainLength" ;
+        sh:minInclusive 740 ;
+        atlas:unit "M" ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 ) ] ,
+            [ atlas:facet "partOfTENT.typeOfTraffic" ; sh:hasValue traffic:02 ] ;
+        sh:order 40 ;
+    ] ;
+    sh:property [
+        atlas:check "tent.freightSpeed" ;
+        rdfs:label "100 km/h for freight" ;
+        rdfs:comment "Freight lines are designed for at least 100 km/h (Art. 16(2)(c) and 16(6)(a), on more than 75 % of the length of the sections that link terminals, urban nodes and borders): the track's maximum permitted speed is 100 km/h or more. RINF's speed is not specific to freight trains." ;
+        atlas:deadline "core 2030, extended core 2040" ;
+        atlas:compareTo "maximumPermittedSpeed" ;
+        sh:minInclusive 100 ;
+        atlas:unit "KiloM-PER-HR" ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 ) ] ,
+            [ atlas:facet "partOfTENT.typeOfTraffic" ; sh:hasValue traffic:02 ] ;
+        sh:order 50 ;
+    ] ;
+    sh:property [
+        atlas:check "tent.passengerSpeed" ;
+        rdfs:label "160 km/h for passengers" ;
+        rdfs:comment "Passenger lines are designed for at least 160 km/h (Art. 16(4)(b) and 16(7), on more than 75 % of the length of the sections that link urban nodes and borders): the track's maximum permitted speed is 160 km/h or more." ;
+        atlas:deadline "core and extended core 2040" ;
+        atlas:compareTo "maximumPermittedSpeed" ;
+        sh:minInclusive 160 ;
+        atlas:unit "KiloM-PER-HR" ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 ) ] ,
+            [ atlas:facet "partOfTENT.typeOfTraffic" ; sh:hasValue traffic:01 ] ;
+        sh:order 60 ;
+    ] ;
+    sh:property [
+        atlas:check "tent.p400" ;
+        rdfs:label "P400 semi-trailers" ;
+        rdfs:comment "Freight lines take standard semi-trailers of 4 m on wagons (Art. 16(8); the Regulation asks for at least one such route per corridor and Member State, not every line): one of the track's semi-trailer profile numbers allows a corner height of 400 cm or more (P 70 and up, P 400 and up). P S55 and P S385 are not rated." ;
+        atlas:deadline "core and extended core 2040" ;
+        atlas:compareTo "profileNumberSemiTrailers" ;
+        sh:minInclusive 400 ;
+        atlas:unit "CentiM" ;
+        atlas:termValue
+            [ atlas:term pst:10 ; atlas:value 352 ],
+            [ atlas:term pst:15 ; atlas:value 355 ],
+            [ atlas:term pst:18 ; atlas:value 360 ],
+            [ atlas:term pst:20 ; atlas:value 362 ],
+            [ atlas:term pst:30 ; atlas:value 368 ],
+            [ atlas:term pst:40 ; atlas:value 375 ],
+            [ atlas:term pst:50 ; atlas:value 380 ],
+            [ atlas:term pst:60 ; atlas:value 385 ],
+            [ atlas:term pst:69 ; atlas:value 389 ],
+            [ atlas:term pst:70 ; atlas:value 390 ],
+            [ atlas:term pst:80 ; atlas:value 395 ],
+            [ atlas:term pst:90 ; atlas:value 400 ],
+            [ atlas:term pst:100 ; atlas:value 410 ],
+            [ atlas:term pst:110 ; atlas:value 420 ],
+            [ atlas:term pst:120 ; atlas:value 341 ],
+            [ atlas:term pst:130 ; atlas:value 349 ],
+            [ atlas:term pst:140 ; atlas:value 351 ],
+            [ atlas:term pst:150 ; atlas:value 357 ],
+            [ atlas:term pst:160 ; atlas:value 364 ],
+            [ atlas:term pst:161 ; atlas:value 365 ],
+            [ atlas:term pst:162 ; atlas:value 371 ],
+            [ atlas:term pst:165 ; atlas:value 375 ],
+            [ atlas:term pst:170 ; atlas:value 380 ],
+            [ atlas:term pst:174 ; atlas:value 384 ],
+            [ atlas:term pst:180 ; atlas:value 385 ],
+            [ atlas:term pst:190 ; atlas:value 390 ],
+            [ atlas:term pst:200 ; atlas:value 395 ],
+            [ atlas:term pst:210 ; atlas:value 400 ],
+            [ atlas:term pst:220 ; atlas:value 405 ],
+            [ atlas:term pst:230 ; atlas:value 410 ],
+            [ atlas:term pst:240 ; atlas:value 420 ],
+            [ atlas:term pst:242 ; atlas:value 422 ],
+            [ atlas:term pst:245 ; atlas:value 450 ] ;
+        atlas:appliesWhen [ atlas:facet "partOfTENT.tentNetworkLevel" ; sh:in ( level:01 level:02 ) ] ,
+            [ atlas:facet "partOfTENT.typeOfTraffic" ; sh:hasValue traffic:02 ] ;
+        sh:order 70 ;
+    ] .
