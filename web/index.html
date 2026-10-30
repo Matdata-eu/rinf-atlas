@@ -71,6 +71,7 @@
         </div>
         <div class="side-body">
           <section id="pane-filters" class="pane">
+            <div id="view-bar" class="view-bar" hidden></div>
             <div id="chips" class="chips"></div>
             <label class="toggle"><input id="limit-view" type="checkbox" /> Limit to map view</label>
             <h2 class="section-title" id="colorby-title">Map colours</h2>
@@ -78,10 +79,17 @@
               <button id="colorby-btn" class="colorby-btn" type="button" aria-haspopup="dialog" aria-describedby="colorby-title"></button>
               <button id="colorby-clear" class="icon-btn colorby-clear" type="button" title="Back to class colours" aria-label="Back to class colours" hidden>×</button>
             </div>
-            <h2 class="section-title">Classes</h2>
-            <ul id="class-list" class="class-list"></ul>
-            <h2 class="section-title">Filters for every class</h2>
-            <div id="facets"></div>
+            <div id="view-section" hidden>
+              <h2 class="section-title">Parameters of this view</h2>
+              <div id="view-facets"></div>
+              <button id="view-toggle-all" class="link small view-toggle-all" type="button" aria-controls="all-filters" aria-expanded="false">Show every class and filter</button>
+            </div>
+            <div id="all-filters">
+              <h2 class="section-title">Classes</h2>
+              <ul id="class-list" class="class-list"></ul>
+              <h2 class="section-title">Filters for every class</h2>
+              <div id="facets"></div>
+            </div>
           </section>
           <section id="pane-results" class="pane" hidden>
             <div class="export-bar">
@@ -91,6 +99,7 @@
               <button id="export-ttl" class="btn btn-small" type="button" title="Download the outgoing triples of every matching entity as Turtle, fetched live from ERA">Turtle</button>
               <button id="export-gis" class="btn btn-small" type="button" title="Copy the OGC API URL of these results, to load them as layers in QGIS or ArcGIS">Open in GIS</button>
             </div>
+            <label id="export-view-cols" class="toggle small" hidden><input type="checkbox" checked /> CSV and Excel: only the view's parameters</label>
             <p id="export-msg" class="export-msg" hidden></p>
             <p id="results-unlocated" class="export-msg" hidden></p>
             <ol id="results" class="results"></ol>

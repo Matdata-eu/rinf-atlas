@@ -1136,7 +1136,9 @@ const server = http.createServer(async (req, res) => {
         infos: qa.reduce((a, q) => a + q.infos, 0), too_large: 1, checked_at: '2026-10-13T03:40:00Z', shapes_graph: SHAPES_SRC[env].graph,
         shapes_loaded_at: '2026-10-13T03:05:00Z', shapes: SHAPES_SRC[env], shapes_error: null, max_triples: MAX_TRIPLES,
         shacl_report_url: 'https://shacl-report.matdata.eu/' };
-      return send(res, 200, { classes, facets: FACETS, datasets: { total: 4, loaded: env === 'uat' ? 3 : 4, failed: env === 'uat' ? 1 : 0, pending: 0, last_ingest: '2026-10-13T03:12:00Z', last_check: '2026-10-14T09:30:00Z' }, quality });
+      // Views (shapes/views/*.ttl) need the worker's check results: the mock has none, so the view bar stays hidden.
+      const check_results = { meets: 'https://rinf-atlas.matdata.eu/ns#Meets', no_data: 'https://rinf-atlas.matdata.eu/ns#NoData', fails: 'https://rinf-atlas.matdata.eu/ns#DoesNotMeet' };
+      return send(res, 200, { classes, facets: FACETS, views: [], check_results, datasets: { total: 4, loaded: env === 'uat' ? 3 : 4, failed: env === 'uat' ? 1 : 0, pending: 0, last_ingest: '2026-10-13T03:12:00Z', last_check: '2026-10-14T09:30:00Z' }, quality });
     }
     if (req.method === 'POST' && p === '/api/theme') {
       const st = await readJson(req);

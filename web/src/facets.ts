@@ -3,10 +3,12 @@ import { api, isAbort, type FacetMeta, type FacetResult, type FacetsResponse, ty
 import { datasetLabel } from './datasets';
 import { changed, debounce, fmt, h, isFilterEmpty, queryState, store, toggleAllZoom, unitLabel, type AppState } from './state';
 import { PALETTE_ICON, setColorBy } from './thematic';
+import { CHECK_COLOURS, checkResult, viewFacets } from './checks';
 
 const TOP_N = 10;
 const classList = document.getElementById('class-list') as HTMLUListElement;
 const facetsEl = document.getElementById('facets') as HTMLDivElement;
+const viewFacetsEl = document.getElementById('view-facets') as HTMLDivElement;
 const chipsEl = document.getElementById('chips') as HTMLDivElement;
 const limitView = document.getElementById('limit-view') as HTMLInputElement;
 
@@ -26,7 +28,7 @@ const blocks = new Map<string, Block>();
 const key = (v: TermValue) => String(v);
 
 const byPosition = (a: FacetMeta, b: FacetMeta) => a.position - b.position || a.label.localeCompare(b.label);
-const blockId = (f: FacetMeta) => `${f.class}|${f.key}`;
+const blockId = (f: FacetMeta) => `${f.class}|${f.key}${f.view ? '|view' : ''}`;
 /** Filter/facet key sent to the API: a class's own facets are scoped to that class ("class/key"). */
 export const filterKey = (f: FacetMeta) => (f.class === '*' ? f.key : `${f.class}/${f.key}`);
 
@@ -40,9 +42,10 @@ export function classFacets(s: AppState, c: string): FacetMeta[] {
   return (s.meta?.facets ?? []).filter((f) => f.class === c).sort(byPosition);
 }
 
-/** Facet keys to ask the API for: shared ones, open classes' ones and any with a filter. */
+/** Facet keys to ask the API for: shared ones, the view's, open classes' ones and any with a filter. */
 function wantedFacetKeys(s: AppState): string[] {
   const keys = new Set(sharedFacets(s).map((f) => f.key));
+  for (const f of viewFacets(s)) keys.add(f.key);
   for (const c of openClasses) for (const f of classFacets(s, c)) keys.add(filterKey(f));
   for (const [k, v] of Object.entries(s.filters)) if (!isFilterEmpty(v)) keys.add(k);
   return [...keys];
@@ -235,7 +238,8 @@ function renderBlock(s: AppState, f: FacetMeta): HTMLElement {
   const b = blockFor(f);
   const active = !isFilterEmpty(s.filters[filterKey(f)]);
   // Shared facets start open; a class's own facets start folded (there can be many) unless filtered.
-  const isCollapsed = !(openState.get(blockId(f)) ?? (f.class === '*' || active));
+  // A view's parameters start folded too, except its requirement checks.
+  const isCollapsed = !(openState.get(blockId(f)) ?? (f.view ? active || !!f.open : f.class === '*' || active));
   b.root.classList.toggle('collapsed', isCollapsed);
   b.root.querySelector('.facet-head')!.setAttribute('aria-expanded', String(!isCollapsed));
   b.root.classList.toggle('active', active);
@@ -258,6 +262,8 @@ function place(container: HTMLElement, els: HTMLElement[]) {
 
 function renderFacets() {
   const s = store.get();
+  // The open view's parameters first: unscoped, so a filter applies to every class having it.
+  place(viewFacetsEl, viewFacets(s).map((f) => renderBlock(s, { ...f, view: true })));
   const shared = sharedFacets(s);
   place(facetsEl, shared.map((f) => renderBlock(s, f)));
   if (!shared.length) facetsEl.replaceChildren(h('p', { class: 'muted' }, 'No shared facets.'));
@@ -277,6 +283,12 @@ function renderRange(f: FacetMeta, b: Block, r: FacetResult | undefined) {
   if (!b.body.childElementCount) {
     b.body.append(h('div', { class: 'range' }, b.min!, h('span', { 'aria-hidden': 'true' }, '–'), b.max!));
   }
+}
+
+/** A requirement check's result (meets, no data, does not meet) in its map colour. */
+function checkSwatch(v: TermValue): HTMLElement | null {
+  const r = checkResult(v);
+  return r ? h('span', { class: 'swatch', style: `background:${CHECK_COLOURS[r]}`, 'aria-hidden': 'true' }) : null;
 }
 
 function renderTerms(f: FacetMeta, b: Block, r: FacetResult | undefined) {
@@ -302,7 +314,7 @@ function renderTerms(f: FacetMeta, b: Block, r: FacetResult | undefined) {
   const ul = h('ul', { class: 'terms' }, ...list.map((v) => h('li', {},
     h('label', { class: 'check' + (v.count === 0 && !selected.has(key(v.value)) ? ' zero' : ''), title: key(v.value) },
       h('input', { type: 'checkbox', checked: selected.has(key(v.value)), onchange: () => toggleTerm(fk, v.value) }),
-      h('span', { class: 'lbl' }, v.label ?? key(v.value)),
+      h('span', { class: 'lbl' }, checkSwatch(v.value), v.label ?? key(v.value)),
       h('span', { class: 'count' }, Number.isNaN(v.count) ? '' : fmt.format(v.count))))));
   const parts: Node[] = [];
   if (b.filter && values.length > TOP_N) parts.push(b.filter);
@@ -369,9 +381,9 @@ export function initFacets() {
     limitView.checked = s.limitToView;
     if (changed(s, prev, 'env')) { data = null; blocks.clear(); rows.clear(); labelCache.clear(); openClasses.clear(); }
     if (changed(s, prev, 'meta')) rows.clear(); // class colours, labels and facet lists may differ
-    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'colorBy')) render(); // instant feedback, counts follow
+    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'colorBy', 'lens')) render(); // instant feedback, counts follow
     else if (s.view.zoom !== prev.view.zoom || changed(s, prev, 'allZoom')) renderClasses(); // min_zoom hints
-    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView') || (s.limitToView && changed(s, prev, 'bbox'))) loadSoon();
+    if (changed(s, prev, 'meta', 'classes', 'filters', 'graphs', 'q', 'limitToView', 'lens') || (s.limitToView && changed(s, prev, 'bbox'))) loadSoon();
   });
   limitView.checked = store.get().limitToView;
 }

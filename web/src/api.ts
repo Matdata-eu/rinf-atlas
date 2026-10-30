@@ -28,6 +28,9 @@ export interface FacetMeta {
   unit?: string | null;
   /** Suggested in the map's "Colour by" picker, lower first (atlas:colorBy in the shapes). */
   color_by?: number | null;
+  /** UI only: shown among the open view's parameters (open: unfolded at first). */
+  view?: boolean;
+  open?: boolean;
 }
 
 /** The SHACL shapes a validation used: ERA's mirrored shapes graph, or a pinned GitLab tag. */
@@ -69,9 +72,71 @@ export interface QualityMeta {
   shacl_report_url: string | null;
 }
 
+/** One requirement of a view: the worker stores its result as facet `key` (see Meta.check_results). */
+export interface ViewCheck {
+  key: string;
+  label: string;
+  comment: string | null;
+  /** When the requirement applies (display text, e.g. "core 2030, extended core 2040"). */
+  deadline: string | null;
+  constraint: 'hasValue' | 'in' | 'notIn' | 'minInclusive' | 'maxInclusive' | 'minExclusive' | 'maxExclusive';
+  facets: string[];
+  values: TermValue[];
+  unit: string | null;
+  applies_when: { facet: string; values: TermValue[] }[];
+  when_missing: 'unknown' | 'fails';
+}
+
+/** A view (shapes/views/*.ttl): classes, filters, a group picker and the parameters that matter. */
+export interface ViewMeta {
+  key: string;
+  label: string;
+  comment: string | null;
+  classes: string[];
+  /** Terms facet whose values are the view's groups (e.g. corridors). */
+  group_by: string | null;
+  group_label: string | null;
+  color_by: string | null;
+  /** Filters set when the view opens. */
+  filters: Record<string, FilterValue>;
+  /** Facet keys of the view's parameters, in order. */
+  params: string[];
+  checks: ViewCheck[];
+  check_classes: string[];
+  section_class: string | null;
+  /** Facet holding the worst result of every check (when there are several). */
+  summary_key: string | null;
+  summary_label: string | null;
+  /** The shapes/ file it is defined in. */
+  file: string | null;
+}
+
+export type CheckResult = 'meets' | 'no_data' | 'fails';
+
+export interface ScorecardCell { count: number; km: number }
+export interface ScorecardRow {
+  value: TermValue | null;
+  label: string | null;
+  count: number;
+  km: number;
+  checks: Record<string, Record<CheckResult | 'not_applicable', ScorecardCell>>;
+}
+export interface Scorecard {
+  view: string;
+  group_by: string | null;
+  classes: string[];
+  keys: string[];
+  groups: ScorecardRow[];
+  total: Omit<ScorecardRow, 'value' | 'label'>;
+}
+
 export interface Meta {
   classes: ClassMeta[];
   facets: FacetMeta[];
+  /** Views (shapes/views/*.ttl); absent from an API before 1.7. */
+  views?: ViewMeta[];
+  /** The facet values of a check's result. */
+  check_results?: Record<CheckResult, string>;
   /** Turtle export queries ERA live and is capped at this many entities. */
   limits?: { ttl_export: number };
   datasets: { total: number; loaded: number; failed?: number; pending?: number; last_ingest: string | null; last_check?: string | null };
@@ -393,6 +458,10 @@ export const api = {
   layerTilesUrl: (id: string) => `${new URL(BASE, location.href).href.replace(/\/$/, '')}/layers/${encodeURIComponent(id)}/{z}/{x}/{y}`,
   meta: (env: string) => request<Meta>(`/meta?${qs({ env })}`),
   facets: (st: QueryState, signal?: AbortSignal) => post<FacetsResponse>('/facets', st, signal),
+  scorecard: (st: QueryState, view: string, signal?: AbortSignal) => {
+    const { facets: _facets, bbox: _bbox, ...rest } = st;
+    return post<Scorecard>('/scorecard', { ...rest, view }, signal);
+  },
   search: (st: QueryState, limit: number, offset: number, signal?: AbortSignal, color?: string | null) =>
     post<SearchResponse>('/search', { ...st, limit, offset, ...(color ? { color } : {}) }, signal),
   /** Legend of the map coloured by facet `key` (palette slots or classes, counts for the state). */
@@ -426,9 +495,9 @@ export const api = {
   shapeFileUrl: (name: string, download = false) =>
     `${BASE}/shapes/file?${qs({ name, ...(download ? { download: 'true' } : {}) })}`,
   /** Download URL for every feature matching the state, as CSV or XLSX (one sheet per class). */
-  exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl') => {
+  exportUrl: (st: QueryState, format: 'csv' | 'xlsx' | 'ttl', view?: string | null) => {
     const { facets: _facets, ...rest } = st;
-    return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format })}`;
+    return `${BASE}/export?${qs({ state: base64url(JSON.stringify(rest)), format, ...(view ? { view } : {}) })}`;
   },
   /** Absolute URLs for desktop GIS (docs/api.md, "GIS access") for a state; bbox is left out. */
   gisUrls: (st: QueryState) => {
