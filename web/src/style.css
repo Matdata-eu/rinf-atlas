@@ -1056,7 +1056,14 @@ body.profile-open .compat-legend { bottom: calc(var(--profile-h) + 32px); }
 .view-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .view-row select { flex: 1; min-width: 0; margin: 0; }
 .view-label { font-size: 12px; font-weight: 600; color: var(--muted); min-width: 4.5em; }
-.view-comment { margin: 0; }
+.view-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.view-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.view-head .icon-btn { width: 24px; height: 24px; }
+.view-about { flex-basis: 100%; }
+.view-about summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.view-about p { margin: 4px 0; }
+.view-pick select { max-width: 220px; }
+@media (max-width: 760px) { .view-pick select { max-width: 160px; } }
 .view-tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
 .view-toggle-all { margin: 6px 0 4px; }
 .terms .lbl .swatch { margin-right: 6px; vertical-align: -1px; }

@@ -21,6 +21,9 @@ test('meta lists the views with their checks', async ({ page, errors: _ }) => {
 
 test('opening a view sets its classes, filters and colours, and the link keeps it', async ({ page, errors: _ }) => {
   await openApp(page);
+  // the picker sits in the header; the block above the filters shows only with a view open
+  await expect(page.locator('header #view-select')).toHaveValue('');
+  await expect(page.locator('#view-bar')).toBeHidden();
   const search = page.waitForResponse((r) => r.url().includes('/api/search') && r.ok());
   await page.locator('#view-select').selectOption('corridors');
   await search;
@@ -41,6 +44,8 @@ test('opening a view sets its classes, filters and colours, and the link keeps i
 
   await page.locator('#view-bar button[aria-label="Close the view"]').click();
   await expect(page.locator('#view-section')).toBeHidden();
+  await expect(page.locator('#view-bar')).toBeHidden();
+  await expect(page.locator('#view-select')).toHaveValue('');
   await expect(page).not.toHaveURL(/vw=/);
 });
 
