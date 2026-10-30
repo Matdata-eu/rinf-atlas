@@ -161,6 +161,8 @@ ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS path text;
 ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS unit text;
 -- atlas:colorBy: suggested in the map's "Colour by" picker, lower ranks first.
 ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS color_by int;
+-- atlas:colorClasses: fixed colour classes of a range facet, [{up_to, label}] low to high.
+ALTER TABLE facet_def ADD COLUMN IF NOT EXISTS color_classes jsonb;
 
 CREATE TABLE IF NOT EXISTS class_def (
     class      text PRIMARY KEY,       -- shape key
@@ -175,6 +177,8 @@ ALTER TABLE class_def ADD COLUMN IF NOT EXISTS min_zoom int NOT NULL DEFAULT 0;
 -- (atlas:geometryPath / lineBetween / geometryFrom as compact SPARQL paths).
 ALTER TABLE class_def ADD COLUMN IF NOT EXISTS shape_file text;
 ALTER TABLE class_def ADD COLUMN IF NOT EXISTS position_rules jsonb;
+-- Map draw order within points, lines and areas (atlas:drawOrder): higher on top.
+ALTER TABLE class_def ADD COLUMN IF NOT EXISTS draw_order int;
 
 -- The shapes/ files as written, so the app can show the implementer's shapes.
 CREATE TABLE IF NOT EXISTS shape_file (
@@ -224,12 +228,16 @@ CREATE TABLE IF NOT EXISTS export (
     expires_at  timestamptz
 );
 CREATE INDEX IF NOT EXISTS export_status_idx ON export (status, created_at);
+-- The describe index for RINF Describe (Atlas 1.5) is gone: RINF Describe builds its
+-- pages live from ERA. Instances that ran it get the space back.
+DROP TABLE IF EXISTS describe_triple, describe_doc, describe_def;
+ALTER TABLE index_state DROP COLUMN IF EXISTS describe_hash;
 
 -- Work requested from the CLI while the poll loop owns the mirror.
 CREATE TABLE IF NOT EXISTS job (
     id          bigserial PRIMARY KEY,
     env         text,                   -- null = every environment
-    kind        text NOT NULL,          -- sync|reindex|resync
+    kind        text NOT NULL,          -- sync|reindex|resync|validate|revalidate|generate[-force]
     created_at  timestamptz NOT NULL DEFAULT now(),
     started_at  timestamptz,
     finished_at timestamptz,

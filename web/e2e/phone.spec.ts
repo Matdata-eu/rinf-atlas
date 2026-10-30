@@ -30,3 +30,24 @@ test('a result opens its details on a phone', async ({ page, errors: _ }) => {
   await expect(page.locator('#detail h2')).toHaveText('Bettembourg-Voyageurs');
   await expect(page.locator('#detail h2')).toBeInViewport();
 });
+
+test.describe('first visit on a phone', () => {
+  test.use({ tour: true });
+
+  test('the tour fits the screen and its buttons stay in reach', async ({ page, errors: _ }) => {
+    await openApp(page);
+    const tour = page.getByRole('dialog', { name: 'How RINF Atlas works' });
+    await expect(tour).toBeVisible();
+    const vp = page.viewportSize()!;
+    for (let i = 0; i < 4; i++) {
+      const box = (await tour.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
+      const next = tour.getByRole('button', { name: i < 3 ? 'Next' : 'Start exploring' });
+      await expect(next).toBeInViewport();
+      await next.click();
+    }
+    await expect(tour).toBeHidden();
+  });
+});

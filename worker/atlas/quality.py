@@ -127,8 +127,13 @@ def remove(conn: psycopg.Connection, env: str, graph: str) -> None:
     conn.commit()
 
 
-def apply_flags(conn: psycopg.Connection, env: str, graph: str) -> None:
-    """Write the severities found on each feature of a graph to its `quality` facet."""
+def apply_flags(conn: psycopg.Connection, env: str, graph: str, counts: bool = True) -> None:
+    """Write the severities found on each feature of a graph to its `quality` facet.
+
+    With `counts`, the facet's precomputed counts (facet_cache, which the API answers an
+    unfiltered state from) are rewritten in the same transaction. Otherwise they lag until the
+    next refresh_facet_cache: a worker stopped after a validation but before that refresh left
+    the facet empty while the map's issues layer, which reads the features, showed the values."""
     with conn.cursor() as cur:
         cur.execute("SELECT qa_status FROM dataset WHERE env=%s AND graph_iri=%s", (env, graph))
         row = cur.fetchone()
@@ -149,7 +154,22 @@ def apply_flags(conn: psycopg.Connection, env: str, graph: str) -> None:
                 WHERE f.id = f2.id AND f2.env=%(env)s AND f2.graph_iri=%(g)s
             """, {"env": env, "g": graph, "v": SEVERITY_IRI[3], "w": SEVERITY_IRI[2], "i": SEVERITY_IRI[1],
                   "ok": NO_ISSUES})
+        if counts:
+            refresh_counts(cur, env)
     conn.commit()
+
+
+def refresh_counts(cur: psycopg.Cursor, env: str) -> None:
+    """Recount the `quality` facet in facet_cache (like extract.refresh_facet_cache, for one key)."""
+    cur.execute("DELETE FROM facet_cache WHERE env=%s AND key=%s", (env, FACET))
+    cur.execute(f"""INSERT INTO facet_cache (env, class, key, value, n)
+                    SELECT f.env, f.class, %s, v.value, count(*)
+                    FROM feature f CROSS JOIN LATERAL jsonb_array_elements(f.facets -> '{FACET}') v
+                    WHERE f.env = %s AND f.facets ? '{FACET}'
+                    GROUP BY 1, 2, 4""", (FACET, env))
+    # A new data version: the API drops its cached facet counts and map colourings.
+    cur.execute("""INSERT INTO index_state (env) VALUES (%s) ON CONFLICT (env)
+                   DO UPDATE SET updated_at = now()""", (env,))
 
 
 def _summary_status(run: shacl.Run) -> str:
@@ -216,13 +236,24 @@ def build_html(cfg: Settings, env: Env, turtle: bytes, shapes_ttl: bytes) -> byt
         return out.read_bytes() if out.exists() else None
 
 
-def run_fingerprint(q: Quality, shapes_fp: str | None) -> str | None:
+def vocab_fingerprint(conn: psycopg.Connection, env: Env, shapes_graph: str) -> str:
+    """The vocabulary graphs the checks see next to a provider graph (ontology, SKOS, border
+    points, NUTS...), as loaded: adding one, or ERA changing one, validates every graph again."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT graph_iri, fingerprint FROM dataset WHERE env=%s AND kind='vocab' AND status='loaded'",
+                    (env.key,))
+        loaded = dict(cur.fetchall())
+    return "\n".join(sorted(f"{g} {loaded[g]}" for g in env.vocab_graphs if g in loaded and g != shapes_graph))
+
+
+def run_fingerprint(q: Quality, shapes_fp: str | None, vocab_fp: str = "") -> str | None:
     """What a graph was validated with: the shapes, plus the rules left out by configuration
-    (so changing `quality.exclude_shapes` validates every graph again)."""
+    (so changing `quality.exclude_shapes` validates every graph again) and the vocabularies."""
     excl = sorted(q.exclude_shapes)
-    if shapes_fp is None or not excl:
+    if shapes_fp is None or not (excl or vocab_fp):
         return shapes_fp
-    return hashlib.sha256((shapes_fp + "\n" + "\n".join(excl)).encode()).hexdigest()
+    extra = "\n".join(excl) + (f"\nvocab:\n{vocab_fp}" if vocab_fp else "")
+    return hashlib.sha256((shapes_fp + "\n" + extra).encode()).hexdigest()
 
 
 def too_large_note(triples: int, limit: int) -> str:
@@ -244,7 +275,7 @@ def validate_dataset(cfg: Settings, conn: psycopg.Connection, store: ox.Store, e
                      reason="no_shapes")
         apply_flags(conn, env.key, graph)
         return "skipped"
-    fp = fp or run_fingerprint(q, shapes_fingerprint(store, src.graph))
+    fp = fp or run_fingerprint(q, shapes_fingerprint(store, src.graph), vocab_fingerprint(conn, env, src.graph))
     with conn.cursor() as cur:
         cur.execute("SELECT triples FROM dataset WHERE env=%s AND graph_iri=%s", (env.key, graph))
         row = cur.fetchone()
@@ -312,7 +343,7 @@ def validate_pending(cfg: Settings, conn: psycopg.Connection, store: ox.Store, e
         return 0
     fp = shapes_fingerprint(store, src.graph)
     publish_shapes(conn, store, env.key, src, fp, q)
-    fp = run_fingerprint(q, fp)
+    fp = run_fingerprint(q, fp, vocab_fingerprint(conn, env, src.graph))
     with conn.cursor() as cur:
         cur.execute("""SELECT graph_iri FROM dataset WHERE env=%s AND kind='provider' AND status='loaded'
                          AND (%s OR qa_shapes IS DISTINCT FROM %s

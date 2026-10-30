@@ -8,8 +8,13 @@
 #                is what the dataset explorer page shows (latest upload per IM).
 # portal:        ERA portal base URL (links in the UI).
 # vocab_graphs:  named graphs loaded into the local mirror next to the
-#                provider data (ontology, SKOS concept schemes, countries),
-#                for labels and shape generation.
+#                provider data, for labels, shape generation and data quality:
+#                the ontology, SKOS concept schemes, countries, reference
+#                border points (rinf/borders, or borders before ERA moved it;
+#                a graph the repository lacks is skipped), NUTS regions and
+#                EU legislation (lex). ERA validates uploads against these
+#                too: without them, references to border points or NUTS
+#                regions show up as false data quality findings.
 # include_graphs / exclude_graphs: optional Python regexes on graph IRIs.
 #                The environment variable ATLAS_ONLY_GRAPHS (comma separated
 #                IRIs or IM codes) overrides include_graphs, handy for tests.
@@ -28,6 +33,10 @@ environments:
       - http://data.europa.eu/949/graph/rinf/ontology
       - http://data.europa.eu/949/graph/rinf/skos
       - http://data.europa.eu/949/graph/rinf/countries
+      - http://data.europa.eu/949/graph/rinf/borders
+      - http://data.europa.eu/949/graph/borders
+      - http://data.europa.eu/949/graph/nuts
+      - http://data.europa.eu/949/graph/lex
   uat:
     label: UAT
     sparql: https://graph.uat.data.test-era.europa.eu/repositories/rinf-plus
@@ -37,6 +46,10 @@ environments:
       - http://data.europa.eu/949/graph/rinf/ontology
       - http://data.europa.eu/949/graph/rinf/skos
       - http://data.europa.eu/949/graph/rinf/countries
+      - http://data.europa.eu/949/graph/rinf/borders
+      - http://data.europa.eu/949/graph/borders
+      - http://data.europa.eu/949/graph/nuts
+      - http://data.europa.eu/949/graph/lex
 
 # Provider data lives in one named graph per infrastructure manager:
 # http://data.europa.eu/949/graph/{organisation code}, e.g. .../graph/0088

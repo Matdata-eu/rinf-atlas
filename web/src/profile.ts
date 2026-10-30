@@ -49,6 +49,7 @@ let lineHits: LineHit[] = [];
 let opHits: SearchItem[] = [];
 /** Elements of each strip column (section i), for highlighting. */
 let columns: HTMLElement[][] = [];
+let maximized = false;
 
 // ---------- row choice: store.profileRows (in the link), remembered per viewer ----------
 function readParams(): string[] | null {
@@ -88,18 +89,22 @@ const ICON = {
   csv: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   map: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 3.5 6 2l4 1.5L14 2v10.5L10 14l-4-1.5L2 14z M6 2v10.5M10 3.5V14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
   minus: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  maximize: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  restore: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   plus: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
+const maxBtn = iconBtn('Full screen', ICON.maximize, () => setMaximized(!maximized), 'profile-max-btn');
 const actions = h('div', { class: 'profile-actions' },
   iconBtn('Narrower strip', ICON.minus, () => setZoom(zoom / 1.5)),
   iconBtn('Wider strip', ICON.plus, () => setZoom(zoom * 1.5)),
-  iconBtn('Zoom the map to the profile', ICON.map, () => fitMap()),
+  iconBtn('Zoom the map to the profile', ICON.map, () => { setMaximized(false); fitMap(); }),
   iconBtn('Reverse the direction', ICON.reverse, () => {
     const p = store.get().profile;
     if (p) store.set({ profile: { ...p, reverse: !p.reverse } });
   }),
   iconBtn('Choose the rows (parameters)', ICON.rows, () => openRows()),
   iconBtn('Download the strip as CSV', ICON.csv, () => downloadCsv()),
+  maxBtn,
   h('button', { class: 'icon-btn profile-close', type: 'button', 'aria-label': 'Close the line profile', title: 'Close',
     onclick: () => store.set({ profileOpen: false }) }, '×'));
 
@@ -129,6 +134,18 @@ function setMode(m: Mode) {
 
 const setSpec = (spec: ProfileSpec | null) => store.set({ profile: spec });
 
+/** Fill the form, keeping the focus and caret in an input that is moved: a re-render while
+ *  someone types (the panel's first load lands ~120 ms after it opens) would otherwise drop the keys. */
+function setForm(...kids: HTMLElement[]) {
+  const el = document.activeElement;
+  const keep = el instanceof HTMLInputElement && form.contains(el) ? { el, start: el.selectionStart, end: el.selectionEnd } : null;
+  form.replaceChildren(...kids);
+  if (keep && form.contains(keep.el) && document.activeElement !== keep.el) {
+    keep.el.focus();
+    keep.el.setSelectionRange(keep.start, keep.end);
+  }
+}
+
 function renderForm() {
   const spec = store.get().profile;
   if (mode === 'line') {
@@ -137,11 +154,11 @@ function renderForm() {
     graphSelect.hidden = alts.length < 2;
     graphSelect.replaceChildren(...alts.map((a) => h('option', { value: a.graph_iri, selected: a.graph_iri === data?.line?.graph_iri },
       `${a.provider ?? a.graph_iri.split('/').pop()} (${a.sections} sections)`)));
-    form.replaceChildren(lineInput, graphSelect,
+    setForm(lineInput, graphSelect,
       h('span', { class: 'muted small profile-hint' }, 'Or open a section of line on the map and choose “Line profile”.'));
   } else if (mode === 'sections') {
     const n = spec?.mode === 'sections' ? spec.sections.length : 0;
-    form.replaceChildren(...[
+    setForm(...[
       h('span', { class: 'profile-hint' }, h('strong', {}, n ? `${n} section${n === 1 ? '' : 's'} selected. ` : ''),
         'Click sections of line on the map to add or remove them; they are put in order and gaps are flagged.'),
       n ? h('button', { class: 'btn btn-small', type: 'button', onclick: () => {
@@ -152,7 +169,7 @@ function renderForm() {
   } else {
     if (document.activeElement !== fromInput) fromInput.value = routeDraft.from?.label ?? '';
     if (document.activeElement !== toInput) toInput.value = routeDraft.to?.label ?? '';
-    form.replaceChildren(fromInput, h('span', { class: 'muted', 'aria-hidden': 'true' }, '→'), toInput,
+    setForm(fromInput, h('span', { class: 'muted', 'aria-hidden': 'true' }, '→'), toInput,
       h('span', { class: 'muted small profile-hint' }, 'Type a name, or click two operational points on the map.'));
   }
 }
@@ -651,6 +668,20 @@ function downloadCsv() {
 }
 
 // ---------- open / close ----------
+/** Full screen: the panel covers the whole window (the detail panel still opens over it). */
+function setMaximized(on: boolean) {
+  if (on === maximized) return;
+  maximized = on;
+  panel.classList.toggle('maximized', on);
+  document.body.classList.toggle('profile-max', on);
+  const title = on ? 'Exit full screen' : 'Full screen';
+  maxBtn.title = title;
+  maxBtn.setAttribute('aria-label', title);
+  maxBtn.setAttribute('aria-pressed', String(on));
+  maxBtn.innerHTML = on ? ICON.restore : ICON.maximize;
+  afterLayout();
+}
+
 function afterLayout() {
   requestAnimationFrame(() => { resizeMap(); if (store.get().profileOpen) renderStrip(); });
 }
@@ -660,6 +691,7 @@ function applyOpen() {
   panel.hidden = !open;
   document.body.classList.toggle('profile-open', open);
   toggleBtn.setAttribute('aria-pressed', String(open));
+  if (!open) setMaximized(false);
   if (!open) { setProfileData({ type: 'FeatureCollection', features: [] }, { type: 'FeatureCollection', features: [] }); setHover(null); }
   syncClickHook();
   afterLayout();
@@ -686,6 +718,10 @@ export function initProfile(fromLink = false) {
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commitOp(which, input); });
   }
   toggleBtn.addEventListener('click', () => store.set({ profileOpen: !store.get().profileOpen }));
+  maxBtn.setAttribute('aria-pressed', 'false');
+  panel.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && maximized && !(e.target as HTMLElement).closest('input, select, dialog')) { e.stopPropagation(); setMaximized(false); }
+  });
   onProfileHover((i) => setHover(i, null));
   window.addEventListener('resize', debounce(() => { if (store.get().profileOpen) renderStrip(); }, 150));
   store.subscribe((s, prev) => {

@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import signal
 import sys
 import time
@@ -308,6 +309,9 @@ def cmd_run(a) -> None:
         if not cur.fetchone()[0]:
             sys.exit("another worker loop is already running")
     conn.commit()
+    if os.environ.get("ATLAS_DESCRIBE"):
+        log.warning("ATLAS_DESCRIBE is ignored: the describe index was removed in 1.6.0 "
+                    "(RINF Describe builds its pages live from ERA)")
     signal.signal(signal.SIGTERM, lambda *_: _set_stop())
     signal.signal(signal.SIGINT, lambda *_: _set_stop())
     exports = exporter.ExportService(cfg)

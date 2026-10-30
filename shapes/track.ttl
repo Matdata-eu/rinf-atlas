@@ -20,8 +20,9 @@ shape:track
     atlas:geometry "line" ;
     atlas:order 45 ;
     atlas:minZoom 10 ;
+    atlas:drawOrder 22 ;
     atlas:labelPath rdfs:label ;
-    atlas:geometryPath [ sh:alternativePath ( ( gsp:hasGeometry gsp:asWKT ) ( era:netReference gsp:hasGeometry gsp:asWKT ) ) ] ;
+    atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom [ sh:alternativePath ( era:isPartOf [ sh:inversePath era:hasPart ] ) ] ;
     sh:property [  # RINF 1.1.1.0.0.1, 16590 instances in data
         sh:path era:trackId ;
@@ -73,6 +74,17 @@ shape:track
         atlas:kind "range" ;
         sh:datatype xsd:integer ;
         atlas:unit "KiloM-PER-HR" ;
+        # Map colours (issue #65): fixed speed bands, so high-speed lines stand out.
+        atlas:colorClasses (
+            [ atlas:upTo 40 ; rdfs:label "Very very low speed" ]
+            [ atlas:upTo 80 ; rdfs:label "Very low speed" ]
+            [ atlas:upTo 120 ; rdfs:label "Low speed" ]
+            [ atlas:upTo 160 ; rdfs:label "Conventional main line" ]
+            [ atlas:upTo 200 ; rdfs:label "Enhanced conventional" ]
+            [ atlas:upTo 250 ; rdfs:label "Fast line" ]
+            [ atlas:upTo 300 ; rdfs:label "High-speed rail" ]
+            [ rdfs:label "Very high-speed rail" ]
+        ) ;
         sh:order 70 ;
     ] ;
     sh:property [  # RINF 1.1.1.1.2.6, 6737 instances in data

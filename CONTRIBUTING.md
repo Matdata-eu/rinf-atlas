@@ -6,12 +6,14 @@ Thanks for helping improve RINF Atlas. Issues and pull requests are welcome.
 
 | Path | |
 |---|---|
-| `worker/` | ingest worker (`atlas` CLI): ERA discovery, Oxigraph mirror, SHACL-driven extraction |
-| `api/` | FastAPI app: facets, search, vector tiles, live describe |
-| `web/` | TypeScript + MapLibre frontend, served by nginx |
-| `shapes/` | SHACL facet shapes (most data-model changes start here) |
+| `worker/` | ingest worker (`atlas` CLI): ERA discovery, Oxigraph mirror, SHACL-driven extraction, data quality validation |
+| `api/` | FastAPI app: facets, search, vector tiles, export, line profile, vehicle check, OGC API – Features, live describe |
+| `web/` | TypeScript + MapLibre frontend, served by nginx; mock API in `web/mock/`, browser tests in `web/e2e/` |
+| `shapes/` | SHACL facet shapes (most data-model changes start here) and the vehicle check rules (`compatibility.ttl`) |
+| `config/` | environments, data quality settings, example extra map layers |
 | `db/init.sql` | PostGIS schema |
-| `docs/` | `api.md` (HTTP contract), `urls.md` (link scheme), `DESIGN.md` (design notes) |
+| `tests/` | `smoke.sh` and its sample data |
+| `docs/` | `api.md` (HTTP contract), `urls.md` (link scheme), `datasets.md` (update cycle, data quality), `architecture.md`, `DESIGN.md` (design notes), `layers.md`, `privacy.md` |
 
 ## Running locally
 
@@ -43,7 +45,9 @@ pytest -q worker/tests api/tests
 (cd web && npm ci && npm run build)
 
 # end to end: index the bundled Luxembourg sample and query the stack
-docker compose up -d --build db api web
+# (ATLAS_IMAGE keeps the local build from taking the published images' tags, as in CI)
+export ATLAS_ENVS=prod ATLAS_IMAGE=local/rinf-atlas
+docker compose up -d --build --wait db api web
 bash tests/smoke.sh
 
 # browser tests (Playwright) against that stack, desktop and phone sizes
@@ -53,7 +57,9 @@ bash tests/smoke.sh
 The browser tests live in `web/e2e/`. A change to what the UI shows or does
 should keep them passing, and a new feature gets a test there. They read the
 expected counts from the API, so they hold when the sample changes;
-`ATLAS_URL` points them at another instance.
+`ATLAS_URL` points them at another instance, and `PW_CHANNEL=chrome` runs
+them in an installed Google Chrome instead of Playwright's Chromium (as CI
+does).
 
 ## Guidelines
 
@@ -74,3 +80,7 @@ expected counts from the API, so they hold when the sample changes;
   [GitHub Releases](https://github.com/Matdata-eu/rinf-atlas/releases), generated
   from the merged pull requests and edited there, so give your pull request a
   Conventional Commits title that reads well as a line in them.
+- With each release, add an entry at the top of `web/src/whats-new.json`: the
+  app's "What's new" dialog. Keep it short and for users: one line per item
+  under `new`, `improved` and `fixed`, leaving out contributor-only changes.
+  A returning visitor gets a dot on the About button until they open it.

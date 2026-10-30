@@ -66,4 +66,61 @@ test('limit to map view counts only what is in view', async ({ page, errors: _ }
   await page.locator('#limit-view').check();
   await expect.poll(() => resultCount(page)).toBe(0);
   await expect(page).toHaveURL(/[#&]v=1/);
+  // The class counts drop to zero too, not back to the totals (#54).
+  await expect(page.locator('#class-list .class-row .count').first()).toHaveText('0');
+  for (const n of await page.locator('#class-list .class-row .count').allInnerTexts()) expect(n).toBe('0');
+});
+
+test('typing in a facet filter keeps the focus', async ({ page, errors: _ }) => {
+  // The sample has one country; pad the list so the facet shows its filter box.
+  await page.route('**/api/facets', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const extra = ['AUT', 'BEL', 'CHE', 'CZE', 'DEU', 'DNK', 'ESP', 'FRA', 'ITA', 'NLD', 'POL']
+      .map((c) => ({ value: `http://publications.europa.eu/resource/authority/country/${c}`, label: c, count: 1 }));
+    body.facets.country.values.push(...extra);
+    await route.fulfill({ response: res, json: body });
+  });
+  await openApp(page);
+  const filter = page.getByRole('searchbox', { name: 'Filter Country' });
+  await filter.click();
+  await page.keyboard.type('bel', { delay: 50 });
+  await expect(filter).toBeFocused();
+  await expect(filter).toHaveValue('bel');
+  await expect(page.locator('#facets [data-facet="country"] .terms label')).toHaveText([/BEL/]);
+});
+
+test('the data quality facet lists the severities the data issues layer shows', async ({ page, errors: _ }) => {
+  // The unfiltered facet comes from the worker's precomputed counts; it once stayed empty
+  // ("No values") while the layer, which reads the features themselves, showed them.
+  await openApp(page);
+  const block = page.locator('#facets [data-facet="quality"]');
+  await expect(block.locator('.terms label').first()).toBeVisible();
+  await expect(block).not.toContainText('No values');
+  const shown = Object.fromEntries(await block.locator('.terms label').evaluateAll((ls) =>
+    ls.map((l) => [l.getAttribute('title'), Number(l.querySelector('.count')!.textContent!.replace(/\D/g, ''))])));
+  expect(Object.keys(shown)).toContain('http://www.w3.org/ns/shacl#Warning');
+  // The same counts as a query that reads the features (a dataset selection is never precomputed).
+  const ds = await (await page.request.get('/api/datasets?env=prod')).json() as { graph_iri: string; status: string }[];
+  const graphs = ds.filter((d) => d.status === 'loaded').map((d) => d.graph_iri);
+  const live = await (await page.request.post('/api/facets',
+    { data: { env: 'prod', classes: [], filters: {}, graphs, facets: ['quality'] } })).json();
+  const counted = Object.fromEntries((live.facets.quality.values as { value: string; count: number }[])
+    .map((v) => [v.value, v.count]));
+  expect(shown).toEqual(counted);
+});
+
+test('picking a data quality value turns on the data issues layer', async ({ page, errors: _ }) => {
+  await openApp(page);
+  const toggle = page.locator('#qa-toggle');
+  await expect(toggle).not.toBeChecked();
+  const block = page.locator('#facets [data-facet="quality"]');
+  await block.locator('.terms label').first().click();
+  await expect(page).toHaveURL(/[#&]qa=1/);
+  await expect(toggle).toBeChecked();
+  // It can still be switched off while the filter stays.
+  await page.locator('#layers-btn').click();
+  await toggle.uncheck();
+  await expect(page).not.toHaveURL(/[#&]qa=1/);
+  await expect(block.locator('.terms input:checked')).toHaveCount(1);
 });

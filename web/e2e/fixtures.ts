@@ -2,8 +2,14 @@ import { test as base, expect, type Page } from '@playwright/test';
 
 export type MetaClass = { class: string; label: string; count: number };
 
-/** Uncaught exceptions in the page fail the test that caused them. */
-export const test = base.extend<{ errors: string[] }>({
+/** Uncaught exceptions in the page fail the test that caused them. The first-visit tour is
+ * marked as seen so it does not cover the app; `test.use({ tour: true })` lets it open. */
+export const test = base.extend<{ errors: string[]; tour: boolean }>({
+  tour: [false, { option: true }],
+  page: async ({ page, tour }, use) => {
+    if (!tour) await page.addInitScript(() => { try { localStorage.setItem('atlas-tour', '9999-12-31'); } catch { /* */ } });
+    await use(page);
+  },
   errors: async ({ page }, use) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));

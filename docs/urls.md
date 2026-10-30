@@ -4,7 +4,8 @@ Everything that shapes what you see in RINF Atlas is in the address bar, in
 the part after `#`. Copying the URL (or using **Share** in the top bar)
 gives a link that opens the same view for someone else: environment, map
 position, classes, filters, search text, datasets, selected feature and its
-tab, map colours, data issues, line profile and vehicle profile.
+tab, map colours, data issues, classes drawn at every zoom, line profile,
+vehicle profile and map layers.
 
 The code is `web/src/url.ts`. This page is the contract: links that work
 today keep working.
@@ -43,6 +44,7 @@ Back / Forward, every parameter that is absent is reset to its default.
 | `col` | Map colouring: facet key, plain or `class/key` | off |
 | `colh` | Legend entries hidden, `,` separated items (`bin:0`, `__nodata__`, values) | none |
 | `qa` | `1` = show data issues on the map | off |
+| `az` | Classes drawn at every zoom, ignoring their minimum zoom, `,` separated | none |
 | `lp` | Line profile open; its subject, see [Line profile](#line-profile). Present and empty = open with nothing chosen | closed |
 | `lpr` | Line profile rows (facet keys), `,` separated; `-` = no rows | the user's own rows |
 | `veh` | Vehicle compatibility on the map with this vehicle, see [Vehicle](#vehicle) | off |
@@ -134,7 +136,8 @@ absent.
 - **Push.** A new history entry is added for navigation, so Back undoes it.
   Navigation is a change of environment, classes, filters, datasets, search
   text, selection, detail tab, Describe step or direction, map colouring,
-  data issues, opening or changing the line profile, opening or closing
+  data issues, classes drawn at every zoom, opening or changing the line
+  profile, opening or closing
   the Vehicle check panel, or switching vehicle.
   Several such changes within 1.5 s share one entry, for example ticking a
   few values.

@@ -1,20 +1,68 @@
 version: 2
 updates:
-  - package-ecosystem: github-actions
-    directory: /
-    schedule: { interval: monthly }
-  - package-ecosystem: pip
-    directory: /worker
-    schedule: { interval: monthly }
-  - package-ecosystem: pip
-    directory: /api
-    schedule: { interval: monthly }
   - package-ecosystem: npm
     directory: /web
-    schedule: { interval: monthly }
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
     groups:
       web:
+        update-types: [minor, patch]
+      web-security:
+        applies-to: security-updates
         patterns: ["*"]
+    # Majors stay ungrouped: one PR each, never auto-merged.
+
+  - package-ecosystem: pip
+    directories: [/worker, /api]
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      python:
+        update-types: [minor, patch]
+      python-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
   - package-ecosystem: docker
     directories: [/worker, /api, /web]
-    schedule: { interval: monthly }
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      docker:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    labels: [dependencies]
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]

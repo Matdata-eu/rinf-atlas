@@ -27,7 +27,7 @@ from .query import split_key
 
 MIXED = "__mixed__"
 SLOTS = 8          # categorical palette size; less frequent values share "other values"
-RANGE_BINS = 5     # sequential classes for range facets
+RANGE_BINS = 5     # sequential classes for range facets (unless the shapes give atlas:colorClasses)
 
 
 def nice(x: float) -> float:
@@ -70,12 +70,23 @@ class Themes:
         owners = {scope} if scope else d["owners"][fk]
         return fk, kind, (None if "*" in owners else sorted(owners))
 
+    def fixed_classes(self, key: str) -> list[dict] | None:
+        """atlas:colorClasses of the facet: [{up_to, label}], the first owner class that has them."""
+        fk, kind, owners = self.resolve(key)
+        if kind != "range":
+            return None
+        defs = [f for f in self._defs()["facets"] if f["key"] == fk and f.get("color_classes")
+                and (owners is None or f["class"] in owners)]
+        return min(defs, key=lambda f: f["class"])["color_classes"] if defs else None
+
     def get(self, env: str, key: str) -> dict:
         """The theme row for (env, key), computed if missing or stale."""
         hit = self._mem.get((env, key))
         if hit and time.time() - hit[0] < 10:
             return hit[1]
-        version = self._version(env)
+        # Colour classes change without a reindex: they are part of the theme's version.
+        fixed = self.fixed_classes(key)
+        version = self._version(env) + (f"|{json.dumps(fixed, sort_keys=True)}" if fixed else "")
         rows = self._q("SELECT * FROM theme WHERE env=%s AND key=%s", [env, key])
         if not rows or rows[0]["version"] != version:
             self._compute(env, key, version)
@@ -150,7 +161,16 @@ class Themes:
                         WHERE f.env = %(env)s AND {own_cls}
                         {up}
                     ) x GROUP BY fid {having}""", params)
-                if kind == "range":
+                fixed = self.fixed_classes(key) if kind == "range" else None
+                if fixed:
+                    r = conn.execute("SELECT min(n) lo, max(n) hi FROM theme_value WHERE theme = %(tid)s",
+                                     params).fetchone()
+                    # upper: class i holds values > breaks[i-1] and <= breaks[i] (atlas:upTo is inclusive)
+                    conn.execute("UPDATE theme SET breaks=%s::jsonb, lo=%s, hi=%s WHERE id=%s",
+                                 [json.dumps({"breaks": [c["up_to"] for c in fixed[:-1]], "discrete": False,
+                                              "upper": True, "labels": [c.get("label") for c in fixed]}),
+                                  r["lo"], r["hi"], tid])
+                elif kind == "range":
                     r = conn.execute("""
                         SELECT min(n) lo, max(n) hi,
                                percentile_disc(ARRAY[0.2, 0.4, 0.6, 0.8]) WITHIN GROUP (ORDER BY n) qs,

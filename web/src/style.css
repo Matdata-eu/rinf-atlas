@@ -71,6 +71,7 @@ a { color: var(--accent); }
 code { font-family: var(--mono); font-size: 0.92em; }
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.noscript { padding: 16px 20px; max-width: 46em; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
 .error { color: var(--danger); }
@@ -181,7 +182,25 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .zoom-hint { font: inherit; font-size: 11px; color: var(--muted); text-decoration: underline dotted; }
 .zoom-hint:hover { color: var(--accent); }
 .lg-note .link { font: inherit; }
-.nomap-hint { font-size: 11px; padding: 0 0 4px 41px; margin-top: -2px; }
+/* Exclamation mark by a class count when some of its features have no location; the
+   explanation shows on hover or keyboard focus. */
+.count-cell { display: inline-flex; align-items: center; gap: 5px; position: relative; }
+.nomap-hint {
+  display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+  background: color-mix(in srgb, var(--warn) 30%, transparent); color: var(--text);
+  font-size: 10px; font-weight: 700; line-height: 1; cursor: help;
+}
+.nomap-hint[hidden] { display: none; }
+.nomap-hint:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.nomap-hint::after {
+  content: attr(data-tip); position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+  width: max-content; max-width: 240px; padding: 6px 8px; border-radius: 6px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 18%); font-size: 12px; font-weight: 400; line-height: 1.35;
+  white-space: normal; text-align: left; pointer-events: none; opacity: 0; visibility: hidden;
+  transition: opacity 0.12s;
+}
+.nomap-hint:hover::after, .nomap-hint:focus-visible::after { opacity: 1; visibility: visible; }
 
 /* ---------- layout ---------- */
 .layout {
@@ -194,12 +213,25 @@ code { font-family: var(--mono); font-size: 0.92em; }
 body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail-w); }
 
 .side {
+  position: relative;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
+/* Drag handle on the panel's right edge (desktop) to widen it for long class and facet names. */
+.side-resize {
+  position: absolute; top: 0; bottom: 0; right: -4px; width: 8px; z-index: 5;
+  cursor: col-resize; touch-action: none;
+}
+.side-resize::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px;
+  background: transparent; transition: background 0.15s;
+}
+.side-resize:hover::after, .side-resize:focus-visible::after, body.side-resizing .side-resize::after { background: var(--accent); }
+.side-resize:focus-visible { outline: none; }
+body.side-resizing { cursor: col-resize; user-select: none; }
 .side-head { flex: none; border-bottom: 1px solid var(--border); }
 .sheet-handle { display: none; }
 .side-body { flex: 1; overflow: auto; padding: 12px 14px 24px; }
@@ -239,6 +271,10 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .check.zero { color: var(--muted); }
 .check input { margin: 0; accent-color: var(--accent); }
 .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* Class rows: the name shortens with an ellipsis, the zoom hint after it stays whole. */
+.class-lbl { display: flex; align-items: baseline; gap: 5px; }
+.class-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.class-lbl .zoom-hint { flex: none; white-space: nowrap; }
 .count { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%); }
 
@@ -451,6 +487,7 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
     transition: height 0.2s ease;
   }
   .side.expanded { height: 78%; }
+  .side-resize { display: none; }
   .sheet-handle {
     display: flex; justify-content: center; width: 100%; border: 0; background: none; padding: 6px 0 0; cursor: pointer;
   }
@@ -489,6 +526,31 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .credits { margin: 4px 0; padding-left: 18px; }
 .credits li { margin: 3px 0; }
 .help-dialog { width: min(600px, calc(100vw - 32px)); }
+.theme-btn.has-news { position: relative; }
+.theme-btn.has-news::after {
+  content: ''; position: absolute; top: 2px; right: 3px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 2px var(--surface);
+}
+.wn-release { border-top: 1px solid var(--border); padding: 4px 0 8px; }
+.wn-release:first-child { border-top: 0; }
+.wn-release h3 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.wn-date { font-weight: 400; font-size: 12px; }
+.wn-unseen { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); }
+.wn-group { display: grid; grid-template-columns: 76px 1fr; gap: 8px; margin: 6px 0; }
+.wn-tag {
+  align-self: start; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  text-transform: uppercase; padding: 2px 0; border-radius: 4px; border: 1px solid currentColor;
+}
+.wn-new .wn-tag { color: var(--accent); }
+.wn-improved .wn-tag { color: var(--muted); }
+.wn-fixed .wn-tag { color: var(--muted); border-style: dashed; }
+.wn-group ul { margin: 0; padding-left: 16px; }
+.wn-group li { margin: 2px 0 4px; line-height: 1.45; }
+@media (max-width: 520px) {
+  .wn-group { grid-template-columns: 1fr; gap: 4px; }
+  .wn-tag { justify-self: start; padding: 2px 8px; }
+}
+.help-tour .link { font: inherit; font-weight: 600; }
 .help-sec { border-top: 1px solid var(--border); }
 .help-sec:last-child { border-bottom: 1px solid var(--border); }
 .help-sec summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 9px 0; }
@@ -532,6 +594,71 @@ body.detail-open .layout { grid-template-columns: var(--side-w) 1fr var(--detail
 .export-failed { border-color: var(--danger); }
 .export-job .export-btns { margin: 6px 0 0; }
 
+
+/* ---------- "How RINF Atlas works" tour ---------- */
+.tour-dialog { width: min(640px, calc(100vw - 32px)); }
+.tour-dialog .dlg-head { align-items: flex-start; padding-top: 14px; }
+.tour-title { display: flex; flex-direction: column; gap: 2px; }
+.tour-kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.tour-dialog .dlg-head h2 { font-size: 18px; }
+.tour-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 6px; overflow: auto; }
+.tour-item { display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: center; padding: 8px 0; }
+.tour-item + .tour-item { border-top: 1px solid var(--border); }
+.tour-item h3 { font-size: 14px; margin: 0 0 2px; }
+.tour-item p { margin: 0; line-height: 1.45; color: var(--muted); }
+.tour-art {
+  width: 76px; height: 60px; display: grid; place-items: center;
+  background: var(--surface-2); border-radius: var(--radius);
+}
+.tour-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px 14px; border-top: 1px solid var(--border);
+}
+.tour-nav-left, .tour-nav { display: flex; align-items: center; gap: 10px; }
+.tour-nav { margin-left: auto; }
+.tour-dots { display: flex; gap: 2px; }
+.tour-dot { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.tour-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: width .15s; }
+.tour-dot[aria-current]::before { background: var(--accent); width: 18px; border-radius: 4px; }
+.tour-step { font-size: 12px; }
+.tour-skip { font-size: 13px; color: var(--muted); }
+.tour-next { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.tour-next:hover { background: var(--accent); filter: brightness(1.08); }
+/* drawings: theme colours only, so they follow light and dark */
+.tour-art svg { overflow: visible; }
+.tour-art :is(path, circle, rect, ellipse) { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tour-art text { font: 600 8px var(--font); }
+.ta-soft, .ta-card { fill: var(--surface) !important; stroke: var(--border); stroke-width: 1.5; }
+.ta-fill { fill: var(--accent) !important; }
+.ta-fill-soft { fill: var(--accent-soft) !important; stroke: var(--accent); stroke-width: 1.5; }
+.ta-on { fill: var(--surface); }
+.ta-txt { fill: var(--muted); }
+.ta-on-line { stroke: var(--surface); stroke-width: 2.2; }
+.ta-line { stroke: var(--accent); stroke-width: 2; }
+.ta-thick { stroke-width: 3.5; }
+.ta-muted { stroke: var(--muted); stroke-width: 2; opacity: .55; }
+.ta-tab { stroke: var(--accent); stroke-width: 3; }
+.ta-rail { stroke: var(--accent); stroke-width: 3; }
+.ta-dot { fill: var(--signal) !important; stroke: var(--surface); stroke-width: 1.5; }
+.ta-ptr { fill: var(--text) !important; stroke: var(--surface); stroke-width: 1.2; }
+.ta-ptr-line { stroke: var(--text); stroke-width: 1.2; stroke-dasharray: 2 2; }
+.ta-box { stroke: var(--muted); stroke-width: 1.5; fill: var(--surface) !important; }
+.ta-tick { stroke: var(--accent); stroke-width: 2; }
+.ta-c1 { fill: #2e90fa !important; } .ta-c2 { fill: #f79009 !important; } .ta-c3 { fill: #12b76a !important; }
+.ta-c1s { stroke: #2e90fa; } .ta-c3s { stroke: #12b76a; }
+.ta-band { stroke-width: 5; }
+.ta-b1 { stroke: #f04438; } .ta-b2 { stroke: #fdb022; } .ta-b3 { stroke: #12b76a; }
+.ta-b1f { fill: #f04438 !important; } .ta-b2f { fill: #fdb022 !important; } .ta-b3f { fill: #12b76a !important; }
+.ta-ok { stroke: var(--ok); } .ta-warn { stroke: var(--warn); } .ta-bad { stroke: var(--danger); }
+.ta-okf { fill: var(--ok) !important; }
+.ta-win { fill: var(--surface) !important; stroke: var(--accent); stroke-width: 1.2; }
+.ta-wheel { fill: var(--text) !important; }
+@media (max-width: 520px) {
+  .tour-item { grid-template-columns: 60px 1fr; gap: 10px; }
+  .tour-art { width: 60px; height: 48px; }
+  .tour-art svg { width: 52px; height: 39px; }
+  .tour-step { display: none; }
+}
 .gis-row { margin: 14px 0 0; }
 .gis-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .gis-row p { margin: 4px 0 0; }
@@ -777,6 +904,12 @@ body.profile-open .map-msg { bottom: calc(var(--profile-h) + 36px); }
 .profile-act { font-size: 16px; padding: 5px 6px; display: inline-flex; }
 .profile-act svg { display: block; }
 .profile-close { font-size: 22px; }
+/* Full screen: the panel covers the whole window; the detail panel of a clicked section opens beside it (over it on phones). */
+.profile.maximized { position: fixed; inset: 0; height: auto; z-index: 12; border: 0; border-radius: 0; box-shadow: none; }
+.profile.maximized .sheet-handle { display: none; }
+.profile.maximized .profile-head { padding-top: 8px; }
+body.profile-max.detail-open .profile.maximized { right: var(--detail-w); border-right: 1px solid var(--border); }
+body.profile-max .detail { position: fixed; top: 0; right: 0; bottom: 0; width: var(--detail-w); z-index: 12; }
 .profile-form { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 0 14px 4px; flex: none; }
 .profile-input { height: 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 0 8px; width: 230px; min-width: 0; }
 .profile-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
@@ -846,6 +979,9 @@ body.profile-open .map-msg { bottom: calc(var(--profile-h) + 36px); }
     box-shadow: 0 -4px 16px rgb(0 0 0 / 15%); transition: height 0.2s ease;
   }
   .profile.expanded { height: 86%; }
+  .profile.maximized { height: auto; transition: none; }
+  body.profile-max.detail-open .profile.maximized { right: 0; border-right: 0; }
+  body.profile-max .detail { width: auto; left: 0; z-index: 13; }
   body.profile-open .maplibregl-ctrl-bottom-left, body.profile-open .maplibregl-ctrl-bottom-right { bottom: 52%; }
   body.profile-open .map-msg { bottom: calc(52% + 12px); }
   .profile-head { padding: 0 6px 2px 12px; }

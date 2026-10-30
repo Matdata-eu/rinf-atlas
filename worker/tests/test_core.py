@@ -3,9 +3,12 @@ from pathlib import Path
 
 import pyoxigraph as ox
 import pytest
+from atlas import mirror
+from atlas.era import Published
 from atlas.extract import normalize_wkt
 from atlas.mirror import skolemize
 from atlas.shapes import ShapeError, load_shapes, position_rules
+from atlas.sync import _fingerprint
 
 SHAPES = Path(__file__).resolve().parents[2] / "shapes"
 
@@ -40,6 +43,34 @@ def test_repo_shapes_compile():
     assert {f.key for f in s.shared} == {"country", "infrastructureManager"}
     speed = next(f for f in track.facets if f.key == "maximumPermittedSpeed")
     assert speed.color_by == 1 and speed.kind == "range"
+
+
+def test_color_classes_give_fixed_bands_of_a_range_facet(tmp_path):
+    shape = """
+PREFIX atlas: <https://rinf-atlas.matdata.eu/ns#>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ex: <http://ex/>
+ex:s a sh:NodeShape ; atlas:key "k" ; sh:targetClass ex:C ;
+  sh:property [ sh:path ex:p ; atlas:facet "p" ; atlas:kind "{kind}" ; atlas:colorClasses ( {classes} ) ] .
+"""
+    ok = '[ atlas:upTo 40 ; rdfs:label "Slow" ] [ atlas:upTo 160 ] [ rdfs:label "Fast" ]'
+    (tmp_path / "x.ttl").write_text(shape.format(kind="range", classes=ok))
+    s = load_shapes(tmp_path)
+    assert s.classes[0].facets[0].color_classes == [
+        {"up_to": 40.0, "label": "Slow"}, {"up_to": 160.0, "label": None}, {"up_to": None, "label": "Fast"}]
+    # Display only: changing the bands needs no reindex.
+    (tmp_path / "x.ttl").write_text(shape.format(kind="range", classes='[ atlas:upTo 50 ] [ ]'))
+    assert load_shapes(tmp_path).digest() == s.digest()
+    for kind, classes in (("terms", ok), ("range", '[ atlas:upTo 40 ]'),  # one class only
+                          ("range", '[ atlas:upTo 40 ] [ atlas:upTo 30 ] [ ]'),  # not increasing
+                          ("range", '[ atlas:upTo 40 ] [ atlas:upTo 80 ]'),  # last one bounded
+                          ("range", '[ ] [ atlas:upTo 80 ] [ ]'),
+                          ("range", '[ atlas:upTo "fast" ] [ ]'),
+                          ("range", " ".join(f"[ atlas:upTo {i} ]" for i in range(8)) + " [ ]")):  # nine
+        (tmp_path / "x.ttl").write_text(shape.format(kind=kind, classes=classes))
+        with pytest.raises(ShapeError):
+            load_shapes(tmp_path)
 
 
 def test_color_by_must_be_an_integer_on_a_facet(tmp_path):
@@ -116,3 +147,51 @@ def test_shape_files_and_position_rules_for_the_app():
     assert position_rules(next(c for c in s.classes if c.key == "track"))["geometry_from"] == ["era:isPartOf|^era:hasPart"]
     sol = position_rules(next(c for c in s.classes if c.key == "section-of-line"))
     assert sol["line_between"] == ["era:opStart", "era:opEnd"] and sol["geometry_from"] == []
+
+
+def test_fingerprint_survives_explorer_outage():
+    from datetime import datetime, timezone
+    pub = Published("ds1", "0087", "SNCF Réseau", "FR", "f.ttl", datetime(2026, 10, 1, tzinfo=timezone.utc), "x", "y")
+    fp = _fingerprint(pub, 100)
+    assert fp == "ds1|2026-10-01T00:00:00+00:00|100"
+    # explorer down: same size keeps the fingerprint, a size change still counts as a change
+    assert _fingerprint(None, 100, fp) == fp
+    assert _fingerprint(None, 101, fp) != fp
+    assert _fingerprint(None, 100, "") == "||100"
+
+
+def test_clear_graph_in_batches(tmp_path):
+    st = ox.Store(str(tmp_path / "st"))
+    g, other = ox.NamedNode("http://ex.org/g"), ox.NamedNode("http://ex.org/other")
+    p = ox.NamedNode("http://ex.org/p")
+    st.extend([ox.Quad(ox.NamedNode(f"http://ex.org/s{i}"), p, ox.Literal(str(i)), g) for i in range(250)])
+    st.add(ox.Quad(ox.NamedNode("http://ex.org/s"), p, ox.Literal("keep"), other))
+    mirror.clear_graph(st, g, batch=100)
+    assert not st.contains_named_graph(g)
+    assert not list(st.quads_for_pattern(None, None, None, g))
+    assert len(list(st.quads_for_pattern(None, None, None, other))) == 1
+
+
+def test_geometry_alternatives_tried_in_order():
+    # Issue #61: a section with a geometry of its own and one on its net reference shows
+    # only the net reference's geometry, so the branches are kept apart and tried in order.
+    s = load_shapes(SHAPES)
+    sol = next(c for c in s.classes if c.key == "section-of-line")
+    assert sol.geometry_paths == [
+        "(<http://data.europa.eu/949/netReference>/<http://www.opengis.net/ont/geosparql#hasGeometry>"
+        "/<http://www.opengis.net/ont/geosparql#asWKT>)",
+        "(<http://www.opengis.net/ont/geosparql#hasGeometry>/<http://www.opengis.net/ont/geosparql#asWKT>)",
+    ]
+    assert position_rules(sol)["geometry_path"] == ["era:netReference/gsp:hasGeometry/gsp:asWKT",
+                                                    "gsp:hasGeometry/gsp:asWKT"]
+
+
+def test_draw_order():
+    s = load_shapes(SHAPES)
+    draw = {c.key: c.draw_order for c in s.classes}
+    # Issue #53: structures over tracks, tracks over sections, equipment over operational points.
+    assert draw["bridge"] > draw["running-track"] > draw["section-of-line"]
+    assert draw["tunnel"] > draw["siding"]
+    assert draw["signal"] > draw["primary-location"] > draw["operational-point"]
+    # Without atlas:drawOrder: below the classes that have one, earlier in the list on top.
+    assert draw["paid-up-to"] == -200 < draw["section-of-line"]

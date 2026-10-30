@@ -14,6 +14,15 @@ test('line profile shows a national line with its sections', async ({ page, erro
   await expect(panel).toContainText('Maximum permitted speed');
   await expect(page).toHaveURL(/[#&]lp=line,/);
 
+  // Full screen covers the window; Escape brings the panel back.
+  const vp = page.viewportSize()!;
+  await panel.getByRole('button', { name: 'Full screen' }).click();
+  await expect(panel).toHaveClass(/maximized/);
+  expect(await panel.boundingBox()).toMatchObject({ x: 0, y: 0, width: vp.width, height: vp.height });
+  await panel.getByRole('button', { name: 'Exit full screen' }).press('Escape');
+  await expect(panel).not.toHaveClass(/maximized/);
+  expect((await panel.boundingBox())!.height).toBeLessThan(vp.height / 2 + 1);
+
   // The link reopens the same profile.
   await page.reload();
   await expect(page.locator('#profile .profile-summary')).toContainText(`${line.sections} section`);
@@ -26,8 +35,7 @@ test('vehicle check colours sections by compatibility', async ({ page, errors: _
   const panel = page.locator('#vehicle-panel');
   await expect(panel).toBeVisible();
   await expect(page).toHaveURL(/[#&]vp=1/);
-  // The check is gated behind a disclaimer, accepted once per browser.
-  await panel.getByRole('checkbox', { name: /I have read this disclaimer/ }).check();
+  await panel.getByText('I have read this disclaimer').click();
   await panel.getByRole('button', { name: 'Accept and continue' }).click();
 
   const legend = page.getByRole('region', { name: 'Vehicle compatibility legend' });
@@ -44,8 +52,8 @@ test('vehicle check colours sections by compatibility', async ({ page, errors: _
 
   // A standard-gauge one is not red everywhere, and every section is counted once.
   await profiles.selectOption({ index: 0 });
-  await expect.poll(async () => (await counts()).reduce((a, b) => a + b, 0)).toBe(sections);
-  expect((await counts())[2]).toBeLessThan(sections);
+  await expect.poll(async () => (await counts())[2]).toBeLessThan(sections);
+  expect((await counts()).reduce((a, b) => a + b, 0)).toBe(sections);
 
   await legend.getByRole('button', { name: 'Turn the vehicle check off' }).click();
   await expect(legend).toBeHidden();
@@ -92,4 +100,27 @@ test('map colours by a facet show a legend', async ({ page, errors: _ }) => {
   await expect(page.locator('#colorby-clear')).toBeVisible();
   await page.locator('#colorby-clear').click();
   await expect(page).not.toHaveURL(/[#&]col=/);
+});
+
+test('speed colours use the fixed speed bands from the shapes', async ({ page, errors: _ }) => {
+  await openApp(page, 'c=running-track&col=running-track/maximumPermittedSpeed');
+  const legend = page.locator('#legend');
+  await expect(legend).toBeVisible();
+  if (await legend.locator('.lg-toggle[aria-expanded="false"]').count()) await legend.locator('.lg-toggle').click();
+  const rows = legend.locator('.lg-list .lg-row[data-key^="bin:"] .lbl');
+  // Eight bands from atlas:colorClasses, listed even when empty, so high speed always has its own colours.
+  await expect(rows).toHaveText([
+    '≤ 40 km/h · Very very low speed', '41 – 80 km/h · Very low speed', '81 – 120 km/h · Low speed',
+    '121 – 160 km/h · Conventional main line', '161 – 200 km/h · Enhanced conventional', '201 – 250 km/h · Fast line',
+    '251 – 300 km/h · High-speed rail', '> 300 km/h · Very high-speed rail',
+  ]);
+  // The upper bound is inclusive: the sample's 80 km/h tracks are counted with 41 – 80.
+  const theme = await (await page.request.post('/api/theme', {
+    data: { env: 'prod', classes: ['running-track'], filters: {}, key: 'running-track/maximumPermittedSpeed' },
+  })).json();
+  const counts = legend.locator('.lg-list .lg-row[data-key^="bin:"] .count');
+  await expect(counts).toHaveText((theme.bins as { count: number }[]).map((b) => b.count.toLocaleString('en')));
+  const swatches = await legend.locator('.lg-list .lg-row[data-key^="bin:"] .lg-swatch').evaluateAll(
+    (els) => els.map((e) => getComputedStyle(e).getPropertyValue('--sw').trim()));
+  expect(new Set(swatches).size).toBe(8);
 });

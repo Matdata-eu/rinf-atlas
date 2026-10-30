@@ -12,12 +12,21 @@
 #   atlas:color         hex colour on the map
 #   atlas:order         sort order in the class list
 #   atlas:geometry      "point" | "line" | "any" (rendering hint only)
+#   atlas:minZoom       map zoom from which the class is drawn
+#   atlas:drawOrder     integer; among features drawn alike (points, lines,
+#                       areas) higher numbers are drawn on top. Classes without
+#                       one go below, earlier in the class list on top. Points
+#                       are always drawn over lines, lines over areas.
 #   atlas:shared true   facets of this shape apply to every class; it has no
 #                       sh:targetClass of its own and is not drawn
 #   atlas:enabled false skip the shape without deleting it
 #
 # Geometry, tried in this order until one gives a result:
 #   atlas:geometryPath  SHACL path to a GeoSPARQL WKT literal
+#                       (the branches of an sh:alternativePath are tried in
+#                       list order, the first with a geometry wins: the
+#                       shapes prefer era:netReference's geometry over the
+#                       feature's own)
 #   atlas:lineBetween   ( pathA pathB ) straight line between the geometries
 #                       of the indexed features reached by both paths
 #   atlas:geometryFrom  SHACL path to other indexed features whose geometry is
@@ -44,6 +53,12 @@
 #   atlas:colorBy       integer; suggest the facet in the map's "Colour by"
 #                       picker, lower numbers first (every terms, boolean and
 #                       range facet can colour the map; these are listed first)
+#   atlas:colorClasses  range facets only: fixed map colour classes instead of
+#                       ones computed from the data, an RDF list low to high of
+#                       [ atlas:upTo 40 ; rdfs:label "Very low speed" ] (upTo is
+#                       the class's inclusive upper bound) ending with one
+#                       class without atlas:upTo for every higher value; 2 to 8
+#                       classes, rdfs:label optional
 #
 # Vehicle compatibility rules (shapes/compatibility.ttl): a sh:NodeShape with
 #   atlas:compatibility true   marks the rule shape (at most one; no atlas:key)

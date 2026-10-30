@@ -24,11 +24,12 @@ PREFIXES = {
     "skos": "http://www.w3.org/2004/02/skos/core#",
 }
 
-DEFAULT_GEOMETRY_PATH = (
-    "(<http://www.opengis.net/ont/geosparql#hasGeometry>/<http://www.opengis.net/ont/geosparql#asWKT>"
-    "|<http://data.europa.eu/949/netReference>/<http://www.opengis.net/ont/geosparql#hasGeometry>"
-    "/<http://www.opengis.net/ont/geosparql#asWKT>)"
-)
+# Tried in this order: the net reference's geometry wins over the feature's own.
+DEFAULT_GEOMETRY_PATHS = [
+    "(<http://data.europa.eu/949/netReference>/<http://www.opengis.net/ont/geosparql#hasGeometry>"
+    "/<http://www.opengis.net/ont/geosparql#asWKT>)",
+    "(<http://www.opengis.net/ont/geosparql#hasGeometry>/<http://www.opengis.net/ont/geosparql#asWKT>)",
+]
 
 
 @dataclass
@@ -42,6 +43,9 @@ class Facet:
     unit: str | None = None
     order: int = 100
     color_by: int | None = None  # atlas:colorBy: suggested in the map's "Colour by" picker (rank)
+    # atlas:colorClasses: fixed map colour classes of a range facet, low to high:
+    # {"up_to": inclusive upper bound (None for the last class), "label": name or None}
+    color_classes: list[dict] | None = None
 
 
 @dataclass
@@ -53,6 +57,7 @@ class ClassShape:
     geometry: str = "any"
     order: int = 100
     min_zoom: int = 0
+    draw_order: int | None = None  # atlas:drawOrder: higher is drawn on top; default -order
     shared: bool = False
     label_paths: list[str] = field(default_factory=list)
     geometry_paths: list[str] = field(default_factory=list)
@@ -67,7 +72,9 @@ class ClassShape:
 #   2: geometryFrom ("part of") links are kept for every feature, not only for
 #      features without a geometry of their own (feature_link rule 'from'; used
 #      by map colouring, vehicle compatibility and the line profile).
-INDEX_VERSION = 2
+#   3: the branches of an alternative atlas:geometryPath are tried in order (first hit
+#      wins) instead of merged, so a net reference's geometry replaces the feature's own.
+INDEX_VERSION = 3
 
 # SHACL constraint components a compatibility rule can use (see shapes/compatibility.ttl).
 COMPAT_TERMS = {"hasValue", "in"}
@@ -138,8 +145,12 @@ class ShapeSet:
     class_files: dict[str, str] = field(default_factory=dict)
 
     def digest(self) -> str:
-        blob = json.dumps([INDEX_VERSION] + [asdict(c) for c in self.classes] + [asdict(f) for f in self.shared],
-                          sort_keys=True)
+        def strip(d: dict) -> dict:  # map colour classes are display only: no reindex
+            for f in d.get("facets", [d]):
+                f.pop("color_classes", None)
+            return d
+        blob = json.dumps([INDEX_VERSION] + [strip(asdict(c)) for c in self.classes]
+                          + [strip(asdict(f)) for f in self.shared], sort_keys=True)
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
     def all_facets(self, cls: ClassShape) -> list[Facet]:
@@ -189,6 +200,11 @@ class _Reader:
             out.append(first)
             node = self.one(node, RDF + "rest")
         return out
+
+    def alternatives(self, node) -> list[str]:
+        """A path as its sh:alternativePath branches, in list order (a single path otherwise)."""
+        alt = self.one(node, SH + "alternativePath") if not isinstance(node, (ox.NamedNode, ox.Literal)) else None
+        return [self.path(n) for n in self.rdf_list(alt)] if alt is not None else [self.path(node)]
 
     def path(self, node) -> str:
         """SHACL path node -> SPARQL property path."""
@@ -259,10 +275,14 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             min_zoom=int(r.lit(node, ATLAS + "minZoom", "0")),
             shared=is_shared,
         )
+        draw = r.lit(node, ATLAS + "drawOrder")
+        cs.draw_order = int(draw) if draw is not None else -cs.order
         cs.label_paths = [r.path(p) for p in r.objs(node, ATLAS + "labelPath")] or [f"<{RDFS}label>"]
-        cs.geometry_paths = [r.path(p) for p in r.objs(node, ATLAS + "geometryPath")]
+        # The branches of an alternative path are tried one by one: the first that gives a
+        # feature a geometry wins (e.g. its net reference's geometry over its own).
+        cs.geometry_paths = [a for p in r.objs(node, ATLAS + "geometryPath") for a in r.alternatives(p)]
         if not cs.geometry_paths and not is_shared:
-            cs.geometry_paths = [DEFAULT_GEOMETRY_PATH]
+            cs.geometry_paths = list(DEFAULT_GEOMETRY_PATHS)
         lb = r.one(node, ATLAS + "lineBetween")
         if lb is not None:
             pair = r.rdf_list(lb)
@@ -299,6 +319,11 @@ def load_shapes(shapes_dir: Path) -> ShapeSet:
             )
             if fc.color_by is not None and kind == "text":
                 raise ShapeError(f"{key}.{fkey}: a text facet cannot be used to colour the map")
+            cc = r.one(prop, ATLAS + "colorClasses")
+            if cc is not None:
+                if kind != "range":
+                    raise ShapeError(f"{key}.{fkey}: atlas:colorClasses needs a range facet")
+                fc.color_classes = _color_classes(r, r.rdf_list(cc), f"{key}.{fkey}: atlas:colorClasses")
             (cs.facets if not is_shared else shared).append(fc)
         cs.facets.sort(key=lambda f: (f.order, f.key))
         if not is_shared:
@@ -536,6 +561,30 @@ def _load_compat(st: ox.Store, r: _Reader, shapes: ShapeSet) -> CompatSet | None
             raise ShapeError(f"compatibility.{x.key}: atlas:noneFrom {x.none_from!r} must name a rule with atlas:noneValue")
     rules.sort(key=lambda x: (x.order, x.key))
     return CompatSet(track_classes=track_classes, section_class=section_class, rules=rules)
+
+
+MAX_COLOR_CLASSES = 8  # the web map's sequential ramp has eight steps
+
+
+def _color_classes(r: _Reader, nodes: list, what: str) -> list[dict]:
+    """atlas:colorClasses ( [ atlas:upTo 40 ; rdfs:label "..." ] ... [ rdfs:label "..." ] ):
+    increasing inclusive upper bounds; the last class has none and takes every higher value."""
+    if not 2 <= len(nodes) <= MAX_COLOR_CLASSES:
+        raise ShapeError(f"{what}: give 2 to {MAX_COLOR_CLASSES} classes, got {len(nodes)}")
+    out: list[dict] = []
+    for i, n in enumerate(nodes):
+        raw = r.lit(n, ATLAS + "upTo")
+        last = i == len(nodes) - 1
+        if (raw is None) != last:
+            raise ShapeError(f"{what}: every class but the last needs atlas:upTo, the last none")
+        try:
+            up = float(raw) if raw is not None else None
+        except ValueError:
+            raise ShapeError(f"{what}: atlas:upTo must be a number, got {raw!r}") from None
+        if up is not None and out and up <= out[-1]["up_to"]:
+            raise ShapeError(f"{what}: atlas:upTo values must increase")
+        out.append({"up_to": up, "label": r.label(n, RDFS + "label", SH + "name")})
+    return out
 
 
 def _int(v: str | None, what: str) -> int | None:

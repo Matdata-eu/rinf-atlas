@@ -79,6 +79,30 @@ _LEXICAL = {
     "positiveInteger": re.compile(r"^\+?0*[1-9]\d*$"),
 }
 
+# Oxigraph stores some derived XSD datatypes as their base type: "5"^^xsd:unsignedInt comes back
+# as "5"^^xsd:integer and "...+00:00"^^xsd:dateTimeStamp as "...Z"^^xsd:dateTime. The original
+# datatype is lost in the mirror, so sh:datatype accepts the stored form when its value fits the
+# derived type (a value really typed with the base type then passes too).
+_INT_RANGE = {"int": (-2**31, 2**31 - 1), "long": (-2**63, 2**63 - 1), "short": (-2**15, 2**15 - 1),
+              "byte": (-128, 127), "unsignedInt": (0, 2**32 - 1), "unsignedLong": (0, 2**64 - 1),
+              "unsignedShort": (0, 2**16 - 1), "unsignedByte": (0, 255), "nonNegativeInteger": (0, None),
+              "positiveInteger": (1, None), "negativeInteger": (None, -1), "nonPositiveInteger": (None, 0)}
+
+
+def _stored_as(lit: ox.Literal, dt: str) -> bool:
+    """Is `lit` how the mirror stores a well-formed value of the derived datatype `dt`?"""
+    name = dt[len(XSD):] if dt.startswith(XSD) else ""
+    if name in _INT_RANGE and lit.datatype.value == XSD + "integer":
+        try:
+            n = int(lit.value)
+        except ValueError:
+            return False
+        lo, hi = _INT_RANGE[name]
+        return (lo is None or n >= lo) and (hi is None or n <= hi)
+    if name == "dateTimeStamp" and lit.datatype.value == XSD + "dateTime":
+        return bool(re.search(r"(Z|[+-]\d{2}:\d{2})$", lit.value)) and _well_formed(lit)
+    return False
+
 
 class Unsupported(Exception):
     """A shape uses something this validator does not implement."""
@@ -441,7 +465,7 @@ class Checker:
                 break
         dt = g.one(shape, SH + "datatype")
         if isinstance(dt, ox.NamedNode):
-            if not (isinstance(v, ox.Literal) and v.datatype == dt and _well_formed(v)):
+            if not (isinstance(v, ox.Literal) and (v.datatype == dt and _well_formed(v) or _stored_as(v, dt.value))):
                 fails.append("Datatype")
         nk = g.one(shape, SH + "nodeKind")
         if isinstance(nk, ox.NamedNode) and not _node_kind_ok(v, nk.value):

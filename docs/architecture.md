@@ -28,8 +28,8 @@ flowchart LR
 | Service | Technology | Role |
 |---|---|---|
 | `db` | PostgreSQL 16 + PostGIS 3.4 | The index: one row per infrastructure element with its geometry (EPSG:4326 plus a pre-projected EPSG:3857 copy for tiles), facet values as `jsonb`, a full-text `tsvector`; labels of IRI values; dataset status. |
-| `worker` | Python 3.12, pyoxigraph, psycopg | Polls ERA, mirrors changed named graphs in an embedded Oxigraph store per environment and indexes them into PostGIS. Also runs the export jobs the API queues, reading the full descriptions from the mirror. See [datasets.md](datasets.md), [export.md](export.md). |
-| `api` | FastAPI, uvicorn | Facet counts, search, extent, vector tiles (`ST_AsMVT` straight from PostGIS), feature details, dataset status, and the live describe proxy to ERA. Contract: [api.md](api.md). |
+| `worker` | Python 3.14, pyoxigraph, psycopg | Polls ERA, mirrors changed named graphs in an embedded Oxigraph store per environment, indexes them into PostGIS and validates them against ERA's SHACL shapes. Also runs the export jobs the API queues, reading the full descriptions from the mirror ([export.md](export.md)). See [datasets.md](datasets.md). |
+| `api` | Python 3.14, FastAPI, uvicorn | Facet counts, search, extent, vector tiles (`ST_AsMVT` straight from PostGIS), map colouring, feature details, dataset status and data quality, exports, line profiles, the vehicle check, OGC API – Features, the proxy for extra map layers, and the live describe proxy to ERA. Contract: [api.md](api.md). |
 | `web` | TypeScript, Vite, MapLibre GL JS, vis-network, nginx | The single-page UI; nginx serves the build and proxies `/api/` to the api service. |
 
 ## Key design choices
@@ -39,7 +39,7 @@ flowchart LR
   from the local index. Only describing one entity goes live.
 - **Facets are SHACL.** `shapes/*.ttl` holds one node shape per
   `era:InfrastructureElement` subclass, with property paths annotated as
-  facets (`terms`, `range`, `boolean`, `text`). The worker compiles them to
+  facets (`terms`, `range`, `boolean`, `text`, `link`). The worker compiles them to
   SPARQL against the mirror; the API and UI only see the compiled facet list.
   Starter shapes were generated from the ontology and the data.
 - **A local RDF mirror.** Keeping every graph in Oxigraph means a shape
@@ -53,9 +53,13 @@ flowchart LR
   Counts for a facet ignore that facet's own selection (multi-select).
 - **Speed.** Unfiltered facet counts are precomputed after each update;
   filtered ones run as parallel SQL queries over GIN indexes and are cached
-  per data version. Vector tiles carry only id and class below zoom 8, and
-  detailed classes (tracks, signals, kilometric posts…) appear from a
-  per-class minimum zoom.
+  per data version. Vector tiles carry only id, class and data quality
+  severity below zoom 8, and detailed classes (tracks, signals, kilometric
+  posts…) appear from a per-class minimum zoom (unless the user draws a class
+  at every zoom).
+- **Only what ERA's SPARQL needs goes live.** Describe and the graph view
+  query ERA from the api container; the browser never talks to ERA. Exports
+  read the local mirror instead.
 - **Environments side by side.** PROD and UAT share one database, tagged by
   environment; the UI switches between them.
 

@@ -151,7 +151,8 @@ def meta(env: str):
                FROM dataset WHERE env=%s AND kind='provider' AND status <> 'removed'""", [env, env])[0]
     return {
         "classes": [{"class": c["class"], "class_iri": c["class_iri"], "label": c["label"], "color": c["color"],
-                     "geometry": c["geometry"], "min_zoom": c["min_zoom"], "count": counts.get(c["class"], 0)}
+                     "geometry": c["geometry"], "min_zoom": c["min_zoom"],
+                     "draw_order": c.get("draw_order"), "count": counts.get(c["class"], 0)}
                     for c in d["classes"]],
         "facets": [{"key": f["key"], "class": f["class"], "label": f["label"], "kind": f["kind"],
                     "datatype": f["datatype"], "unit": f["unit"], "position": f["position"],
@@ -391,22 +392,32 @@ def theme(req: ThemeRequest):
     if t["kind"] == "range":
         spec = t["breaks"] or {}
         breaks, discrete = list(spec.get("breaks") or []), bool(spec.get("discrete"))
-        bucket = "width_bucket(t.n, %s::float8[])" if breaks else "0"
+        upper, names = bool(spec.get("upper")), spec.get("labels")
+        if upper:  # atlas:colorClasses: inclusive upper bounds
+            bucket = "(SELECT count(*) FROM unnest(%s::float8[]) b WHERE t.n > b)"
+        else:
+            bucket = "width_bucket(t.n, %s::float8[])" if breaks else "0"
         bp = [breaks] if breaks else []
         rows = _q(f"""SELECT CASE WHEN t.fid IS NULL THEN -1 ELSE {bucket} END AS b, count(*) AS n
                       FROM feature f LEFT JOIN theme_value t ON t.theme = %s AND t.fid = f.id
                       WHERE {sql}{cond} GROUP BY 1""", bp + [t["id"]] + p + cp)
         counts = {r["b"]: r["n"] for r in rows}
         lo, hi = t["lo"], t["hi"]
-        # Class i holds values >= breaks[i-1] and < breaks[i]; discrete: one class per value.
-        if lo is None:
+        # Class i holds values >= breaks[i-1] and < breaks[i]; discrete: one class per value;
+        # upper (fixed classes from the shapes): > breaks[i-1] and <= breaks[i], every class listed.
+        if upper:
+            edges = [None] + breaks + [None]
+            bins = [{"min": edges[i], "max": edges[i + 1], "count": counts.get(i, 0),
+                     "label": names[i] if names else None} for i in range(len(edges) - 1)]
+        elif lo is None:
             bins = []
         elif discrete:
             bins = [{"min": v, "max": v, "count": counts.get(i, 0)} for i, v in enumerate([lo] + breaks)]
         else:
             edges = [lo] + breaks + [hi]
             bins = [{"min": edges[i], "max": edges[i + 1], "count": counts.get(i, 0)} for i in range(len(edges) - 1)]
-        out.update(breaks=breaks, bins=bins, min=lo, max=hi, discrete=discrete,
+        out.update(breaks=breaks, bins=bins, min=lo, max=hi, discrete=discrete, upper=upper,
+                   datatype=fdef["datatype"] if fdef else None,
                    nodata=counts.get(-1, 0), total=sum(counts.values()))
     else:
         rows = _q(f"""SELECT t.v, count(*) AS n

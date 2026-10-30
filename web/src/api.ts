@@ -10,6 +10,8 @@ export interface ClassMeta {
   geometry: string;
   /** Below this map zoom the tiles leave the class out (the list and search still have it). */
   min_zoom: number;
+  /** Draw order among the features drawn alike (points, lines, areas): higher on top (atlas:drawOrder). */
+  draw_order?: number | null;
   count: number;
 }
 
@@ -183,7 +185,8 @@ export interface TermsTheme extends ThemeBase {
   other: number;
   mixed: number;
 }
-export interface RangeBin { min: number; max: number; count: number }
+/** min / max are null at the open ends of fixed classes (`upper`); label: the class name from the shapes. */
+export interface RangeBin { min: number | null; max: number | null; count: number; label?: string | null }
 export interface RangeTheme extends ThemeBase {
   kind: 'range';
   breaks: number[];
@@ -192,6 +195,9 @@ export interface RangeTheme extends ThemeBase {
   max: number | null;
   /** One class per distinct value. */
   discrete: boolean;
+  /** Fixed classes from the shapes (atlas:colorClasses): a class holds values > its min and <= its max. */
+  upper?: boolean;
+  datatype?: string | null;
 }
 export type Theme = TermsTheme | RangeTheme;
 /** Tile / search value of a feature with several different values of a terms facet. */

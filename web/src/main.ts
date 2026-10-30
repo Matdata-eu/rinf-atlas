@@ -2,18 +2,23 @@ import './style.css';
 import { api, type Env } from './api';
 import { openAbout } from './about';
 import { openHelp } from './help';
+import { initWhatsNew } from './whats-new';
 import { initCompat } from './compat';
 import { initDatasets, openDatasets } from './datasets';
 import { initDetail } from './detail';
 import { initExtraLayers } from './extra-layers';
 import { initProfile } from './profile';
 import { initFacets } from './facets';
-import { fitBbox, initMap, jumpToView, TILE_MODE } from './map';
+import { fitBbox, initMap, jumpToView, resizeMap, TILE_MODE } from './map';
 import { initResults } from './results';
 import { initThematic } from './thematic';
+import { maybeOpenTour } from './tour';
 import { setTheme, themePref, type ThemePref } from './theme';
-import { changed, debounce, h, queryState, store, type AppState, type SideTab } from './state';
+import { changed, debounce, h, isFilterEmpty, queryState, store, type AppState, type SideTab } from './state';
 import { buildHash, currentLink, fromUrl, parseHash, URL_DEFAULTS, writeUrl } from './url';
+
+/** Facet key of the data quality layer's findings (worker/atlas/quality.py FACET). */
+const QA_FACET = 'quality';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const envSelect = $<HTMLSelectElement>('env-select');
@@ -120,6 +125,7 @@ function initTheme() {
   btn.addEventListener('click', () => { setTheme(THEME_NEXT[themePref()]); show(); });
   $('about-btn').addEventListener('click', openAbout);
   $('help-btn').addEventListener('click', openHelp);
+  initWhatsNew();
   show();
 }
 
@@ -139,6 +145,60 @@ function initSide() {
   $('sheet-toggle').addEventListener('click', () => side.classList.toggle('expanded'));
   store.subscribe((s, prev) => { if (changed(s, prev, 'sideTab')) apply(); });
   apply();
+  initSideResize();
+}
+
+// ---------- side panel width (desktop): drag its edge, arrow keys, double click resets ----------
+const SIDE_W_KEY = 'rinf-atlas.side-w';
+const SIDE_W_MIN = 260;
+
+function initSideResize() {
+  const root = document.documentElement;
+  const max = () => Math.max(SIDE_W_MIN, Math.min(720, Math.round(window.innerWidth * 0.6)));
+  const handle = h('div', { class: 'side-resize', role: 'separator', tabindex: '0', 'aria-orientation': 'vertical',
+    'aria-label': 'Resize the side panel', title: 'Drag to resize the panel; double click for the default width' });
+  side.append(handle);
+  const width = () => side.getBoundingClientRect().width;
+  const setWidth = (w: number | null, save = false) => {
+    if (w == null) root.style.removeProperty('--side-w');
+    else root.style.setProperty('--side-w', `${Math.round(Math.min(max(), Math.max(SIDE_W_MIN, w)))}px`);
+    handle.setAttribute('aria-valuenow', String(Math.round(width())));
+    requestAnimationFrame(resizeMap);
+    if (!save) return;
+    try {
+      if (w == null) localStorage.removeItem(SIDE_W_KEY);
+      else localStorage.setItem(SIDE_W_KEY, String(Math.round(width())));
+    } catch { /* private mode: kept for this visit */ }
+  };
+  try {
+    const saved = Number(localStorage.getItem(SIDE_W_KEY));
+    if (saved) setWidth(saved);
+  } catch { /* private mode */ }
+  handle.setAttribute('aria-valuemin', String(SIDE_W_MIN));
+  handle.setAttribute('aria-valuemax', String(max()));
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const left = side.getBoundingClientRect().left;
+    document.body.classList.add('side-resizing');
+    const move = (ev: PointerEvent) => setWidth(ev.clientX - left);
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      document.body.classList.remove('side-resizing');
+      setWidth(width(), true);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up, { once: true });
+    handle.addEventListener('pointercancel', up, { once: true });
+  });
+  handle.addEventListener('dblclick', () => setWidth(null, true));
+  handle.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 64 : 16;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      setWidth(width() + (e.key === 'ArrowRight' ? step : -step), true);
+    } else if (e.key === 'Home' || e.key === 'Enter') { e.preventDefault(); setWidth(null, true); }
+  });
 }
 
 // ---------- map tools ----------
@@ -165,6 +225,15 @@ function initMapTools() {
   qa.addEventListener('change', () => store.set({ qa: qa.checked }));
   store.subscribe((s, prev) => { if (changed(s, prev, 'qa', 'meta')) showQa(); });
   showQa();
+  // Picking a data quality value in the filters also rings those features on the map
+  // (only when the selection starts, so the layer can still be switched off).
+  const qaFiltered = (s: AppState) => Object.entries(s.filters)
+    .some(([k, v]) => (k === QA_FACET || k.endsWith(`/${QA_FACET}`)) && !isFilterEmpty(v));
+  store.subscribe((s, prev) => {
+    if (changed(s, prev, 'filters') && !s.qa && s.meta?.quality?.enabled && qaFiltered(s) && !qaFiltered(prev)) {
+      queueMicrotask(() => store.set({ qa: true }));
+    }
+  });
   // Layers menu: a popover beside the layers button; closes on Escape or a click elsewhere.
   const layersBtn = $<HTMLButtonElement>('layers-btn'), layersMenu = $('layers-menu');
   const setLayersOpen = (open: boolean) => {
@@ -249,6 +318,7 @@ async function main() {
   window.addEventListener('popstate', onUrl);
   window.addEventListener('hashchange', onUrl);
   if (TILE_MODE === 'geojson') document.body.classList.add('geojson-mode');
+  maybeOpenTour();
 }
 
 main();

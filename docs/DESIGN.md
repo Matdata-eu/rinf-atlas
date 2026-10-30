@@ -43,10 +43,15 @@ the full query state, which Martin's table sources can't express), `web`
 (nginx serving the Vite build, proxying `/api/` to `api:8000`).
 
 - Change detection: fingerprint = explorer dataset id | datePublished |
-  triple count. Graphs without an explorer entry still sync by triple count.
+  triple count. Graphs without an explorer entry still sync by triple count;
+  while the explorer is down the previous dataset id and date are kept.
 - Worker keeps a local Oxigraph mirror per env (`/data/mirror/{env}`, about
   270 bytes per triple on disk). Facet extraction runs SPARQL on the mirror
   with the provider graph as default graph. A shape change only re-extracts.
+  Replacing a graph deletes the old one quad by quad (`mirror.clear_graph`),
+  never with `Store.remove_graph()` alone: that is one transaction, held in
+  memory and the RocksDB WAL, and a WAL too big to replay keeps the store
+  from opening (#58).
 - Oxigraph's parallel `bulk_load` loses blank-node identity across chunks,
   which broke `owl:unionOf` domains in the ontology; files with blank nodes
   are skolemized to `urn:atlas:bnode:...` IRIs before loading.
@@ -76,7 +81,7 @@ the full query state, which Martin's table sources can't express), `web`
   rdfs:label; it is stripped for display.
 - A filter on a plain facet key constrains every class having that facet; a
   `class/key` filter (used by the per-class facets in the UI) only that class.
-- Tiles below z8 carry only `id, class` and dedupe identical pixels; classes
+- Tiles below z8 carry only `id, class, qa` and dedupe identical pixels; classes
   have `atlas:minZoom` (tracks 10, sidings 11, KPs 12).
 - Map colouring ("Colour by" a facet): the API writes one display value per
   feature into the unlogged `theme_value` cache the first time a facet is
@@ -87,7 +92,11 @@ the full query state, which Martin's table sources can't express), `web`
   Palette slots and range breaks are per environment, not per query, so a
   filter never repaints a value; colours are chosen in the browser from
   colour-blind-checked palettes with light and dark steps. Suggested facets
-  come from `atlas:colorBy` in the shapes.
+  come from `atlas:colorBy` in the shapes. A range facet gets five classes from
+  its quantiles, unless the shapes fix the bands with `atlas:colorClasses`
+  (inclusive upper bounds and names, up to eight, as for the maximum speed).
+  The bands are part of the theme's version, not of the index digest: editing
+  them needs no reindex.
 - Line profile (`/api/profile`): `link` facets (`atlas:kind "link"`) keep the
   IRIs of a section's `opStart`/`opEnd`; a section's tracks come from the
   "part of" links. Link facets are stored in `feature.facets` like other
