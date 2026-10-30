@@ -15,8 +15,7 @@ server and is hosted on a best-effort basis, so expect occasional downtime.
 Documentation: [how datasets are updated](docs/datasets.md),
 [architecture](docs/architecture.md), [HTTP API](docs/api.md),
 [shareable links](docs/urls.md), [design notes](docs/DESIGN.md),
-[extra map layers](docs/layers.md), [describe index](docs/describe.md),
-[privacy statement](docs/privacy.md).
+[extra map layers](docs/layers.md), [privacy statement](docs/privacy.md).
 
 ![RINF Atlas: operational points and sections of line in Belgium](docs/screenshots/overview.png)
 
@@ -223,7 +222,6 @@ default).
 | `ATLAS_SHACL_REPORT_URL` | `https://shacl-report.matdata.eu/` | shacl-report instance the UI links to (empty = no link) |
 | `ATLAS_LAYER_*` | | keys of the extra map layers ([docs/layers.md](docs/layers.md)) |
 | `ATLAS_IMAGE`, `ATLAS_VERSION` | `ghcr.io/matdata-eu/rinf-atlas`, `latest` | published images to run |
-| `ATLAS_DESCRIBE_SHAPES_DIR` | | host folder with RINF Describe's shapes, for the optional describe index started with `docker-compose.describe.yml` ([docs/describe.md](docs/describe.md)) |
 
 The `api` container also reads `.env` itself, so these API tuning knobs can
 be set there too: `ATLAS_TERMS_LIMIT` (200 values per terms facet),
