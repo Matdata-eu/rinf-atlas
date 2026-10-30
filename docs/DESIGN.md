@@ -184,7 +184,8 @@ PostGIS is read.
   category stands for (A 16 t / 5.0 t/m … E5 25 t / 8.8 t/m). A track is
   green when one of its categories allows both values, red when only listed
   categories that do not, and unknown when it has none of them (UK RA, HS17).
-  The speed of the load capability is not considered.
+  With a maximum speed filled in, only the categories whose load capability
+  speed is at least that speed count (`atlas:recordFilter`).
 - Every characteristic explains itself ("How is this checked?" in the profile
   editor and next to each line of the per-track detail). The API writes the
   text from the rule's annotations (constraint, unit, whenMissing, noneValue,
@@ -192,7 +193,8 @@ PostGIS is read.
   RINF paths); the worker publishes the rule's Turtle with it. A new rule in
   `shapes/compatibility.ttl` is explained without any code change.
 - Not every vehicle parameter is a compatibility constraint: maximum speed
-  only limits the speed, so it has no rule. Ordered scales (gauging profiles,
+  only limits the speed, so it is an input (`atlas:input true`) that other
+  rules read, not checked on its own. Ordered scales (gauging profiles,
   EN 15528 line categories, ETCS baselines) are compared by set membership:
   the user picks every value the vehicle is compatible with.
 - The map draws a separate vector source (sections of line only, independent
@@ -204,10 +206,48 @@ PostGIS is read.
   tile URL carries the result's data `version` so tiles from an older index
   are never mixed with a newer result. Kept apart from
   generic thematic colouring on purpose, so the two can be merged later.
-- Profiles live in `localStorage` (with eight illustrative examples) and are
+- Profiles live in `localStorage` (with nine illustrative examples) and are
   exported / imported as JSON or as Turtle with `era:VehicleType` instances.
   When ERATV (the register of authorised vehicle types) is published as linked
   data, profiles could be imported from it instead of typed by hand.
+
+### Complete trains (issue #57)
+
+- Some requirements apply to a whole train, not a vehicle: its length, the
+  number of raised pantographs and their spacing, the current all units draw,
+  the leading cab's signalling, the tail lamps, braking. The check takes a
+  train: vehicle profiles front to back, identical ones grouped with a count,
+  with the roles "leading cab" and "pantograph raised"; the last vehicle is
+  the tail.
+- The API combines the vehicles into one profile and checks that, so the SQL
+  is the same as for one vehicle. How is declared per rule in the shapes:
+  `atlas:combineOver` (which vehicles count) and `atlas:combineBy` (sum, max,
+  min, intersection, union, all, pantograph spacing). The default is the most
+  demanding vehicle (the highest axle load, the lowest wheel diameter, the
+  values all vehicles have). A characteristic is not checked when a vehicle
+  that counts has no value: the train's value is unknown, not guessed. The
+  combined values say which vehicles set them, shown as "sets it" in the
+  editor and "set by" in the detail.
+- Train-level rules added with it: maximum speed (input), raised pantographs
+  and their spacing against the record of the track for the train's speed
+  (`atlas:record`), braking distance from a mean deceleration the user enters
+  for the train (`atlas:brakingDistance`; no UIC 544-1 brake percentage
+  model), maximum deceleration, train integrity, safe consist length, current
+  limitation, red tail lamps, quiet route (`atlas:requires`), the fire
+  category the tunnels of the track require (`atlas:linkedClass`) and the
+  magnetic, eddy current and regenerative brakes (`atlas:option`: the vehicle
+  picks how it uses them; "allowed under conditions" gives unknown).
+- Record facets (`atlas:kind "record"`) keep RINF's rows of several fields
+  together (raised pantographs: speed, number, distance; load capability:
+  category, speed), so the row that applies at a speed can be picked.
+- A train's values are those of its vehicle profiles: editing a vehicle in
+  the train editor changes every train that uses it. A link carries only the
+  combined values (the recipient sees one shared vehicle); a train is shared
+  with its vehicles as a JSON export.
+- The train editor takes the full width of the map: a drawing to scale
+  (direction of travel, leading cab, raised pantographs, axles, tail lamps;
+  runs of identical vehicles folded; drag to reorder, reverse) and a table
+  with one column per vehicle group, the train's value and how it is found.
 ## Views and requirement checks (issue #56)
 
 - A view (`shapes/views/*.ttl`) bundles what used to be a hand-made link:
