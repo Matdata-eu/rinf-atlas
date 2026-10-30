@@ -212,8 +212,10 @@ function cellEditor(r: CompatRule, cur: VehicleValues[string] | undefined, set: 
   }
   // concepts: a summary that unfolds into checkboxes
   const vals = [...(r.values ?? []).map((v) => String(v.value)), ...xs.map(String)].filter((v, i, a) => a.indexOf(v) === i);
+  const counts = new Map((r.values ?? []).map((v) => [String(v.value), v.count]));
   const d = h('details', { class: 'te-terms' }, h('summary', {}, xs.length ? formatValue(r, xs, ctx!.label) : '—'),
-    h('div', { class: 'te-terms-list' }, ...vals.map((v) => h('label', { class: 'check' },
+    h('div', { class: 'te-terms-list' }, ...vals.map((v) => h('label', {
+      class: 'check' + (counts.get(v) === 0 ? ' zero' : ''), title: counts.get(v) === 0 ? 'No track has this value yet' : v },
       h('input', { type: 'checkbox', checked: xs.map(String).includes(v), onchange: (e: Event) => {
         const on = (e.target as HTMLInputElement).checked;
         const now = xs.filter((x) => String(x) !== v);

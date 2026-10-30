@@ -193,6 +193,16 @@ CREATE TABLE IF NOT EXISTS compat_def (
     def  jsonb NOT NULL
 );
 
+-- Every value of the code list (SKOS concept scheme) of the facets a terms rule
+-- compares, from the ERA vocabularies in the mirror: the vehicle check offers them
+-- all, also those no track has yet. Written by the worker per environment.
+CREATE TABLE IF NOT EXISTS compat_value (
+    env     text  NOT NULL,
+    key     text  NOT NULL,            -- characteristic key
+    iris    jsonb NOT NULL,            -- [concept IRI]
+    PRIMARY KEY (env, key)
+);
+
 -- Views (shapes/views/*.ttl), JSON of atlas.shapes.View, written by the worker with
 -- facet_def. Their requirement checks are evaluated by the worker into feature.facets.
 CREATE TABLE IF NOT EXISTS view_def (

@@ -92,6 +92,11 @@ test('a train is checked with its vehicles combined', async ({ page, errors: _ }
   await count.press('Enter');
   await expect(editor.locator('tr[data-rule="trainLength"] .te-train')).toHaveText('234.8 m');
   await expect(editor.locator('tr[data-rule="axleLoad"] .te-cell.sets')).toHaveCount(1);
+  // a list of values opens without scrolling sideways
+  await editor.locator('tr[data-rule="energySupplySystem"] .te-terms summary').first().click();
+  const list = editor.locator('tr[data-rule="energySupplySystem"] .te-terms-list').first();
+  await expect(list).toBeVisible();
+  expect(await list.evaluate((e) => e.scrollWidth - e.clientWidth)).toBe(0);
   await editor.getByRole('button', { name: '⇄ Reverse' }).click();
   await expect(editor.locator('.train-group').first()).toContainText('loaded container wagon');
   await editor.getByRole('button', { name: 'Back to the panel' }).click();

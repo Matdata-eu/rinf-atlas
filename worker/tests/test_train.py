@@ -234,3 +234,26 @@ def test_requires_rule(tmp_path):
     cp = _write(tmp_path, 'sh:property [ sh:path ex:r ; atlas:characteristic "r" ; atlas:compareTo "flag" ; '
                           'atlas:constraint atlas:requires ] .').compat
     assert cp.rules[0].constraint == "requires" and cp.rules[0].kind == "boolean"
+
+
+# --- the code lists the vehicle check offers -------------------------------------------
+
+def test_code_lists_hold_every_concept_of_the_scheme():
+    import pyoxigraph as ox
+    from atlas.extract import compat_code_lists
+
+    shapes = load_shapes(ROOT / "shapes")
+    era, skos = "http://data.europa.eu/949/", "http://www.w3.org/2004/02/skos/core#"
+    es = era + "concepts/energy-supply-systems/"
+    st = ox.Store()
+    st.load(f"""
+        <{era}energySupplySystem> <{era}inSkosConceptScheme> <{es}EnergySupplySystems> .
+        <{es}AC10> <{skos}inScheme> <{es}EnergySupplySystems> .
+        <{es}AC20> <{skos}inScheme> <{es}EnergySupplySystems> .
+        <{es}OLD> <{skos}inScheme> <{es}EnergySupplySystems> .
+        <{es}OLD> <http://www.w3.org/2002/07/owl#deprecated> true .
+    """.encode(), ox.RdfFormat.TURTLE, to_graph=ox.NamedNode("http://g/vocab"))
+    out = compat_code_lists(st, shapes)
+    assert out["energySupplySystem"] == [es + "AC10", es + "AC20"]
+    # option rules and numbers pick from their own choices, not a code list
+    assert "magneticBrake" not in out and "trainLength" not in out

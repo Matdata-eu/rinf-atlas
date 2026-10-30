@@ -192,6 +192,11 @@ PostGIS is read.
   noneFrom, missingReason, withoutValue, the section fallback, the compared facets and their
   RINF paths); the worker publishes the rule's Turtle with it. A new rule in
   `shapes/compatibility.ttl` is explained without any code change.
+- The value pickers offer the whole ERA code list of the compared facets (the
+  `era:inSkosConceptScheme` of the facet's property, from the vocabularies in
+  the mirror; table `compat_value`), not only the values the tracks have: a
+  vehicle's characteristics do not depend on the network data. The values in
+  the data come first, with their counts.
 - Not every vehicle parameter is a compatibility constraint: maximum speed
   only limits the speed, so it is an input (`atlas:input true`) that other
   rules read, not checked on its own. Ordered scales (gauging profiles,

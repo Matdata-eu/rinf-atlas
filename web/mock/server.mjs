@@ -689,6 +689,10 @@ for (const sol of sols) {
   }
   tracksBySol.set(sol.id, tracks);
 }
+const CODE_LISTS = {
+  energySupplySystem: [ct('energy-supply-systems', 'AC20', 'AC 15kV-16.7Hz'), ct('energy-supply-systems', 'DC60', 'DC 750V')],
+  gaugingProfile: [ct('gaugings', '340', 'GI1'), ct('gaugings', '350', 'GI2')],
+};
 const compatRules = () => COMPAT_RULES.map((rule) => {
   const counts = new Map();
   for (const ts of tracksBySol.values()) for (const t of ts) for (const fk of rule.facets) for (const v of t.facets[fk] || []) {
@@ -696,6 +700,8 @@ const compatRules = () => COMPAT_RULES.map((rule) => {
     c.count++; counts.set(String(v.value), c);
   }
   const vals = [...counts.values()].sort((a, b) => b.count - a.count);
+  // the rest of the code list, as the API adds it from the ERA vocabularies (compat_value)
+  for (const v of CODE_LISTS[rule.key] || []) if (!counts.has(v.value)) vals.push({ ...v, count: 0 });
   if (rule.none_value) {
     let n = 0;
     for (const ts of tracksBySol.values()) for (const t of ts) if (!rule.facets.some((fk) => (t.facets[fk] || []).length)) n++;

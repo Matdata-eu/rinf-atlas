@@ -740,6 +740,8 @@ def compatibility_rules(env: str):
     cdef = _compat_def()
     out = []
     iris: set[str] = set()
+    # every value of the code lists, also those no track has (worker: update_compat_values)
+    code_lists = {x["key"]: x["iris"] for x in _q("SELECT key, iris FROM compat_value WHERE env=%s", [env])}
     for r in cdef["rules"]:
         classes = ([r["linked_class"]] if r.get("linked_class") else cdef["track_classes"] if r["applies_to"] == "track"
                    else [cdef["section_class"]])
@@ -792,6 +794,8 @@ def compatibility_rules(env: str):
                 wv, wm = r["without_value"], set(r.get("without_matches") or [])
                 n = sum(x["n"] for x in rows if x["value"] in wm)
                 vals = [{"value": wv, "n": n, "without": True}] + [x for x in vals if x["value"] != wv]
+            seen = {x["value"] for x in vals}
+            vals += [{"value": x, "n": 0} for x in code_lists.get(r["key"], []) if x not in seen]
             item["values"] = vals
             iris |= {x["value"] for x in vals if isinstance(x["value"], str)}
         out.append(item)
