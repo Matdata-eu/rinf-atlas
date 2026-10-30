@@ -29,7 +29,12 @@ A **query state** is shared by facets, search, extent and tiles:
 
 Values inside one facet are OR-ed, different facets are AND-ed. A filter only
 constrains the classes that have that facet: `opType = station` with classes
-`[operational-point, tunnel]` returns stations plus all tunnels.
+`[operational-point, tunnel]` returns stations plus all tunnels. One exception: a section of line is
+made of running tracks and tracks, so a plain filter on a facet of those (ETCS
+level, energy supply, maximum speed...) also narrows the sections of line, to
+those with a matching track, and `/api/facets` counts a section once per value
+of its tracks (the same roll-up as in map colouring and the vehicle check; a
+`class/key` filter stays on its class).
 
 Facet keys are the local names of the shape's `sh:path`, joined with `.` for
 sequence paths (`etcs.etcsLevelType` = `era:etcs/era:etcsLevelType`). Terms
