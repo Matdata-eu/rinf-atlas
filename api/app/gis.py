@@ -636,8 +636,11 @@ def style(request: Request, state: str | None = None, env: str | None = None):
     tj = _tilejson(request, state, env)
     classes = tj.pop("_classes")
     lines, points = [], []
-    # Like the app: lines under points, and within each the higher atlas:drawOrder on top.
-    for c in sorted(classes, key=lambda c: c["draw_order"] if c.get("draw_order") is not None else -c["position"]):
+    # Like the app: lines under points, and within each the higher atlas:drawOrder on top
+    # (on a tie, the class earlier in the list).
+    def draw_key(c):
+        return (c["draw_order"], -c["position"]) if c.get("draw_order") is not None else (-c["position"], 0)
+    for c in sorted(classes, key=draw_key):
         color, kind, mz = c["color"] or "#888888", (c["geometry"] or "any").lower(), c["min_zoom"] or 0
         is_class = ["==", "class", c["class"]]
         if kind in ("line", "any", "linestring", "polygon"):

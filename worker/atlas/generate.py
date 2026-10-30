@@ -47,13 +47,15 @@ CLASS_META = {
 }
 
 # Map draw order (atlas:drawOrder, higher on top among points, lines or areas): structures
-# over the tracks they carry, tracks over their section of line, small equipment over the
-# operational point it sits in.
+# over the tracks they carry, tracks over their operational point and section of line, small
+# equipment over the operational point it sits in. Every class gets its own number: a class
+# can be drawn as points or lines depending on its data (an operational point's net reference
+# can be a line), and two classes with the same number swap places from tile to tile.
 DRAW_ORDER = {
     "SpecialArea": 5, "SpecialTunnelArea": 6, "SectionOfLine": 10, "RunningTrack": 20, "Track": 22,
     "Siding": 24, "PlatformEdge": 30, "Tunnel": 40, "Bridge": 42,
-    "RadioBlockCenter": 10, "OperationalPoint": 20, "Station": 22, "PrimaryLocation": 30,
-    "KilometricPost": 40, "LevelCrossing": 50, "HABD": 52, "Switch": 60, "Signal": 62,
+    "RadioBlockCenter": 8, "OperationalPoint": 15, "Station": 16, "PrimaryLocation": 32,
+    "KilometricPost": 44, "LevelCrossing": 50, "HABD": 52, "Switch": 60, "Signal": 62,
 }
 
 # Display labels that differ from the ontology's rdfs:label.

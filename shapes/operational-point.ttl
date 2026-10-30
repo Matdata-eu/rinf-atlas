@@ -20,7 +20,7 @@ shape:operational-point
     atlas:geometry "point" ;
     atlas:order 10 ;
     atlas:minZoom 0 ;
-    atlas:drawOrder 20 ;
+    atlas:drawOrder 15 ;
     atlas:labelPath rdfs:label ;
     atlas:geometryPath [ sh:alternativePath ( ( era:netReference gsp:hasGeometry gsp:asWKT ) ( gsp:hasGeometry gsp:asWKT ) ) ] ;
     atlas:geometryFrom era:primaryLocation ;

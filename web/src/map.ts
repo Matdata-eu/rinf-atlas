@@ -60,9 +60,10 @@ function colorExpr(s: AppState): ExpressionSpecification | string {
 }
 
 /** Draw order of a class (higher on top) from its shape's atlas:drawOrder; without one,
- *  classes earlier in the class list are drawn on top. */
+ *  classes earlier in the class list are drawn on top. Equal numbers are split by the class
+ *  list too: with a tie MapLibre keeps the tile's feature order, which differs per tile. */
 function drawOrder(c: ClassMeta, i: number): number {
-  return c.draw_order ?? -1000 - i;
+  return c.draw_order != null ? c.draw_order - i / 1000 : -1000 - i;
 }
 
 function sortKeyExpr(s: AppState): ExpressionSpecification | number {
