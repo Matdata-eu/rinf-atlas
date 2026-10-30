@@ -57,6 +57,9 @@ _defs_cache: dict = {"t": 0.0}
 # Facet kinds that are stored but never offered as filters: text (search only) and
 # link (IRIs of other features, e.g. a section's start and end operational point).
 HIDDEN_KINDS = ("text", "link")
+# The values the worker gives a view's requirement checks (worker/atlas/shapes.py).
+ATLAS = "https://rinf-atlas.matdata.eu/ns#"
+CHECK_RESULTS = {"meets": ATLAS + "Meets", "no_data": ATLAS + "NoData", "fails": ATLAS + "DoesNotMeet"}
 
 
 @asynccontextmanager
@@ -101,8 +104,12 @@ def _defs() -> dict:
     for f in facets:
         owners[f["key"]].add(f["class"])
     crow = _q("SELECT def FROM compat_def WHERE id = 1")
+    try:
+        views = [r["def"] for r in _q("SELECT def FROM view_def ORDER BY position, key")]
+    except Exception:  # a worker from before views (1.7) has not created the table yet
+        views = []
     _defs_cache.update(t=time.time(), classes=classes, facets=facets, owners=owners,
-                       compat=crow[0]["def"] if crow else None,
+                       compat=crow[0]["def"] if crow else None, views=views,
                        kinds={f["key"]: f["kind"] for f in facets},
                        min_zoom={c["class"]: c["min_zoom"] for c in classes})
     return _defs_cache
@@ -159,12 +166,26 @@ def meta(env: str):
                     "datatype": f["datatype"], "unit": f["unit"], "position": f["position"],
                     "color_by": f.get("color_by")}
                    for f in d["facets"] if f["kind"] not in HIDDEN_KINDS],
+        "views": [_view_meta(v) for v in d["views"]],
+        "check_results": CHECK_RESULTS,
         "limits": {"ttl_export": TTL_EXPORT_MAX},
         "datasets": {"total": ds["total"], "loaded": ds["loaded"], "failed": ds["failed"], "pending": ds["pending"],
                      "last_ingest": ds["last_ingest"].isoformat() if ds["last_ingest"] else None,
                      "last_check": ds["last_check"].isoformat() if ds["last_check"] else None},
         "quality": _quality_meta(env, d),
     }
+
+
+_VIEW_FIELDS = ("key", "label", "comment", "classes", "group_by", "group_label", "color_by", "filters", "params",
+                "check_classes", "section_class", "summary_key", "summary_label", "file")
+_CHECK_FIELDS = ("key", "label", "comment", "deadline", "constraint", "facets", "values", "unit", "applies_when",
+                 "when_missing")
+
+
+def _view_meta(v: dict) -> dict:
+    out = {k: v.get(k) for k in _VIEW_FIELDS}
+    out["checks"] = [{k: c.get(k) for k in _CHECK_FIELDS} for c in v.get("checks") or []]
+    return out
 
 
 def _quality_meta(env: str, d: dict) -> dict:
@@ -517,13 +538,20 @@ def tiles(z: int, x: int, y: int, state: str, color: str | None = None):
 
 @app.get("/api/export")
 def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
-           values: str = Query("label", pattern="^(label|iri)$")):
+           values: str = Query("label", pattern="^(label|iri)$"), view: str | None = None):
     """Every feature matching the query state (classes, facets, datasets, search, bbox)
     as CSV (one table, streamed), XLSX (one sheet per class) or Turtle (the outgoing
-    triples of each entity, live from ERA, streamed)."""
+    triples of each entity, live from ERA, streamed). `view`: CSV and XLSX columns are
+    that view's parameters and checks only."""
     st = _decode_state(state)
     e = _env(st.env)
     d = _defs()
+    only = None
+    if view:
+        v = next((x for x in d["views"] if x["key"] == view), None)
+        if v is None:
+            raise HTTPException(404, f"unknown view {view!r}")
+        only = list(v["params"]) + ([v["summary_key"]] if v.get("summary_key") else []) + [c["key"] for c in v["checks"]]
     sql, p = Where(st, d["owners"]).build()
     if format == "ttl":
         return _export_ttl(st, e, sql, p)
@@ -536,7 +564,7 @@ def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
     stamp = datetime.now(UTC)
     name = f"rinf-atlas-{st.env}-{stamp:%Y%m%d-%H%M}"
     if format == "csv":
-        cols = xp.columns_for(classes, d["facets"])
+        cols = xp.columns_for(classes, d["facets"], only)
         return StreamingResponse(xp.stream_csv(batches, cols, vals, class_labels), media_type="text/csv; charset=utf-8",
                                  headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
     filters = {k: v.model_dump() if hasattr(v, "model_dump") else v for k, v in st.filters.items()}
@@ -549,7 +577,9 @@ def export(state: str, format: str = Query("csv", pattern="^(csv|xlsx|ttl)$"),
         info.append(("Datasets", "; ".join(st.graphs)))
     if st.bbox:
         info.append(("Map view [w,s,e,n]", ", ".join(f"{x:.5f}" for x in st.bbox)))
-    path = xp.write_xlsx(batches, lambda c: xp.columns_for([c], d["facets"]), vals, class_labels, info)
+    if view:
+        info.append(("View (columns)", view))
+    path = xp.write_xlsx(batches, lambda c: xp.columns_for([c], d["facets"], only), vals, class_labels, info)
     return FileResponse(path, filename=f"{name}.xlsx", background=BackgroundTask(os.unlink, path),
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
@@ -842,6 +872,77 @@ def compatibility_explain(req: cx.ExplainRequest):
     lab(sec)
     return {"iri": iri, "id": st[0]["id"], "status": cx.STATUS[st[0]["status"]], "checked": [c.key for c in checks],
             "ignored": ignored, "section": sec, "tracks": tracks}
+
+
+# --- views (shapes/views/*.ttl) ------------------------------------------------
+
+class ScorecardRequest(QueryState):
+    view: str
+
+
+@app.post("/api/scorecard")
+def scorecard(req: ScorecardRequest):
+    """A view's requirement checks per group (e.g. per corridor): how many sections of line
+    (or checked features) and kilometres meet each requirement, do not, or have no data,
+    for the query state without its filter on the group facet. Kilometres are the length
+    of the features' geometry."""
+    _env(req.env)
+    d = _defs()
+    v = next((x for x in d["views"] if x["key"] == req.view), None)
+    if v is None:
+        raise HTTPException(404, f"unknown view {req.view!r}")
+    if not v.get("checks"):
+        raise HTTPException(404, f"view {req.view!r} has no requirement checks")
+    keys = ([v["summary_key"]] if v.get("summary_key") else []) + [c["key"] for c in v["checks"]]
+    classes = [v["section_class"]] if v.get("section_class") else list(v["check_classes"])
+    group = v.get("group_by")
+    st = req.model_copy(update={"classes": classes,
+                                "filters": {k: f for k, f in req.filters.items() if split_key(k)[1] != group}})
+    sql, p = Where(st, d["owners"]).build()
+    gsel, gjoin, gp = "NULL::jsonb", "", []
+    if group:
+        gsel, gjoin = "g.value", "CROSS JOIN LATERAL jsonb_array_elements(coalesce(f.facets -> %s, '[null]'::jsonb)) g(value)"
+        gp = [group]
+    rows = _q(f"""
+        SELECT {gsel} AS grp, k.key, f.facets -> k.key ->> 0 AS res, count(*) AS n,
+               coalesce(sum(ST_Length(f.geom::geography)), 0) / 1000 AS km
+        FROM feature f {gjoin} CROSS JOIN unnest(%s::text[]) k(key)
+        WHERE {sql} GROUP BY 1, 2, 3""", gp + [keys] + p)
+    totals = _q(f"""
+        SELECT k.key, f.facets -> k.key ->> 0 AS res, count(*) AS n,
+               coalesce(sum(ST_Length(f.geom::geography)), 0) / 1000 AS km
+        FROM feature f CROSS JOIN unnest(%s::text[]) k(key)
+        WHERE {sql} GROUP BY 1, 2""", [keys] + p)
+    names = {iri: name for name, iri in CHECK_RESULTS.items()}
+
+    def empty() -> dict:
+        return {k: {r: {"count": 0, "km": 0.0} for r in (*CHECK_RESULTS, "not_applicable")} for k in keys}
+
+    def add(cell: dict, r: dict) -> None:
+        c = cell[r["key"]][names.get(r["res"], "not_applicable")]
+        c["count"] += r["n"]
+        c["km"] = round(c["km"] + float(r["km"]), 3)
+
+    groups: dict = {}
+    for r in rows:
+        g = groups.setdefault(json.dumps(r["grp"]), {"value": r["grp"], "checks": empty()})
+        add(g["checks"], r)
+    total = {"value": None, "checks": empty()}
+    for r in totals:
+        add(total["checks"], r)
+    labels = _labels(req.env, {g["value"] for g in groups.values() if isinstance(g["value"], str)})
+    out = []
+    for g in groups.values():
+        val = g["value"]
+        cells = g["checks"][keys[0]]
+        out.append({"value": val, "label": _value_label(val, labels) if val is not None else None,
+                    "count": sum(c["count"] for c in cells.values()),
+                    "km": round(sum(c["km"] for c in cells.values()), 3), "checks": g["checks"]})
+    out.sort(key=lambda g: (g["value"] is None, -g["km"], str(g["label"])))
+    tc = total["checks"][keys[0]]
+    return {"view": v["key"], "group_by": group, "classes": classes, "keys": keys,
+            "groups": out, "total": {"count": sum(c["count"] for c in tc.values()),
+                                     "km": round(sum(c["km"] for c in tc.values()), 3), "checks": total["checks"]}}
 
 
 @app.get("/api/datasets")

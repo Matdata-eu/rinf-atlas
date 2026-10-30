@@ -32,12 +32,15 @@ class Column:
         self.key, self.header, self.facet = key, header, facet
 
 
-def columns_for(classes: list[str], facet_defs: list[dict]) -> list[Column]:
+def columns_for(classes: list[str], facet_defs: list[dict], only: list[str] | None = None) -> list[Column]:
     """Base columns plus one column per facet of the given classes (shared facets first,
     then each class's facets in shape order). A facet key shared by several classes is
-    one column."""
+    one column. `only`: just these facet keys (a view's parameters and checks), in that order."""
     cols = [Column(k, h, False) for k, h in BASE_COLUMNS]
     seen: set[str] = set()
+    if only is not None:
+        rank = {k: i for i, k in enumerate(only)}
+        facet_defs = sorted((f for f in facet_defs if f["key"] in rank), key=lambda f: rank[f["key"]])
     for scope in ["*", *classes]:
         for f in facet_defs:
             if f["class"] != scope or f["key"] in seen:
