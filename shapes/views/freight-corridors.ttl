@@ -19,7 +19,7 @@ view:freight-corridors
     rdfs:label "Rail freight corridors" ;
     rdfs:comment "Lines of the rail freight corridors, as declared in RINF, with train length, axle load, loading gauge and the systems a freight train needs." ;
     sh:order 20 ;
-    atlas:viewClass "section-of-line", "running-track" ;
+    atlas:viewClass "section-of-line" ;
     atlas:groupBy "freightCorridor" ;
     atlas:groupLabel "Freight corridor" ;
     atlas:colorBy "freightCorridor" ;

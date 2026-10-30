@@ -19,10 +19,10 @@ view:electrification
     rdfs:label "Electrification" ;
     rdfs:comment "Energy supply systems, contact lines and pantographs, and which tracks are not electrified, per country." ;
     sh:order 40 ;
-    atlas:viewClass "section-of-line", "running-track" ;
+    atlas:viewClass "section-of-line" ;
     atlas:groupBy "country" ;
     atlas:groupLabel "Country" ;
-    atlas:colorBy "contactLineSystem.energySupplySystem" ;
+    atlas:colorBy "electrification.electrified" ;
     atlas:checkClass "running-track", "track" ;
     atlas:checkSection "section-of-line" ;
     sh:property [ atlas:facet "contactLineSystem.energySupplySystem" ; sh:order 10 ] ;
