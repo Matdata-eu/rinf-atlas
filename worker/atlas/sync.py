@@ -9,7 +9,7 @@ from dataclasses import asdict
 
 import psycopg
 
-from . import era, mirror, quality
+from . import describe, era, mirror, quality
 from .config import Env, Settings
 from .extract import derive_geometry, extract_graph, refresh_facet_cache, update_term_labels
 from .shapes import ShapeSet, position_rules
@@ -19,8 +19,12 @@ log = logging.getLogger(__name__)
 IM_ROLE = "http://data.europa.eu/949/body/organisation/organisationRole/{code}_IM"
 
 
-def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bool = True) -> None:
-    """Write compiled shapes to class_def / facet_def (and the compatibility rules to compat_def) for the API."""
+def publish_defs(conn: psycopg.Connection, shapes: ShapeSet, quality_enabled: bool = True,
+                 dshapes: describe.DescribeSet | None = None) -> None:
+    """Write compiled shapes to class_def / facet_def (and the compatibility rules to compat_def) for the API,
+    and the describe shapes to describe_def when the describe index is on."""
+    if dshapes is not None:
+        describe.publish_defs(conn, dshapes)
     with conn.cursor() as cur:
         cur.execute("DELETE FROM facet_def")
         cur.execute("DELETE FROM class_def")
@@ -77,8 +81,19 @@ def _download_into_mirror(cfg: Settings, env: Env, store, graph: str) -> None:
         tmp.unlink(missing_ok=True)
 
 
+def _describe_graph(conn, store, env: str, g: str, dshapes) -> None:
+    """Describe rows of one graph; a failure is logged and never fails Atlas's own indexing."""
+    if dshapes is None:
+        return
+    try:
+        describe.index_graph(conn, store, env, g, dshapes)
+    except Exception:
+        conn.rollback()
+        log.exception("%s %s: describe indexing failed", env, g)
+
+
 def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force,
-                explorer_ok: bool = True) -> tuple[int, int]:
+                explorer_ok: bool = True, dshapes=None) -> tuple[int, int]:
     """Refresh one provider graph if its fingerprint changed. Returns (new, changed)."""
     code = g.rstrip("/").rsplit("/", 1)[-1]
     pub = published.get(code)
@@ -110,6 +125,7 @@ def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force,
     _download_into_mirror(cfg, env, store, g)
     quality.reset(conn, env.key, g)
     extract_graph(conn, store, env.key, g, shapes)
+    _describe_graph(conn, store, env.key, g, dshapes)
     with conn.cursor() as cur:
         cur.execute("""UPDATE dataset SET status='loaded', error=NULL, fingerprint=%s, ingested_at=now()
                        WHERE env=%s AND graph_iri=%s""", (fp, env.key, g))
@@ -118,9 +134,15 @@ def _sync_graph(cfg, conn, shapes, env, store, g, published, known, force,
 
 
 def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env, force: bool = False,
-             should_stop=lambda: False) -> dict:
-    """One poll of one environment. Returns a summary dict."""
+             should_stop=lambda: False, dshapes: describe.DescribeSet | None = None) -> dict:
+    """One poll of one environment. Returns a summary dict.
+
+    `dshapes`: the describe shapes when the describe index is on (describe.load_enabled)."""
     store = mirror.store(cfg.mirror_dir, env.key)
+    if dshapes is not None:  # describe just switched on, or its shapes changed: rebuild from the mirror first
+        stale = describe.stale_envs(conn, dshapes, [env.key])
+        if env.key in stale:
+            describe.reindex(conn, store, env.key, dshapes, triples=stale[env.key])
     with conn.cursor() as cur:
         cur.execute("INSERT INTO ingest_run (env) VALUES (%s) RETURNING id", (env.key,))
         run_id = cur.fetchone()[0]
@@ -166,7 +188,7 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
     new = changed = removed = failed = 0
     for g in provider:
         try:
-            n, c = _sync_graph(cfg, conn, shapes, env, store, g, published, known, force, explorer_ok)
+            n, c = _sync_graph(cfg, conn, shapes, env, store, g, published, known, force, explorer_ok, dshapes)
             new += n
             changed += c
         except Exception as e:
@@ -185,6 +207,8 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
                 cur.execute("UPDATE dataset SET status='removed' WHERE env=%s AND graph_iri=%s", (env.key, g))
             conn.commit()
             quality.remove(conn, env.key, g)
+            if cfg.describe:
+                describe.remove_graph(conn, env.key, g)
             mirror.remove_graph(store, g)
 
     if vocab_changed:
@@ -215,6 +239,8 @@ def sync_env(cfg: Settings, conn: psycopg.Connection, shapes: ShapeSet, env: Env
                        ON CONFLICT (env) DO UPDATE SET shapes_hash=EXCLUDED.shapes_hash, updated_at=now()
                        WHERE index_state.shapes_hash IS NULL""", (env.key, shapes.digest()))
     conn.commit()
+    if dshapes is not None:
+        describe.mark_done(conn, env.key, dshapes)
     log.info("%s sync done: %s", env.key, msg)
     return {"new": new, "changed": changed, "removed": removed, "failed": failed}
 

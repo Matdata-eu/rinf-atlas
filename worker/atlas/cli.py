@@ -10,6 +10,10 @@
                                  data quality: validate provider graphs against
                                  ERA's SHACL shapes (only those not validated
                                  with the current shapes, unless --force)
+  atlas describe-reindex [--env E] [--triples]
+                                 rebuild the describe index from the mirror (only
+                                 with ATLAS_DESCRIBE on; the worker also does this by
+                                 itself when the describe shapes change)
   atlas shapes-tags [--env E] [--limit N]
                                  list the tags of ERA's ontology repository that
                                  `quality.shapes_tag` can pin the shapes to
@@ -28,7 +32,7 @@ from pathlib import Path
 
 import pyoxigraph as ox
 
-from . import db, era_shapes, mirror, quality
+from . import db, describe, era_shapes, mirror, quality
 from .config import settings
 from .extract import refresh_facet_cache
 from .generate import generate
@@ -81,10 +85,10 @@ def cmd_sync(a) -> None:
     cfg, conn = settings(), _conn()
     if not a.now and _loop_running(conn):
         return _enqueue(conn, "resync" if a.force else "sync", a.env)
-    shapes = load_shapes(cfg.shapes_dir)
-    publish_defs(conn, shapes, cfg.quality.enabled)
+    shapes, dshapes = load_shapes(cfg.shapes_dir), describe.load_enabled(cfg)
+    publish_defs(conn, shapes, cfg.quality.enabled, dshapes)
     for env in _envs(a.env):
-        sync_env(cfg, conn, shapes, env, force=a.force)
+        sync_env(cfg, conn, shapes, env, force=a.force, dshapes=dshapes)
 
 
 def cmd_reindex(a) -> None:
@@ -95,6 +99,22 @@ def cmd_reindex(a) -> None:
     publish_defs(conn, shapes, cfg.quality.enabled)
     for env in _envs(a.env):
         reindex_env(cfg, conn, shapes, env)
+
+
+def cmd_describe_reindex(a) -> None:
+    cfg, conn = settings(), _conn()
+    if not cfg.describe:
+        sys.exit("the describe index is off; set ATLAS_DESCRIBE=1")
+    if not a.now and _loop_running(conn):
+        return _enqueue(conn, "describe-reindex-triples" if a.triples else "describe-reindex", a.env)
+    run_describe_reindex(cfg, conn, a.env, a.triples)
+
+
+def run_describe_reindex(cfg, conn, env: str | None, triples: bool) -> None:
+    dshapes = describe.load_describe_shapes(cfg.describe_shapes_dir)
+    describe.publish_defs(conn, dshapes)
+    for e in _envs(env):
+        describe.reindex(conn, mirror.store(cfg.mirror_dir, e.key), e.key, dshapes, triples=triples)
 
 
 def cmd_generate(a) -> None:
@@ -142,6 +162,10 @@ def cmd_load_file(a) -> None:
         quality.reset(conn, a.env, a.graph)
         extract_graph(conn, store, a.env, a.graph, shapes)
         derive_geometry(conn, a.env)
+        dshapes = describe.load_enabled(cfg)
+        if dshapes is not None:
+            describe.publish_defs(conn, dshapes)
+            describe.index_graph(conn, store, a.env, a.graph, dshapes)
     quality.validate_pending(cfg, conn, store, env, only=None if a.vocab else [a.graph])
     refresh_facet_cache(conn, a.env)
 
@@ -197,6 +221,15 @@ def cmd_check_shapes(a) -> None:
                              f"  termValues={len(r.term_values)}" if r.term_values else "",
                              f"  section={','.join(r.section_facets)}" if r.section_facets else ""])
             print(f"  {r.key:32} sh:{r.constraint:13} {r.applies_to:7} {', '.join(r.facets)}{extra}")
+    cfg = settings()
+    if cfg.describe:
+        ds = describe.load_describe_shapes(cfg.describe_shapes_dir)
+        print(f"describe shapes digest {ds.digest()}: {len(ds.shapes)} shapes, {len(ds.groups)} groups")
+        for d in ds.shapes:
+            print(f"  {d.label} <{d.class_iri}> {len(d.rows)} rows")
+            if a.verbose:
+                for r in d.rows:
+                    print(f"    {r.key:32} {r.viewer or '-':40} {r.path or ''}")
 
 
 def cmd_run(a) -> None:
@@ -216,8 +249,9 @@ def cmd_run(a) -> None:
             log.error("shapes are invalid, keeping the current index: %s", e)
             _sleep(60)
             continue
+        dshapes = describe.load_enabled(cfg)
         try:
-            publish_defs(conn, shapes, cfg.quality.enabled)
+            publish_defs(conn, shapes, cfg.quality.enabled, dshapes)
             for env in stale_envs(conn, shapes):
                 if env in cfg.envs:
                     log.info("%s: shapes changed, reindexing from the mirror", env)
@@ -228,6 +262,11 @@ def cmd_run(a) -> None:
                     run_generate(conn, force=kind.endswith("force"))
                     _finish_job(conn, jid, "done")
                     continue
+                if kind.startswith("describe-reindex"):
+                    if cfg.describe:
+                        run_describe_reindex(cfg, conn, env, triples=kind.endswith("triples"))
+                    _finish_job(conn, jid, "done" if cfg.describe else "describe index is off")
+                    continue
                 for e in ([cfg.env(env)] if env else cfg.envs.values()):
                     if kind == "reindex":
                         reindex_env(cfg, conn, shapes, e)
@@ -236,14 +275,15 @@ def cmd_run(a) -> None:
                                                     force=kind == "revalidate", should_stop=lambda: _stop):
                             refresh_facet_cache(conn, e.key)
                     else:
-                        sync_env(cfg, conn, shapes, e, force=(kind == "resync"), should_stop=lambda: _stop)
+                        sync_env(cfg, conn, shapes, e, force=(kind == "resync"), should_stop=lambda: _stop,
+                                 dshapes=dshapes)
                 _finish_job(conn, jid, "done")
             if time.time() >= next_poll:
                 for env in cfg.envs.values():
                     if _stop:
                         break
                     try:
-                        sync_env(cfg, conn, shapes, env, should_stop=lambda: _stop)
+                        sync_env(cfg, conn, shapes, env, should_stop=lambda: _stop, dshapes=dshapes)
                     except Exception:
                         conn.rollback()
                         log.exception("%s sync failed; retrying next poll", env.key)
@@ -296,6 +336,11 @@ def main(argv=None) -> None:
     s.add_argument("--env")
     s.add_argument("--now", action="store_true")
     s.set_defaults(fn=cmd_reindex)
+    s = sub.add_parser("describe-reindex", help="rebuild the describe index from the mirror (ATLAS_DESCRIBE on)")
+    s.add_argument("--env")
+    s.add_argument("--triples", action="store_true", help="also rewrite describe_triple, not only the documents")
+    s.add_argument("--now", action="store_true")
+    s.set_defaults(fn=cmd_describe_reindex)
     s = sub.add_parser("generate-shapes")
     s.add_argument("--force", action="store_true", help="overwrite existing shape files")
     s.add_argument("--no-data", action="store_true", help="ontology only, ignore mirrored data")
