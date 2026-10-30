@@ -1106,9 +1106,11 @@ const readJson = (req) => new Promise((resolve, reject) => {
   req.on('data', (c) => (b += c));
   req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(e); } });
 });
+// ATLAS_DESCRIBE_URL=https://describe.example.org/describe?uri={iri}&env={env} shows the Full describe links.
+const DESCRIBE_URL = process.env.ATLAS_DESCRIBE_URL || null;
 const ENVS = [
-  { key: 'prod', label: 'PROD', sparql: 'https://data-interop.era.europa.eu/api/sparql', default: true },
-  { key: 'uat', label: 'UAT', sparql: 'https://uat.data-interop.era.europa.eu/api/sparql', default: false },
+  { key: 'prod', label: 'PROD', sparql: 'https://data-interop.era.europa.eu/api/sparql', describe_url: DESCRIBE_URL, default: true },
+  { key: 'uat', label: 'UAT', sparql: 'https://uat.data-interop.era.europa.eu/api/sparql', describe_url: DESCRIBE_URL, default: false },
 ];
 const checkEnv = (env) => ENVS.some((e) => e.key === env);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
