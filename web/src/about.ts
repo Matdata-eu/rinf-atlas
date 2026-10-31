@@ -7,6 +7,8 @@ import { whatsNewLink } from './whats-new';
 
 const REPO = ((import.meta.env.VITE_REPO_URL as string | undefined) ?? 'https://github.com/Matdata-eu/rinf-atlas').replace(/\/$/, '');
 
+const SUPPORT = (import.meta.env.VITE_SUPPORT_URL as string | undefined) ?? 'https://matdata.eu';
+
 let dlg: HTMLDialogElement | null = null;
 
 const link = (href: string, text: string) => h('a', { href, target: '_blank', rel: 'noopener' }, text);
@@ -34,6 +36,10 @@ export function openAbout() {
           link(`${REPO}/issues/new/choose`, 'GitHub'), '. Source code and documentation: ', link(REPO, REPO.replace(/^https:\/\//, '')), '.'),
         h('p', { class: 'muted small' }, 'Wrong or missing infrastructure data comes from the infrastructure managers through ERA, ',
           'not from this application.'),
+        h('h3', {}, 'Support the project'),
+        h('p', {}, 'RINF Atlas and the tools next to it, such as ', link('https://github.com/Matdata-eu/shacl-report', 'shacl-report'),
+          ', are free and open source. Need a feature built, a hosted instance of your own or help with integration? ',
+          link(SUPPORT, 'Matdata'), ' offers this as paid work, which also funds these projects.'),
         privacy,
         h('h3', {}, 'Credits'),
         h('ul', { class: 'credits' },

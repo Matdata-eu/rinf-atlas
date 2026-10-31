@@ -288,6 +288,24 @@ that remain for a public instance (domain, redirects, Search Console).
 Bugs, feature requests and questions: [open an issue](https://github.com/Matdata-eu/rinf-atlas/issues/new/choose).
 The web app links here from its About dialog (the ⓘ button at the top right).
 
+## Support the project
+
+RINF Atlas is free and MIT licensed, and stays that way. It is built and
+maintained by [Matdata](https://matdata.eu), together with the tools it works
+alongside, such as [shacl-report](https://github.com/Matdata-eu/shacl-report)
+for the data quality reports. Matdata offers paid work around all of them, and
+that work is also what keeps them moving:
+
+- **Sponsor a feature.** Need a facet, layer, export, check or report view
+  that isn't there yet? Matdata can build it upstream, on a quote, so everyone
+  benefits.
+- **Hosted instance.** Your own RINF Atlas (and shacl-report), run and kept up
+  to date for you, with agreed availability instead of the best-effort demo.
+- **Integration help.** Tailoring the SHACL facets, adding your own map
+  layers, or wiring the API and OGC endpoints into your GIS or tools.
+
+Get in touch through [matdata.eu](https://matdata.eu).
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md): the frontend runs against a bundled
