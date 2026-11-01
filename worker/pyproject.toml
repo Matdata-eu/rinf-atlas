@@ -5,11 +5,11 @@ description = "RINF Atlas ingest worker: mirrors ERA RINF named graphs and index
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
-    "pyoxigraph==0.5.11",
+    "pyoxigraph==0.5.13",
     "psycopg[binary]==3.3.6",
     "httpx==0.28.1",
     "PyYAML==6.0.3",
-    "XlsxWriter==3.2.9",
+    "XlsxWriter==3.3.0",
 ]
 
 [project.scripts]
