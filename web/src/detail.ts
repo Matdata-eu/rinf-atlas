@@ -1,4 +1,5 @@
 // Detail panel: feature properties, live Describe (out/in) with navigation, and graph view.
+import { classIcon } from './class-icons';
 import { api, ApiError, fullDescribeUrl, isAbort, type DescribeResponse, type Feature, type FeatureQuality, type RdfTerm, type Triple } from './api';
 import { checkColour, viewKeys, viewMeta } from './checks';
 import { openShapes } from './shapes';
@@ -111,6 +112,7 @@ function kicker(): HTMLElement {
   const cls = feature?.classes.map(classInfo).find(Boolean);
   return h('div', { class: 'kicker' },
     h('span', { class: 'swatch', style: `background:${cls?.color ?? '#888'}` }),
+    classIcon(cls?.class_iri ?? feature?.classes[0], 14),
     cls?.label ?? feature?.classes.map(shortIri).join(', ') ?? '');
 }
 

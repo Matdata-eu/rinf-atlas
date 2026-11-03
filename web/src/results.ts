@@ -1,4 +1,5 @@
 // Results list: POST /api/search, paged by 50.
+import { classIcon } from './class-icons';
 import { api, isAbort, type SearchItem } from './api';
 import { ZOOM_ICON, zoomToFeature } from './detail';
 import { openExport, setResultTotal } from './export';
@@ -67,6 +68,7 @@ function render(reset: boolean) {
         },
       },
       h('span', { class: 'swatch', style: `background:${c?.color ?? '#888'}` }),
+      classIcon(c?.class_iri, 16),
       h('span', { class: 'result-text' }, h('span', { class: 'lbl' }, it.label || it.id), h('small', {}, `${c?.label ?? it.class} · ${it.id}`))),
       zoom);
   });

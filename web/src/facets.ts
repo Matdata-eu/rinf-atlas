@@ -1,4 +1,5 @@
 // Left panel: class list, facets, active filter chips.
+import { classIcon } from './class-icons';
 import { api, isAbort, type FacetMeta, type FacetResult, type FacetsResponse, type FilterValue, type RangeFilter, type TermCount, type TermValue } from './api';
 import { datasetLabel } from './datasets';
 import { changed, debounce, fmt, h, isFilterEmpty, queryState, store, toggleAllZoom, unitLabel, type AppState } from './state';
@@ -141,6 +142,7 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   const count = h('span', { class: 'count' });
   // The name gives way (ellipsis) before the zoom hint does; the full name is in its title.
   const label = h('label', { class: 'check' }, box, h('span', { class: 'swatch', style: `background:${c.color}` }),
+    classIcon(c.class_iri, 16) ?? h('span', { class: 'cls-icon-wrap' }),
     h('span', { class: 'lbl class-lbl' }, h('span', { class: 'class-name', title: c.label }, c.label), hint),
     h('span', { class: 'count-cell' }, nomap, count));
   const badge = h('span', { class: 'filter-badge' });

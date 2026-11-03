@@ -267,6 +267,12 @@ body.side-resizing { cursor: col-resize; user-select: none; }
   padding: 4px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer;
 }
 .terms .check { grid-template-columns: auto 1fr auto; }
+/* Class rows: tick, colour on the map, class icon, name, count. */
+.class-row .check { grid-template-columns: auto auto 16px 1fr auto; }
+.cls-icon-wrap { display: inline-flex; flex: none; color: var(--muted); }
+.cls-icon { display: block; }
+.result .cls-icon-wrap { margin-top: 2px; }
+.kicker .cls-icon-wrap { color: inherit; }
 .check:hover { background: var(--surface-2); }
 .check.zero { color: var(--muted); }
 .check input { margin: 0; accent-color: var(--accent); }
