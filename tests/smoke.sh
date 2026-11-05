@@ -293,6 +293,7 @@ if [ "$(dq "['html']")" = True ]; then
   curl -fsS -D /tmp/atlas-report.hdr -o /tmp/atlas-report.html "$BASE/api/quality/report?env=prod&graph=$G&format=html"
   grep -qi '^content-security-policy: sandbox' /tmp/atlas-report.hdr || fail "HTML report not served sandboxed"
   grep -qi '<html' /tmp/atlas-report.html || fail "HTML report is not a page"
+  grep -q 'rinf-atlas: in-memory storage' /tmp/atlas-report.html || fail "HTML report lacks the storage shim YASGUI needs in the sandbox"
   rm -f /tmp/atlas-report.hdr /tmp/atlas-report.html
   echo "shacl-report HTML viewer: present"
 fi
