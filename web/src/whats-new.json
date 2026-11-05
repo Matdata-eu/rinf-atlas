@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.6.1",
+    "date": "2026-11-05",
+    "improved": [
+      "About now says how to get support: features built, a hosted instance or help with integration."
+    ],
+    "fixed": [
+      "The SPARQL tab of a data quality report now loads its queries."
+    ]
+  },
+  {
     "version": "1.6.0",
     "date": "2026-10-30",
     "new": [
