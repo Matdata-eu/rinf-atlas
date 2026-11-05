@@ -347,7 +347,7 @@ the data the app shows or the services it loads at runtime:
   `tests/fixtures/era-shacl.nt.gz` is an unmodified copy for the tests,
   credited in [tests/fixtures/README.md](tests/fixtures/README.md).
 - **shacl-report**: the worker image includes the
-  [shacl-report](https://github.com/Matdata-eu/shacl-report) 1.0.0 binary
+  [shacl-report](https://github.com/Matdata-eu/shacl-report) 1.1.0 binary
   (Apache-2.0, by Mathias Vanden Auweele) to render the reports; its `LICENSE`
   and `THIRD_PARTY_NOTICES.md` (the licences of the libraries compiled into it
   and embedded in its HTML reports, all permissive) ship with it in the image
