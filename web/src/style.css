@@ -21,7 +21,7 @@
   --warn: #f79009;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 12px rgb(16 24 40 / 8%);
   --radius: 8px;
-  --side-w: 320px;
+  --side-w: 360px;
   --detail-w: 440px;
   --top-h: 52px;
   --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -179,8 +179,6 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .pill.loaded { background: color-mix(in srgb, var(--ok) 20%, transparent); }
 .pill.failed { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 .pill.pending, .pill.loading { background: color-mix(in srgb, var(--warn) 25%, transparent); }
-.zoom-hint { font: inherit; font-size: 11px; color: var(--muted); text-decoration: underline dotted; }
-.zoom-hint:hover { color: var(--accent); }
 .lg-note .link { font: inherit; }
 /* Exclamation mark by a class count when some of its features have no location; the
    explanation shows on hover or keyboard focus. */
@@ -271,10 +269,9 @@ body.side-resizing { cursor: col-resize; user-select: none; }
 .check.zero { color: var(--muted); }
 .check input { margin: 0; accent-color: var(--accent); }
 .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-/* Class rows: the name shortens with an ellipsis, the zoom hint after it stays whole. */
+/* Class rows: the name shortens with an ellipsis. */
 .class-lbl { display: flex; align-items: baseline; gap: 5px; }
 .class-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.class-lbl .zoom-hint { flex: none; white-space: nowrap; }
 .count { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%); }
 
@@ -514,6 +511,12 @@ a.btn { color: inherit; text-decoration: none; } /* links that act as buttons lo
 .filter-btn.active, .class-row.open .filter-btn { color: var(--accent); }
 .class-row.open .filter-btn { background: var(--surface-2); }
 .filter-btn-spacer { width: 26px; flex: none; }
+/* Eye before the filter button: the class is not drawn at this zoom (struck through), or is
+   forced on at every zoom (accent). An idle eye keeps its slot so every row lines up. */
+.zoom-hint { flex: none; font-size: 14px; padding: 4px 6px; display: inline-flex; align-items: center; }
+.zoom-hint svg { display: block; }
+.zoom-hint.idle { visibility: hidden; }
+.zoom-hint[aria-pressed=true] { color: var(--accent); }
 .filter-badge:empty { display: none; }
 .filter-badge {
   position: absolute; top: -2px; right: -2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px;

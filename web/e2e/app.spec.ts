@@ -64,17 +64,22 @@ test('datasets dialog lists the loaded sample', async ({ page, errors: _ }) => {
   await expect(dlg).toContainText(/processed/i);
 });
 
-test('class names give way to the zoom hint, and the side panel resizes', async ({ page, errors: _ }) => {
+test('the zoom eye sits next to the filter button, rows line up, and the side panel resizes', async ({ page, errors: _ }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await openApp(page, 'map=6/49.7/6.1');
-  // Long names are cut with an ellipsis, but "zoom in to see" stays whole (#55).
-  for (const row of await page.locator('#class-list .class-lbl').all()) {
-    const hint = row.locator('.zoom-hint');
-    if (!(await hint.isVisible())) continue;
-    const [r, hr] = [await row.boundingBox(), await hint.boundingBox()];
-    expect(hr!.x + hr!.width).toBeLessThanOrEqual(r!.x + r!.width + 1);
-    expect(await hint.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
-  }
+  // Every row keeps the eye's slot, visible or not, so the filter buttons form one column.
+  const xs = await page.locator('#class-list .class-line').evaluateAll((lines) =>
+    lines.map((l) => l.lastElementChild!.getBoundingClientRect().right));
+  expect(new Set(xs.map(Math.round)).size).toBe(1);
+  // A class not drawn at this zoom shows the eye; clicking it draws the class at every zoom.
+  const eye = page.locator('#class-list .zoom-hint:not(.idle)').first();
+  await expect(eye).toBeVisible();
+  await expect(eye).toHaveAttribute('title', /Zoom in to see/);
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'true');
+  await expect(eye).toHaveAttribute('title', /Drawn at every zoom/);
+  await eye.click();
+  await expect(eye).toHaveAttribute('aria-pressed', 'false');
   const side = page.locator('#side');
   const handle = page.getByRole('separator', { name: 'Resize the side panel' });
   const w0 = (await side.boundingBox())!.width;
