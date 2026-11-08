@@ -36,7 +36,7 @@ export function openHelp() {
           ['Type in the ', b('search'), ' box to match labels and codes (operational point names, line numbers, IDs).'],
           ['Click anything on the map to see its details. Pan and zoom as usual; small elements such as signals ',
             'or switches only appear when you zoom in (the current zoom shows above the scale bar, bottom left). ',
-            'Click ', b('zoom in to see'), ' next to a class to draw it at every zoom, e.g. for a coloured map of the whole network.']),
+            'A struck-through ', b('eye'), ' next to a class means it is not drawn at this zoom: click it to draw the class at every zoom, e.g. for a coloured map of the whole network.']),
         section('Filters',  false,
           [b('Classes'), ': tick the kinds of infrastructure to show. The number is how many match the current filters.'],
           ['The filter button next to a class opens filters on that class’s own properties.'],

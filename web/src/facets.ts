@@ -124,24 +124,27 @@ const rows = new Map<string, ClassRow>();
 /** Share of a class without geometry from which its row says so. */
 const NOMAP_SHARE = 0.05;
 
+// Eye with a stroke: drawn only from the class's own min zoom. Plain eye: drawn at every zoom.
+const EYE_PATH = '<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/>';
+const EYE_ICON = `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${EYE_PATH}</svg>`;
+const EYE_OFF_ICON = `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${EYE_PATH}<path d="M2.5 2.5l11 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
 const FILTER_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 3h12l-4.6 5.6V13l-2.8 1.4V8.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
 function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   let r = rows.get(c.class);
   if (r) return r;
   const box = h('input', { type: 'checkbox', 'data-class': c.class, onchange: () => toggleClass(c.class) });
-  // Inside the label: a click on the hint must not tick the class.
-  const hint = h('button', { type: 'button', class: 'link zoom-hint', onclick: (e: Event) => {
-    e.preventDefault(); e.stopPropagation(); toggleAllZoom(c.class);
-  } });
+  // Eye next to the filter button: the class is not drawn at this zoom; click to draw it at every zoom.
+  const hint = h('button', { type: 'button', class: 'icon-btn zoom-hint', 'aria-pressed': 'false',
+    onclick: () => toggleAllZoom(c.class) });
   // Features without coordinates: an exclamation mark by the count, explained on hover or focus.
   // Inside the label: a click on it must not tick the class.
   const nomap = h('span', { class: 'nomap-hint', role: 'img', tabindex: '0', hidden: true,
     onclick: (e: Event) => { e.preventDefault(); e.stopPropagation(); } }, '!');
   const count = h('span', { class: 'count' });
-  // The name gives way (ellipsis) before the zoom hint does; the full name is in its title.
+  // The name gives way (ellipsis) when the panel is narrow; the full name is in its title.
   const label = h('label', { class: 'check' }, box, h('span', { class: 'swatch', style: `background:${c.color}` }),
-    h('span', { class: 'lbl class-lbl' }, h('span', { class: 'class-name', title: c.label }, c.label), hint),
+    h('span', { class: 'lbl class-lbl' }, h('span', { class: 'class-name', title: c.label }, c.label)),
     h('span', { class: 'count-cell' }, nomap, count));
   const badge = h('span', { class: 'filter-badge' });
   const hasFacets = classFacets(store.get(), c.class).length > 0;
@@ -152,7 +155,7 @@ function rowFor(c: NonNullable<AppState['meta']>['classes'][number]): ClassRow {
   }) : null;
   if (btn) { btn.innerHTML = FILTER_ICON; btn.append(badge); }
   const panel = h('div', { class: 'class-facets', hidden: true });
-  const li = h('li', { class: 'class-row' }, h('div', { class: 'class-line' }, label, btn ?? h('span', { class: 'filter-btn-spacer' })), panel);
+  const li = h('li', { class: 'class-row' }, h('div', { class: 'class-line' }, label, hint, btn ?? h('span', { class: 'filter-btn-spacer' })), panel);
   r = { li, label, box, hint, nomap, count, btn, badge, panel };
   rows.set(c.class, r);
   return r;
@@ -173,11 +176,20 @@ function renderClasses() {
     r.count.textContent = fmt.format(n);
     // Features without geometry are counted but never drawn; say so when they are a noticeable share.
     const u = data?.unlocated_by_class?.[c.class] ?? 0;
-    r.hint.hidden = s.view.zoom >= (c.min_zoom ?? 0) || (n > 0 && u === n);
+    // An idle eye keeps its slot (invisible, inert), so counts and filter buttons line up on every row.
+    const idle = s.view.zoom >= (c.min_zoom ?? 0) || (n > 0 && u === n);
+    r.hint.classList.toggle('idle', idle);
+    r.hint.inert = idle;
     const forced = s.allZoom.includes(c.class);
-    r.hint.textContent = forced ? 'at every zoom' : 'zoom in to see';
+    if (r.hint.dataset.forced !== String(forced)) {
+      r.hint.dataset.forced = String(forced);
+      r.hint.innerHTML = forced ? EYE_ICON : EYE_OFF_ICON;
+    }
+    r.hint.setAttribute('aria-pressed', String(forced));
     r.hint.title = forced ? `Drawn at every zoom; click to draw it from zoom ${c.min_zoom} only again`
-      : `Drawn on the map from zoom ${c.min_zoom}; click to draw it at every zoom`;
+      : `Zoom in to see: drawn on the map from zoom ${c.min_zoom}; click to draw it at every zoom`;
+    r.hint.setAttribute('aria-label', forced ? `${c.label}: drawn at every zoom, click to draw from zoom ${c.min_zoom} only`
+      : `${c.label}: zoom in to see, or click to draw at every zoom`);
     r.nomap.hidden = !(u > 0 && u >= n * NOMAP_SHARE);
     const tip = (u === n ? 'No location in RINF, not on the map' : `${fmt.format(u)} without location, not on the map`)
       + '. Listed in the results, but the infrastructure manager published no coordinates for them.';
