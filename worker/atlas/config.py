@@ -56,6 +56,24 @@ class Quality:
 
 
 @dataclass
+class Eratv:
+    """Harvesting ERATV, the register of authorised vehicle types (docs/eratv.md).
+
+    Off by default: it reads another organisation's web application, so a deployment
+    turns it on (ATLAS_ERATV=1) once it may."""
+    enabled: bool = False
+    base_url: str = "https://eratv.era.europa.eu"
+    delay_seconds: float = 2.0          # between two requests
+    sync_hours: float = 6.0             # how often the newest page of the list is checked
+    full_days: float = 30.0             # how often every internal id is visited again
+    contact: str = ""                   # added to the User-Agent (an e-mail or URL)
+
+    def user_agent(self) -> str:
+        extra = f"; {self.contact}" if self.contact else ""
+        return f"rinf-atlas (+https://github.com/Matdata-eu/rinf-atlas{extra})"
+
+
+@dataclass
 class Settings:
     envs: dict[str, Env]
     provider_graph_pattern: str
@@ -71,6 +89,7 @@ class Settings:
     export_dir: Path = Path("/data/exports")
     export_workers: int = 2
     export_retention_hours: float = 24
+    eratv: "Eratv" = field(default_factory=lambda: Eratv())
 
     def env(self, key: str) -> Env:
         if key not in self.envs:
@@ -135,6 +154,14 @@ def settings() -> Settings:
         export_dir=Path(os.environ.get("ATLAS_EXPORTS", "/data/exports")),
         export_workers=int(os.environ.get("ATLAS_EXPORT_WORKERS") or 2),
         export_retention_hours=float(os.environ.get("ATLAS_EXPORT_RETENTION_HOURS") or 24),
+        eratv=Eratv(
+            enabled=_flag(os.environ.get("ATLAS_ERATV"), bool((raw.get("eratv") or {}).get("enabled", False))),
+            base_url=os.environ.get("ATLAS_ERATV_URL") or (raw.get("eratv") or {}).get("base_url") or Eratv.base_url,
+            delay_seconds=float(os.environ.get("ATLAS_ERATV_DELAY") or (raw.get("eratv") or {}).get("delay_seconds", 2.0)),
+            sync_hours=float(os.environ.get("ATLAS_ERATV_SYNC_HOURS") or (raw.get("eratv") or {}).get("sync_hours", 6.0)),
+            full_days=float(os.environ.get("ATLAS_ERATV_FULL_DAYS") or (raw.get("eratv") or {}).get("full_days", 30.0)),
+            contact=os.environ.get("ATLAS_ERATV_CONTACT") or (raw.get("eratv") or {}).get("contact", ""),
+        ),
     )
 
 

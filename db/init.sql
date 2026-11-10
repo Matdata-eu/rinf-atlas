@@ -328,3 +328,60 @@ CREATE UNLOGGED TABLE IF NOT EXISTS theme_value (
     n      double precision,            -- range: the highest value
     PRIMARY KEY (theme, fid)
 );
+
+-- ERATV, the European register of authorised types of vehicles (worker/atlas/eratv,
+-- docs/eratv.md). One row per published Type ID (type, version and variant): the XML
+-- as ERATV exported it (so a new ontology only needs `atlas eratv reconvert`), the
+-- Turtle with the ERA ontology and a JSON summary for the API.
+CREATE TABLE IF NOT EXISTS eratv_type (
+    type_id      text PRIMARY KEY,             -- 11-256-0001-3-002-001
+    type_number  text NOT NULL,                -- 11-256-0001-3
+    internal_id  int,                          -- ERATV's database id (ExportVehicleType/{id})
+    state        text NOT NULL,                -- PUBLISHED
+    name         text,
+    category     text,
+    subcategory  text,
+    manufacturer text,
+    last_update  date,                         -- "Last Update" in ERATV's list, when known
+    summary      jsonb NOT NULL DEFAULT '{}',  -- configurations, authorisations, coverage, ...
+    unmapped     jsonb NOT NULL DEFAULT '[]',  -- values that did not map to the ontology
+    coverage     real,
+    ttl          text,
+    xml          bytea NOT NULL,
+    xml_sha      text NOT NULL,
+    fetched_at   timestamptz NOT NULL DEFAULT now(),
+    converted_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS eratv_type_number_idx ON eratv_type (type_number);
+CREATE INDEX IF NOT EXISTS eratv_type_name_trgm ON eratv_type USING gin (name gin_trgm_ops);
+
+-- What each internal id answered, so a full pass can resume and skips drafts quickly.
+CREATE TABLE IF NOT EXISTS eratv_id (
+    internal_id int PRIMARY KEY,
+    type_id     text,
+    state       text,                          -- PUBLISHED | DRAFT | CANCELLED | ... | NULL (nothing)
+    checked_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Harvest runs (sync = newest list page, full = every internal id, fetch = by Type ID).
+CREATE TABLE IF NOT EXISTS eratv_run (
+    id          serial PRIMARY KEY,
+    kind        text NOT NULL,
+    started_at  timestamptz NOT NULL DEFAULT now(),
+    finished_at timestamptz,
+    requests    int NOT NULL DEFAULT 0,
+    fetched     int NOT NULL DEFAULT 0,
+    changed     int NOT NULL DEFAULT 0,
+    failed      int NOT NULL DEFAULT 0,
+    next_id     int,                           -- full pass: where to resume
+    message     text
+);
+
+-- ERATV parameter numbers -> ontology properties and the SKOS labels, copied from an
+-- environment's mirror (one row), so the harvester and the CLI need not open it.
+CREATE TABLE IF NOT EXISTS eratv_vocab (
+    id         int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    env        text NOT NULL,
+    vocab      jsonb NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
