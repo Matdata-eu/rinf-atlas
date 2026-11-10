@@ -59,14 +59,18 @@ class Quality:
 class Eratv:
     """Harvesting ERATV, the register of authorised vehicle types (docs/eratv.md).
 
-    Off by default: it reads another organisation's web application, so a deployment
-    turns it on (ATLAS_ERATV=1) once it may."""
+    The bulk harvest is off by default: it reads another organisation's web application,
+    so a deployment turns it on (ATLAS_ERATV=1) once it may. Looking up one type when a
+    user asks for it is on (ATLAS_ERATV_LOOKUP=0 turns it off)."""
     enabled: bool = False
     base_url: str = "https://eratv.era.europa.eu"
     delay_seconds: float = 2.0          # between two requests
     sync_hours: float = 6.0             # how often the newest page of the list is checked
     full_days: float = 30.0             # how often every internal id is visited again
     contact: str = ""                   # added to the User-Agent (an e-mail or URL)
+    # Lookups: one type at a time, when a user asks for it in the web app (2 requests each).
+    lookup: bool = True
+    lookups_per_hour: int = 30          # across all users; more wait for the next hour
 
     def user_agent(self) -> str:
         extra = f"; {self.contact}" if self.contact else ""
@@ -161,6 +165,9 @@ def settings() -> Settings:
             sync_hours=float(os.environ.get("ATLAS_ERATV_SYNC_HOURS") or (raw.get("eratv") or {}).get("sync_hours", 6.0)),
             full_days=float(os.environ.get("ATLAS_ERATV_FULL_DAYS") or (raw.get("eratv") or {}).get("full_days", 30.0)),
             contact=os.environ.get("ATLAS_ERATV_CONTACT") or (raw.get("eratv") or {}).get("contact", ""),
+            lookup=_flag(os.environ.get("ATLAS_ERATV_LOOKUP"), bool((raw.get("eratv") or {}).get("lookup", True))),
+            lookups_per_hour=int(os.environ.get("ATLAS_ERATV_LOOKUPS_PER_HOUR")
+                                 or (raw.get("eratv") or {}).get("lookups_per_hour", 30)),
         ),
     )
 

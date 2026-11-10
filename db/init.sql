@@ -377,6 +377,22 @@ CREATE TABLE IF NOT EXISTS eratv_run (
     message     text
 );
 
+-- Lookups of one type from the web app (POST /api/eratv/types/{id}/fetch or an uploaded
+-- XML export), done by the worker (worker/atlas/eratv/lookup.py) and kept for a day.
+CREATE TABLE IF NOT EXISTS eratv_request (
+    id           serial PRIMARY KEY,
+    type_id      text,                         -- asked for; for an upload, filled in once read
+    xml          bytea,                        -- an uploaded export (NULL: fetch from ERATV)
+    filename     text,
+    refresh      boolean NOT NULL DEFAULT false,
+    status       text NOT NULL DEFAULT 'queued', -- queued | running | done | failed
+    reason       text,                         -- failed: captcha | blocked | limit | disabled | not_found | not_public | invalid | error
+    message      text,
+    requested_at timestamptz NOT NULL DEFAULT now(),
+    finished_at  timestamptz
+);
+CREATE INDEX IF NOT EXISTS eratv_request_queued_idx ON eratv_request (id) WHERE status = 'queued';
+
 -- ERATV parameter numbers -> ontology properties and the SKOS labels, copied from an
 -- environment's mirror (one row), so the harvester and the CLI need not open it.
 CREATE TABLE IF NOT EXISTS eratv_vocab (

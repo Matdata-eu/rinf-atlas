@@ -127,7 +127,7 @@ class Client:
                 self._sleep(backoff)
                 backoff *= 2
                 continue
-            if r.status_code == 200 and "html" in r.headers.get("content-type", "") and is_captcha(r.content):
+            if r.status_code == 200 and is_captcha(r.content):            # whatever the content type
                 raise CaptchaRequired(f"ERATV asks for a CAPTCHA on {path}; harvesting needs ERA's access")
             if r.status_code >= 500 or r.status_code == 429 or b"Request Rejected" in r.content[:400]:
                 if attempt == 4:

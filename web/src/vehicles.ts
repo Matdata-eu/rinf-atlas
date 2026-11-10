@@ -1,7 +1,7 @@
 // Vehicle profiles and trains for the compatibility check: kept in this browser (localStorage),
 // exported / imported as JSON or (vehicles) as Turtle using era:VehicleType (ERA ontology).
 // A train lists vehicle profiles front to back; its vehicles' values stay in the profiles.
-import type { CompatRule, Train, VehicleValues } from './api';
+import type { CompatRule, EratvType, Train, VehicleValues } from './api';
 
 export interface VehicleProfile {
   id: string;
@@ -385,7 +385,7 @@ type TripleT = [Term, Term, Term];
 /** A small Turtle parser: prefixes, IRIs, prefixed names, literals, numbers, booleans,
  * blank node property lists, `;` and `,`. Collections are not supported. */
 export function parseTurtle(text: string): TripleT[] {
-  const tokRe = /\s+|#[^\n]*|<([^<>"{}|^`\\\s]*)>|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|@prefix\b|@base\b|@([a-zA-Z]+(?:-[a-zA-Z0-9]+)*)|\^\^|_:([A-Za-z0-9_.-]*[A-Za-z0-9_-])|([+-]?(?:\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?))|((?:[A-Za-z][\w.-]*)?:(?:[\w%-](?:[\w.%-]*[\w%-])?)?)|([A-Za-z]+)|([.;,[\]()])/gy;
+  const tokRe = /\s+|#[^\n]*|<([^<>"{}|^`\\\s]*)>|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|@prefix\b|@base\b|@([a-zA-Z]+(?:-[a-zA-Z0-9]+)*)|\^\^|_:([A-Za-z0-9_.-]*[A-Za-z0-9_-])|([+-]?(?:\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?))|((?:[A-Za-z][\w.-]*)?:(?:(?:[\w%-]|\\[_~.!$&'()*+,;=/?#@%-])(?:(?:[\w.%-]|\\[_~.!$&'()*+,;=/?#@%-])*(?:[\w%-]|\\[_~.!$&'()*+,;=/?#@%-]))?)?)|([A-Za-z]+)|([.;,[\]()])/gy;
   const toks: { k: string; v: string }[] = [];
   let m: RegExpExecArray | null;
   let pos = 0;
@@ -489,31 +489,43 @@ export function parseTurtle(text: string): TripleT[] {
   return triples;
 }
 
-function fromTurtle(text: string, rules: CompatRule[]): VehicleProfile[] {
-  const triples = parseTurtle(text);
+type Objects = (s: Term, p: string) => Term[];
+
+/** The profile values of a vehicle type: each rule's ERA path followed from `s`. */
+function valuesAlongPaths(s: Term, objs: Objects, rules: CompatRule[]): VehicleValues {
+  const values: VehicleValues = {};
+  for (const r of rules) {
+    let nodes: Term[] = [s];
+    for (const p of r.path) nodes = nodes.flatMap((n) => objs(n, p));
+    if (!nodes.length) continue;
+    if (r.kind === 'number') {
+      const n = Number(nodes[0].v) / (r.path_factor || 1);
+      if (Number.isFinite(n)) values[r.key] = n;
+    } else if (r.kind === 'boolean') values[r.key] = [...new Set(nodes.map((n) => n.v === 'true' || n.v === '1'))];
+    else if (r.options?.length && nodes.every((n) => n.t === 'lit')) {
+      // ERA's boolean: the most restrictive choice with that value (e.g. true: used as a service brake)
+      const want = nodes.some((n) => n.v === 'true' || n.v === '1');
+      const pick = r.options.filter((o) => o.path_value === want).sort((a, b) => b.order - a.order)[0];
+      if (pick) values[r.key] = [pick.value];
+    } else values[r.key] = [...new Set(nodes.map((n) => n.v))];
+  }
+  return values;
+}
+
+function indexTriples(triples: TripleT[]): Objects {
   const key = (t: Term) => `${t.t}:${t.v}`;
   const out = new Map<string, TripleT[]>();
   for (const tr of triples) out.set(key(tr[0]), [...(out.get(key(tr[0])) ?? []), tr]);
-  const objs = (s: Term, p: string) => (out.get(key(s)) ?? []).filter((tr) => tr[1].v === p).map((tr) => tr[2]);
+  return (s, p) => (out.get(key(s)) ?? []).filter((tr) => tr[1].v === p).map((tr) => tr[2]);
+}
+
+function fromTurtle(text: string, rules: CompatRule[]): VehicleProfile[] {
+  const triples = parseTurtle(text);
+  const objs = indexTriples(triples);
   const vehicles = triples.filter((tr) => tr[1].v === RDF_TYPE && tr[2].v === `${ERA}VehicleType`).map((tr) => tr[0]);
   if (!vehicles.length) throw new Error('no era:VehicleType found in the Turtle file');
   return vehicles.map((s) => {
-    const values: VehicleValues = {};
-    for (const r of rules) {
-      let nodes: Term[] = [s];
-      for (const p of r.path) nodes = nodes.flatMap((n) => objs(n, p));
-      if (!nodes.length) continue;
-      if (r.kind === 'number') {
-        const n = Number(nodes[0].v) / (r.path_factor || 1);
-        if (Number.isFinite(n)) values[r.key] = n;
-      } else if (r.kind === 'boolean') values[r.key] = [...new Set(nodes.map((n) => n.v === 'true' || n.v === '1'))];
-      else if (r.options?.length && nodes.every((n) => n.t === 'lit')) {
-        // ERA's boolean: the most restrictive choice with that value (e.g. true: used as a service brake)
-        const want = nodes.some((n) => n.v === 'true' || n.v === '1');
-        const pick = r.options.filter((o) => o.path_value === want).sort((a, b) => b.order - a.order)[0];
-        if (pick) values[r.key] = [pick.value];
-      } else values[r.key] = [...new Set(nodes.map((n) => n.v))];
-    }
+    const values = valuesAlongPaths(s, objs, rules);
     const lit = (p: string) => objs(s, p).find((o) => o.t === 'lit')?.v;
     const urn = s.t === 'iri' && s.v.startsWith('urn:rinf-atlas:vehicle-type:') ? decodeURIComponent(s.v.slice(28)) : undefined;
     return { id: urn ?? newId(), name: lit(`${RDFS}label`) ?? (s.t === 'iri' ? s.v : 'Imported vehicle type'), note: lit(`${RDFS}comment`), values };
@@ -526,4 +538,67 @@ export function importProfiles(text: string, rules: CompatRule[]): Imported {
   const out = t.startsWith('{') || t.startsWith('[') ? fromJson(t) : { profiles: fromTurtle(t, rules), trains: [] };
   if (!out.profiles.length && !out.trains.length) throw new Error('no vehicle profiles found');
   return out;
+}
+
+// ---------- ERATV vehicle types (converted by the worker, docs/eratv.md) ----------
+export interface EratvConfiguration { label: string; profile: VehicleProfile }
+
+/** One profile per configuration of an ERATV vehicle type. A configuration (gauge, energy
+ * supply system, class B system) takes its own parameter set and, where it names them, its
+ * own gauge, energy supply system and class B system instead of the type's full list. */
+export function eratvProfiles(t: EratvType, rules: CompatRule[]): EratvConfiguration[] {
+  const triples = parseTurtle(t.ttl);
+  const base = indexTriples(triples);
+  const vt = triples.find((tr) => tr[1].v === RDF_TYPE && tr[2].v === `${ERA}VehicleType`)?.[0];
+  if (!vt) throw new Error('the ERATV type has no era:VehicleType');
+  const sets = base(vt, `${ERA}configDependentParameter`);
+  const label = (n: Term) => base(n, `${RDFS}label`).find((o) => o.t === 'lit')?.v;
+  const name = t.summary.name || t.summary.altName || t.typeId;
+  const date = t.fetchedAt.slice(0, 10);
+  // ERATV gives some values for part of a configuration ("AC 15kV-16.7Hz", "1435mm"): a full
+  // configuration ("1435mm / AC 15kV-16.7Hz / PZB 90") takes the parameter sets of its parts.
+  const sets2 = sets.map((cps) => {
+    const cfg = base(cps, `${ERA}hasVehicleTypeConfiguration`)[0];
+    const lbl = cfg ? (label(cfg) ?? '') : '';
+    return { cps, cfg, label: lbl, parts: new Set(lbl.split(' / ').map((x) => x.trim()).filter(Boolean)) };
+  });
+  const within = (a: Set<string>, b: Set<string>) => [...a].every((x) => b.has(x));
+  const full = sets2.filter((x) => x.parts.size && !sets2.some((y) => y !== x && y.parts.size > x.parts.size && within(x.parts, y.parts)));
+  const all: (typeof sets2[number] | null)[] = full.length ? full : [null];
+  return all.map((one) => {
+    const cfg = one?.cfg;
+    const mine = one ? sets2.filter((y) => !y.parts.size || within(y.parts, one.parts)).map((y) => y.cps) : sets;
+    const override: Record<string, Term[]> = {};
+    if (one) {
+      for (const [from, to] of [['forWheelSetGauge', 'wheelSetGauge'], ['forEnergySupplySystem', 'energySupplySystem'],
+        ['forOnBoardClassB', 'protectionLegacySystem']]) {
+        const v = sets2.filter((y) => y.cfg && within(y.parts, one.parts)).flatMap((y) => base(y.cfg!, `${ERA}${from}`));
+        if (v.length) override[`${ERA}${to}`] = [...new Map(v.map((x) => [x.v, x])).values()];
+      }
+    }
+    const objs: Objects = (s, p) => {
+      if (s.t === 'iri' && s.v === vt.v) {
+        if (p === `${ERA}configDependentParameter`) return mine;
+        if (override[p]) return override[p];
+      }
+      return base(s, p);
+    };
+    const values = valuesAlongPaths(vt, objs, rules);
+    // ERATV gives the maximum design speed (4.1.2.1); the speed per cant deficiency (4.6.4) is often empty
+    const speed = rules.find((r) => r.path.at(-1) === `${ERA}vehicleTypeMaximumSpeed`);
+    const design = base(vt, `${ERA}maximumDesignSpeed`)[0];
+    if (speed && values[speed.key] === undefined && design && Number.isFinite(Number(design.v))) {
+      values[speed.key] = Number(design.v) / (speed.path_factor || 1);
+    }
+    const cfgLabel = one?.label ?? (cfg ? (label(cfg) ?? '') : '');
+    const note = [
+      `ERATV ${t.typeId}${cfgLabel ? `, configuration ${cfgLabel}` : ''}, loaded ${date}: ${t.url}`,
+      'Values converted from ERATV with the ERA ontology; check them before relying on the result.',
+      'Authorisations and areas of use are shown for information only.',
+    ].join('\n');
+    return {
+      label: cfgLabel || 'all configurations',
+      profile: { id: newId(), name: all.length > 1 && cfgLabel ? `${name} · ${cfgLabel}` : name, note, values },
+    };
+  });
 }

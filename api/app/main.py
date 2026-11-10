@@ -1471,6 +1471,11 @@ from . import exports  # noqa: E402
 
 app.include_router(exports.router)
 
+# ERATV vehicle types for the vehicle check: lookups the worker does (docs/eratv.md).
+from . import eratv  # noqa: E402
+
+app.include_router(eratv.router)
+
 # Extra map layers configured by the deployer (config/layers.yaml), with a tile proxy for keys.
 from . import layers as extra_layers  # noqa: E402
 

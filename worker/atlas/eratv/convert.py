@@ -191,11 +191,17 @@ class Result:
 
     def turtle(self) -> str:
         prefixes = dict(PREFIXES)
-        for tr in self.triples:          # one prefix per ERA concept list, so names stay readable
-            o = tr.object
-            if isinstance(o, ox.NamedNode) and o.value.startswith(ERA + "concepts/"):
-                ns = o.value.rsplit("/", 1)[0] + "/"
-                prefixes.setdefault("era-" + slug(ns[len(ERA + "concepts/"):]), ns)
+        for tr in self.triples:          # one prefix per ERA concept list or folder, so names stay readable
+            for o in (tr.subject, tr.object):
+                if not isinstance(o, ox.NamedNode):
+                    continue
+                if o.value.startswith(ERA + "concepts/"):
+                    ns = o.value.rsplit("/", 1)[0] + "/"
+                    prefixes.setdefault("era-" + slug(ns[len(ERA + "concepts/"):]), ns)
+                elif o.value.startswith(VT) and o.value.count("/") > VT.count("/"):
+                    ns = o.value.rsplit("/", 1)[0] + "/"
+                    if ns not in prefixes.values():
+                        prefixes["eratv-" + slug(ns[len(VT):])] = ns
         return ox.serialize(self.triples, format=ox.RdfFormat.TURTLE, prefixes=prefixes).decode("utf-8")
 
     @property
