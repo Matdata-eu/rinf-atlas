@@ -1,0 +1,809 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<VehicleType>
+  <GeneralInfo>
+    <Type ID="11-256-0001-3-002-001">
+      <Characteristic>
+        <Name>Type ID</Name>
+        <Code>0.1 0.2 0.4</Code>
+        <Value>11-256-0001-3-002-001</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of record</Name>
+        <Code>0.3</Code>
+        <Value>2026-11-10</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Type name</Name>
+        <Code>1.1</Code>
+        <Value>IORE M</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Alternative type name</Name>
+        <Code>1.2</Code>
+      </Characteristic>
+      <Characteristic>
+        <Name>Number of driving cabs</Name>
+        <Code>4.1.1</Code>
+        <Value>1</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Manufacturer</Name>
+        <Code>1.3</Code>
+        <Characteristic>
+          <Name>Manufacturer identification data</Name>
+          <Code>1.3.1</Code>
+          <Characteristic>
+            <Name>Name of organisation</Name>
+            <Code>1.3.1.1</Code>
+            <Value>Bombardier Transportation</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Registered business number</Name>
+            <Code>1.3.1.2</Code>
+          </Characteristic>
+          <Characteristic>
+            <Name>Organisation code</Name>
+            <Code>1.3.1.3</Code>
+          </Characteristic>
+        </Characteristic>
+        <Characteristic>
+          <Name>Manufacturer contact data</Name>
+          <Code>1.3.2</Code>
+          <Characteristic>
+            <Name>Address of organisation, street and number</Name>
+            <Code>1.3.2.1</Code>
+          </Characteristic>
+          <Characteristic>
+            <Name>Town</Name>
+            <Code>1.3.2.2</Code>
+          </Characteristic>
+          <Characteristic>
+            <Name>Country code</Name>
+            <Code>1.3.2.3</Code>
+          </Characteristic>
+          <Characteristic>
+            <Name>Post code</Name>
+            <Code>1.3.2.4</Code>
+          </Characteristic>
+          <Characteristic>
+            <Name>E-mail address</Name>
+            <Code>1.3.2.5</Code>
+          </Characteristic>
+        </Characteristic>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registration Method</Name>
+        <Value>New Variant of a registered Type</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registered Vehicle Type</Name>
+        <Value>11-256-0001-3-001-001</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Category</Name>
+        <Code>1.4</Code>
+        <Value>Traction vehicles</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Subcategory</Name>
+        <Code>1.5</Code>
+        <Value>Locomotive</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Exceptional Mode</Name>
+        <Value>Non TSI conform vehicle, limited availability of the data</Value>
+      </Characteristic>
+    </Type>
+    <Characteristic>
+      <Name>Platform</Name>
+      <Value>IORE</Value>
+    </Characteristic>
+  </GeneralInfo>
+  <ConformityWithTSI>
+    <Characteristic>
+      <Name>Conformity with TSI and Sections not complied with:</Name>
+      <Code>2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm / AC 15kV-16.7Hz / ATC v2</Name>
+          <TSI>Noise (Dec 2011/229/EU)</TSI>
+          <Value>4.2.2.3. Limits for starting noise</Value>
+          <TSI>Noise (Reg (EU)1304/2014)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2020/420 (Only German) Set_2</Name>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Applicable specific cases (specific cases conformity with which has been assessed)</Name>
+      <Code>2.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm / AC 15kV-16.7Hz / ATC v2</Name>
+          <Value>Noise (Dec 2011/229/EU)</Value>
+          <Value>Noise (Reg (EU)1304/2014)</Value>
+          <Value>7.3.2.3. Limits for starting noise (point 4.2.2). Specific case Sweden (‘T’)</Value>
+          <Value>7.3.2.4. Limits for pass-by noise (point 4.2.3). Specific case Sweden (‘T’)</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference of ‘EC type examination certificates’</Name>
+      <Code>2.2</Code>
+      <Value>1133/1/SB/2015/RST/ENEN/0009</Value>
+      <Value>2836/2/SH1/2023/CCO/EN/0113/V01</Value>
+      <Value>2836/6/SH1/2023/CCO/EN/0114/V01</Value>
+      <Value>3103/1/SB/2026/RST/EN/PRJ11100306990/V01 </Value>
+    </Characteristic>
+  </ConformityWithTSI>
+  <Authorisations>
+    <Authorisation Title="Sweden">
+      <Characteristic>
+        <Code>3.0 Area Of Use:</Code>
+        <Value>SE(Sweden)</Value>
+      </Characteristic>
+      <Characteristic>
+        <Code>3.1.1 Member state of authorisation:</Code>
+        <Value>Sweden(SE)</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Status</Name>
+        <Code>3.1.2.1</Code>
+        <Value>Valid</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Validity of Authorisation (until)</Name>
+        <Code>3.1.2.2</Code>
+      </Characteristic>
+      <Characteristic>
+        <Name>Coded Restrictions</Name>
+        <Code>3.1.2.3</Code>
+        <Configurations>
+          <Characteristic>
+            <Name>1435mm / AC 15kV-16.7Hz / ATC v2</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 90</Value>
+            <Value>1.3 Speed restrictions in Km/h: 80</Value>
+            <Value>1.4 Use in multiple operation (maximum number of trainsets authorised to be coupled together to operate as a single train): 4</Value>
+            <Value>2 Geographical restriction</Value>
+            <Value>2.1 Kinematic gauge (coding WAG TSI): G1</Value>
+            <Value>2.2 Wheelset gauge: 2.2.4 Gauge 1435</Value>
+            <Value>2.4 ERTMS on board: 2.4.1 ETCS</Value>
+            <Value>2.4 ERTMS on board: 2.4.2 GSM-R voice</Value>
+            <Value>2.4 ERTMS on board: 2.4.3 GSM-R for ETCS</Value>
+            <Value>2.5 B System on board</Value>
+            <Value>2.5.1 Class B signalling system: 2.5.148 ATC v2</Value>
+            <Value>2.7 Noise category: 2.7.2 Can be used in all quieter routes - Noise TSI compliant (tested against the Noise TSI)</Value>
+            <Value>3 Environmental restrictions</Value>
+            <Value>3.1 Climatic zone: 3.1.2 T2</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.03 TELOC</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2020/420 (Only German) Set_2</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 90</Value>
+            <Value>1.3 Speed restrictions in Km/h: 80</Value>
+            <Value>1.4 Use in multiple operation (maximum number of trainsets authorised to be coupled together to operate as a single train): 4</Value>
+            <Value>2 Geographical restriction</Value>
+            <Value>2.1 Kinematic gauge (coding WAG TSI): G1</Value>
+            <Value>2.2 Wheelset gauge: 2.2.4 Gauge 1435</Value>
+            <Value>2.4 ERTMS on board: 2.4.1 ETCS</Value>
+            <Value>2.4 ERTMS on board: 2.4.2 GSM-R voice</Value>
+            <Value>2.4 ERTMS on board: 2.4.3 GSM-R for ETCS</Value>
+            <Value>2.5 B System on board</Value>
+            <Value>2.5.1 Class B signalling system: 2.5.148 ATC v2</Value>
+            <Value>2.7 Noise category: 2.7.2 Can be used in all quieter routes - Noise TSI compliant (tested against the Noise TSI)</Value>
+            <Value>3 Environmental restrictions</Value>
+            <Value>3.1 Climatic zone: 3.1.2 T2</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.03 TELOC</Value>
+          </Characteristic>
+        </Configurations>
+      </Characteristic>
+      <Characteristic>
+        <Name>Non Coded Restrictions</Name>
+        <Code>3.1.2.4</Code>
+        <Value>1435mm / AC 15kV-16.7Hz / ATC v2</Value>
+        <Value> Vehicle can not operate on routes with track circuits of type TI21 without  further investigation. </Value>
+        <Value> Operation in Level 3 is not supported. </Value>
+        <Value>Operation on an ETCS trackside subsystem that requires the on-board to support radio  session initiated from wayside is not supported. </Value>
+        <Value>The Railway Undertaking is responsible to ensure that BL2 tracks where the vehicle is  used do not use values of M_TRACTION undefined in susbset-026 section 6.6.3.2.3. </Value>
+        <Value>The system may show bad availability if used on infrastructure where ERTMS equipped  wayside does not include balise messages telling the system to connect to the relevant  RBC at the entry to Level 2 areas (Usually a packet 42 or 45 is installed in front of the  transition border). The impact must be judged from case to case as it may vary from  none to significant depending on the wayside design. </Value>
+        <Value>If the radio network must be changed on start up this will not be possible. The vehicle will have to  pass a balise with relevant network information to be able to register to the network. The railway  undertaking operating the system must be aware of this when evaluating if the system if compliant for use on a new route. </Value>
+        <Value>The system will have issues to be operated on wayside where there are balises placed  in a radio hole that orders radio connection. </Value>
+        <Value>The OBU will respond erroneously to entry of train running number 0. Should the  operation require the use of train running number 0 be used in operation the effects  on the infrastructure where it is used must be evaluated. It may or may not work  depending on how the RBC responds to the data received from the OBU. </Value>
+        <Value>An RBC cannot supervise the electrical compliance between the vehicle and the  wayside.  </Value>
+        <Value>The system will have issues to be operated on trackside that sends a link chain where  the current LRBG is included. </Value>
+        <Value>Geographical position shall not be used according to the AOS RN drivers manual  amendment [Ref. 2], section 7.2. </Value>
+        <Value>  The onboard system shall not be used in areas where Track Condition Big Metal Masses  may be sent by wayside. This restriction is communicated in the Red Book Project IORE  EOS4 upgrade 1DOC-1088453 version 1.3, section 2.7. </Value>
+        <Value> The system cannot be used with wayside using Permitted Braking Distance (PBD). This  restriction is communicated in the Red Book Project IORE EOS4 upgrade 1DOC 1088453 version 1.3, section 2.10. </Value>
+        <Value> The system will not behave well if run on wayside using transitions from L1 to L2 and  that does not let the RBC retransmit the position report parameters after the vehicle  has entered level 2. </Value>
+        <Value>The system will have issues when being used on L1 wayside using repositioning. </Value>
+        <Value>The system will have issues when being used on wayside sending two or more  repositioning balises in the same link chain. </Value>
+        <Value>The system can not be used on wayside that uses balises with M_Version = 0. </Value>
+        <Value>The system may not be used on BL3 wayside where unlinked balise groups with the  same IDs as linked balise groups. This restriction is communicated in the Red Book  Project IORE EOS4 upgrade 1DOC-1088453 version 1.3, section 2.12. </Value>
+        <Value>The system may experience issues when operated on wayside where mode profiles do  not overlap at all. </Value>
+        <Value> The system may not be used on BL2 wayside that uses "stop if in SR". This restriction is  communicated in the Red Book Project IORE EOS4 upgrade 1DOC-1088453 version 1.3,  section 2.13. </Value>
+        <Value>The system may not be used with Radio infill. This restriction is communicated in the  Red Book Project IORE EOS4 upgrade 1DOC-1088453 version 1.3, section 2.11. </Value>
+        <Value>The system may only be used on tracks with single balise balise groups in specific  conditions. This restriction is communicated in the Red Book Project IORE EOS4  upgrade 1DOC-1088453 version 1.3, section 2.14. </Value>
+        <Value>The system can not be used in a system that requires it to store more than 1000 KMAC  values (requirement is for 2000 values). The railway undertaking operating the system  must be aware of this when evaluating if the system if compliant for use on a new  route. </Value>
+        <Value>If the driver presses Override in Stand By mode an MA request is sent, the correct  behaviour would be to enter Staff Responsible without MA request. For wayside with  another ESC parameter than SE-05-BoL2B3 or ESC-SE-01-HIL2 the behaviour must be  evaluated. </Value>
+        <Value>If the system is to be used on trackside where ETCS national values are communicated in balises using D_VALIDNV &gt; 0 and D_VALIDNV ≠ 32767 further analysis must be  performed. </Value>
+        <Value>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2020/420 (Only German) Set_2</Value>
+        <Value>Vehicle can not operate on routes with track circuits of type TI21 without further  investigation. </Value>
+        <Value>Operation in Level 3 is not supported. </Value>
+        <Value>Operation on an ETCS trackside subsystem that requires the on-board to support radio  session initiated from wayside is not supported. </Value>
+        <Value>The Railway Undertaking is responsible to ensure that BL2 tracks where the vehicle is  used do not use values of M_TRACTION undefined in susbset-026 section 6.6.3.2.3. </Value>
+        <Value>The system may show bad availability if used on infrastructure where ERTMS equipped  wayside does not include balise messages telling the system to connect to the relevant  RBC at the entry to Level 2 areas (Usually a packet 42 or 45 is installed in front of the  transition border). The impact must be judged from case to case as it may vary from  none to significant depending on the wayside design. </Value>
+        <Value>If the radio network must be changed on start up this will not be possible. The vehicle will have to  pass a balise with relevant network information to be able to register to the network. The railway  undertaking operating the system must be aware of this when evaluating if the system if compliant for use on a new route. </Value>
+        <Value>The system will have issues to be operated on wayside where there are balises placed  in a radio hole that orders radio connection. </Value>
+        <Value>The OBU will respond erroneously to entry of train running number 0. Should the  operation require the use of train running number 0 be used in operation the effects  on the infrastructure where it is used must be evaluated. It may or may not work  depending on how the RBC responds to the data received from the OBU. </Value>
+        <Value>An RBC cannot supervise the electrical compliance between the vehicle and the  wayside.  </Value>
+        <Value>The system will have issues to be operated on trackside that sends a link chain where  the current LRBG is included. </Value>
+        <Value>Geographical position shall not be used according to the AOS RN drivers manual  amendment [Ref. 2], section 7.2. </Value>
+        <Value> The onboard system shall not be used in areas where Track Condition Big Metal Masses  may be sent by wayside. This restriction is communicated in the Red Book Project IORE  EOS4 upgrade 1DOC-1088453 version 1.3, section 2.7. </Value>
+        <Value> The system cannot be used with wayside using Permitted Braking Distance (PBD). This  restriction is communicated in the Red Book Project IORE EOS4 upgrade 1DOC 1088453 version 1.3, section 2.10. </Value>
+        <Value>The system will not behave well if run on wayside using transitions from L1 to L2 and  that does not let the RBC retransmit the position report parameters after the vehicle  has entered level 2. </Value>
+        <Value>The system will have issues when being used on L1 wayside using repositioning. </Value>
+        <Value>The system will have issues when being used on wayside sending two or more  repositioning balises in the same link chain. </Value>
+        <Value>The system can not be used on wayside that uses balises with M_Version = 0. </Value>
+        <Value> The system may not be used on BL3 wayside where unlinked balise groups with the  same IDs as linked balise groups. This restriction is communicated in the Red Book  Project IORE EOS4 upgrade 1DOC-1088453 version 1.3, section 2.12. </Value>
+        <Value>The system may experience issues when operated on wayside where mode profiles do  not overlap at all. </Value>
+        <Value> The system may not be used on BL2 wayside that uses "stop if in SR". This restriction is  communicated in the Red Book Project IORE EOS4 upgrade 1DOC-1088453 version 1.3,  section 2.13. </Value>
+        <Value>The system may not be used with Radio infill. This restriction is communicated in the  Red Book Project IORE EOS4 upgrade 1DOC-1088453 version 1.3, section 2.11. </Value>
+        <Value> The system may only be used on tracks with single balise balise groups in specific  conditions. This restriction is communicated in the Red Book Project IORE EOS4  upgrade 1DOC-1088453 version 1.3, section 2.14. </Value>
+        <Value>The system can not be used in a system that requires it to store more than 1000 KMAC  values (requirement is for 2000 values). The railway undertaking operating the system  must be aware of this when evaluating if the system if compliant for use on a new  route. </Value>
+        <Value>If the driver presses Override in Stand By mode an MA request is sent, the correct  behaviour would be to enter Staff Responsible without MA request. For wayside with  another ESC parameter than SE-05-BoL2B3 or ESC-SE-01-HIL2 the behaviour must be  evaluated. </Value>
+        <Value>If the system is to be used on trackside where ETCS national values are communicated in balises using D_VALIDNV &gt; 0 and D_VALIDNV ≠ 32767 further analysis must be  performed. </Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of the original authorisation</Name>
+        <Code>3.1.3.1.1</Code>
+        <Value>2024-01-29</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation holder</Name>
+        <Code>3.1.3.1.2</Code>
+        <Characteristic>
+          <Name>Authorisation holder identification data</Name>
+          <Code>3.1.3.1.2.1</Code>
+          <Characteristic>
+            <Name>Name of organisation</Name>
+            <Code>3.1.3.1.2.1.1</Code>
+            <Value>LKAB Malmtrafik AB</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Registered business number</Name>
+            <Code>3.1.3.1.2.1.2</Code>
+            <Value>556031-4808</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Organisation code</Name>
+            <Code>3.1.3.1.2.1.3</Code>
+          </Characteristic>
+        </Characteristic>
+        <Characteristic>
+          <Name>Authorisation holder contact data</Name>
+          <Code>3.1.3.1.2.2</Code>
+          <Characteristic>
+            <Name>Address of organisation, street and number</Name>
+            <Code>3.1.3.1.2.2.1</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Town</Name>
+            <Code>3.1.3.1.2.2.2</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Country code</Name>
+            <Code>3.1.3.1.2.2.3</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Post code</Name>
+            <Code>3.1.3.1.2.2.4</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>E-mail address</Name>
+            <Code>3.1.3.1.2.2.5</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+        </Characteristic>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation document reference</Name>
+        <Code>3.1.3.1.3</Code>
+        <Value>SE8020260354 </Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Certificate of verification : Reference of type examination or design examination type</Name>
+        <Code>3.1.3.1.4</Code>
+        <Value>DeBo-SE-01-RTV/2/TSSH1/2023/CCO/EN/0009/V01</Value>
+        <Value>DeBo-SE-01-RTV/6/TSSH1/2023/CCO/EN/0006/V01</Value>
+        <Value>DeBo-SE-0001/1/TSSB/2026/RST/EN/PRJ11100306990/V01</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Parameters for which conformity to applicable national rules has been assessed</Name>
+        <Code>3.1.3.1.5</Code>
+        <Value>1435mm / AC 15kV-16.7Hz / ATC v2</Value>
+        <Value>1 General documentation</Value>
+        <Value>2 Structure and mechanical parts</Value>
+        <Value>3 Track interaction and gauging</Value>
+        <Value>4 Braking</Value>
+        <Value>6 Environmental conditions and aerodynamic effects</Value>
+        <Value>7 External warning, marking functions and software integrity requirements</Value>
+        <Value>8 On-board power supply and control systems</Value>
+        <Value>9 Staff facilities, interfaces and environment</Value>
+        <Value>10 Fire safety and evacuation</Value>
+        <Value>12 On-board control command and signalling</Value>
+        <Value>13 Specific operational requirements</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Comments</Name>
+        <Code>3.1.3.1.6</Code>
+      </Characteristic>
+      <Characteristic>
+        <Code>3.1.3.1.7 Reference to the written declaration by the proposer referred to in Article 3(11) of Regulation (EU) 402/2013:</Code>
+        <Value>Client Declaration according to CSM-RA article 16 (Signed declaration LKAB Malmtrafik AB 2023-05-23)</Value>
+      </Characteristic>
+    </Authorisation>
+  </Authorisations>
+  <TechnicalCharacteristics>
+    <Characteristic>
+      <Name>Wheel set gauge TC</Name>
+      <Code>4.1.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1435</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>ETCS equipment on-board and the set of specifications from CCS TSI Appendix A</Name>
+      <Code>4.13.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Implementing Regulation (EU) 2020/420 (Only German) Set_2</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Class B or other train protection, control and warning legacy systems installed (system and, if applicable, version) TC</Name>
+      <Code>4.13.1.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>ATC v2 (via STM in ETCS onboard system)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>ETCS on-board implementation</Name>
+      <Code>4.13.1.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>EBI Cab 2000 ETCS Onboard System R4 Package P8c EO2.5.6 P8cMR5.3</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>ETCS System Compatibility TC</Name>
+      <Code>4.13.1.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>ESC-SE-01-HiL2</Value>
+          <Value>ESC-SE-05-BoL2B3</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Managing information about the completeness of the train (not from driver) TC</Name>
+      <Code>4.13.1.9</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>GSM-R Radio voice on board and its Baseline</Name>
+      <Code>4.13.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Decision 2012/696/EU Set_1 (MESA 23, CR_04.09.03)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Class B or other radio legacy systems installed (system and, if applicable, version) TC</Name>
+      <Code>4.13.2.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Shunting Radio Communication System (Sepura SRG 3900)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>GSM-R Radio Data communication  on board and its Baseline</Name>
+      <Code>4.13.2.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Implementing Regulation (EU) 2020/420 (Only German) Set_2</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Radio Data System Compatibility TC</Name>
+      <Code>4.13.2.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>RSC-SE-01-D</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>GSM-R Data communication application for ETCS and ATO implementation</Name>
+      <Code>4.13.2.9</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>RIU-ETCS 5E</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic />
+    <Characteristic>
+      <Name>Energy supply system (voltage and frequency) TC</Name>
+      <Code>4.10.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>AC 15kV-16.7Hz</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Height of interaction of pantograph with contact wires (over top of rail) (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>0004.60</Value>
+          <Unit>m</Unit>
+          <Value>0006.20</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Pantograph head geometry (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>1800mm (sc NO)</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Number of pantographs in contact with the overhead contact line (OCL) (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>2</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Shortest distance between two pantographs  in contact with the OCL (to be indicated for each energy supply system the vehicle is equipped for; to be indicated for single and if applicable multiple operation) (only if number of raised pantographs is more than 1) TC</Name>
+      <Code>4.10.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>Single: 00010,100</Value>
+          <Unit>m</Unit>
+          <Value>Multiple: 00009,200</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Material of pantograph contact strip the vehicle may be equipped with (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.10</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>Plain carbon</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Automatic dropping device (ADD) fitted (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.11</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Electric units equipped with power or current limitation function TC</Name>
+      <Code>4.10.14</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Mean contact force TC</Name>
+      <Code>4.10.15</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>65</Value>
+          <Unit> Ν</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Vehicle equipped with electric energy storage for traction purposes and with the function of charging with OCL at standstill TC</Name>
+      <Code>4.10.16</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum design speed</Name>
+      <Code>4.1.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>80</Value>
+          <Unit> km/h</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum number of trainsets or locomotives coupled together in multiple operation.</Name>
+      <Code>4.1.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>4</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference profile TC</Name>
+      <Code>4.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>G1</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Temperature range</Name>
+      <Code>4.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>T2 (-40 to +35)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Snow, ice and hail conditions</Name>
+      <Code>4.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Severe</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Fire safety category TC</Name>
+      <Code>4.4.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>SRT TSI Freight Locomotive</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic />
+    <Characteristic>
+      <Name>Design mass in working order TC</Name>
+      <Code>4.5.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>180000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Design mass under normal payload TC</Name>
+      <Code>4.5.2.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>180000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Design mass under exceptional payload TC</Name>
+      <Code>4.5.2.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>180000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Static axle load in working order TC</Name>
+      <Code>4.5.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>30000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Static axle load under normal payload TC</Name>
+      <Code>4.5.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>30000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Static axle load under exceptional payload TC</Name>
+      <Code>4.5.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>30000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Position of the axles along the unit (axle spacing) : a: Distance between axles  b: Distance from end axle to the end of the nearest coupling plane  c: distance between  two inside axles TC</Name>
+      <Code>4.5.3.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>a: 0001,92 m b: 0003,88 m c: 0009,05 m</Value>
+          <Explanations>a: Distance between axles in bogie
+b: Distance from end axle to the end of the nearest coupling plane
+c: Longest distance between two inside axles</Explanations>
+        </Characteristic>
+      </Configurations>
+      <Name>Total vehicle mass (for each vehicle of the unit) TC</Name>
+      <Code>4.5.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>180000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Mass per wheel TC</Name>
+      <Code>4.5.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>15000</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum average deceleration</Name>
+      <Code>4.7.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>0.68</Value>
+          <Unit>m/s²</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic />
+    <Characteristic>
+      <Name>Maximum gradient on which the unit is kept immobilized by the parking brake alone (if the vehicle is fitted with it)</Name>
+      <Code>4.7.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>30</Value>
+          <Unit>‰ (mm/m)</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Eddy current track brake fitted TC</Name>
+      <Code>4.7.4.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Magnetic track brake fitted TC</Name>
+      <Code>4.7.4.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Regenerative brake fitted TC</Name>
+      <Code>4.7.4.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Possibility of preventing the use of the regenerative brake (only if fitted with regenerative brake) TC</Name>
+      <Code>4.7.4.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>For general operation : 
+Brake weight percentage (lambda) or Braked mass</Name>
+      <Code>4.7.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>068,00</Value>
+          <Unit>(%) or</Unit>
+          <Value>00140,00</Value>
+          <Unit>tonnes</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Wheel slide protection system</Name>
+      <Code>4.7.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Vehicle length</Name>
+      <Code>4.8.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>22.905</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum in-service wheel diameter TC</Name>
+      <Code>4.8.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1150</Value>
+          <Unit> mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum horizontal curve radius capability TC</Name>
+      <Code>4.8.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>90</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum vertical convex curve radius capability</Name>
+      <Code>4.8.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>500</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum vertical concave curve radius capability</Name>
+      <Code>4.8.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>500</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of end coupling</Name>
+      <Code>4.9.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>SA-3 Couplers<Characteristic>Tensile force<Value>2700.0000</Value><Unit>kN</Unit></Characteristic><Characteristic>Compressive force<Value>3500.0000</Value><Unit>kN</Unit></Characteristic></Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Axle bearing condition monitoring (hot axles box detection) TC</Name>
+      <Code>4.9.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Detectable by line side</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Flange lubrication fitted TC</Name>
+      <Code>4.9.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of train detection systems for which the vehicle has been designed and assessed TC</Name>
+      <Code>4.14.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Track circuits</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+  </TechnicalCharacteristics>
+</VehicleType>

@@ -204,6 +204,7 @@ up by the loop (`--now` runs `sync`, `reindex`, `generate-shapes` or
 | `atlas export --env prod --format ttl\|nt\|jsonld\|csv\|xlsx\|geojson\|gpkg [--class K] [--graph IRI] [--profile full] [--shape long] [--parts] [--gzip] [--out F]` | write a full export from the mirror ([docs/export.md](docs/export.md)) |
 | `atlas export-jobs [--once]` | run the exports queued by the API (`atlas run` does this too) |
 | `atlas generate-export-profile [--force]` | regenerate `shapes/export/full.ttl` from ERA's shapes on the mirror |
+| `atlas eratv fetch\|sync\|full\|import\|reconvert\|convert\|status` | ERATV vehicle types: harvest, import XML exports, convert to RDF with the ERA ontology ([docs/eratv.md](docs/eratv.md)) |
 
 ## Configuration
 
@@ -229,6 +230,8 @@ default).
 | `ATLAS_EXPORT_WORKERS`, `ATLAS_EXPORT_RETENTION_HOURS` | `2`, `24` | export jobs run in parallel by the worker, and how long their files are kept ([docs/export.md](docs/export.md)) |
 | `ATLAS_EXPORT_MAX_ENTITIES`, `ATLAS_EXPORT_QUEUE` | no cap, `20` | most entities in one export, and most queued plus running jobs |
 | `ATLAS_QUALITY` | `1` | `0` turns data quality validation off |
+| `ATLAS_ERATV_LOOKUP`, `ATLAS_ERATV_LOOKUPS_PER_HOUR` | `1`, `30` | users can load one vehicle type from ERATV in the vehicle check; the worker fetches it (two requests), at most this many per hour across all users ([docs/eratv.md](docs/eratv.md)) |
+| `ATLAS_ERATV`, `ATLAS_ERATV_CONTACT` | `0`, empty | `1` lets the worker harvest ERATV's vehicle types, only with ERA's agreement; the contact goes in the User-Agent ([docs/eratv.md](docs/eratv.md)) |
 | `ATLAS_QUALITY_MAX_TRIPLES`, `ATLAS_QUALITY_MINUTES`, `ATLAS_QUALITY_SHAPES_TAG` | `environments.yaml` | size limit, time budget per dataset and pinned shapes tag; one value or `prod=…,uat=…` ([docs/datasets.md](docs/datasets.md#data-quality)) |
 | `ATLAS_SHACL_REPORT_URL` | `https://shacl-report.matdata.eu/` | shacl-report instance the UI links to (empty = no link) |
 | `ATLAS_DESCRIBE_URL` | empty | "Full describe" link template, e.g. `https://describe.example.org/describe?uri={iri}&env={env}` for [RINF Describe](https://github.com/Matdata-eu/rinf-describe) (empty = no link; `describe_url` in `environments.yaml` overrides it per environment, [docs/urls.md](docs/urls.md#outgoing-links)) |
@@ -277,6 +280,7 @@ that remain for a public instance (domain, redirects, Search Console).
 | `docs/urls.md` | shareable links: the URL scheme of the web app |
 | `docs/datasets.md` | how datasets are updated |
 | `docs/export.md` | exporting data: full exports, formats, export profiles |
+| `docs/eratv.md` | ERATV vehicle types: harvesting, conversion to RDF, mapping |
 | `docs/architecture.md` | architecture overview |
 | `docs/DESIGN.md` | design notes |
 | `docs/privacy.md` | adding a privacy statement; what the app processes |

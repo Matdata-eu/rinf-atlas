@@ -1,0 +1,2637 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<VehicleType>
+  <GeneralInfo>
+    <Type ID="13-142-0008-8-001-001">
+      <Characteristic>
+        <Name>Type ID</Name>
+        <Code>0.1 0.2 0.4</Code>
+        <Value>13-142-0008-8-001-001</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of record</Name>
+        <Code>0.3</Code>
+        <Value>2026-11-10</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Type name</Name>
+        <Code>1.1</Code>
+        <Value>ETR 160</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Alternative type name</Name>
+        <Code>1.2</Code>
+        <Value>Coradia Stream STA</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Number of driving cabs</Name>
+        <Code>4.1.1</Code>
+        <Value>2</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Manufacturer</Name>
+        <Code>1.3</Code>
+        <Characteristic>
+          <Name>Manufacturer identification data</Name>
+          <Code>1.3.1</Code>
+          <Characteristic>
+            <Name>Name of organisation</Name>
+            <Code>1.3.1.1</Code>
+            <Value>Alstom Ferroviaria S.p.a</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Registered business number</Name>
+            <Code>1.3.1.2</Code>
+            <Value>07984290010</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Organisation code</Name>
+            <Code>1.3.1.3</Code>
+            <Value>YQHJ</Value>
+          </Characteristic>
+        </Characteristic>
+        <Characteristic>
+          <Name>Manufacturer contact data</Name>
+          <Code>1.3.2</Code>
+          <Characteristic>
+            <Name>Address of organisation, street and number</Name>
+            <Code>1.3.2.1</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Town</Name>
+            <Code>1.3.2.2</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Country code</Name>
+            <Code>1.3.2.3</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Post code</Name>
+            <Code>1.3.2.4</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>E-mail address</Name>
+            <Code>1.3.2.5</Code>
+          </Characteristic>
+        </Characteristic>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registration Method</Name>
+        <Value>New Type</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registered Vehicle Type</Name>
+      </Characteristic>
+      <Characteristic>
+        <Name>Category</Name>
+        <Code>1.4</Code>
+        <Value>Traction vehicles</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Subcategory</Name>
+        <Code>1.5</Code>
+        <Value>Self-propelled passenger trainset</Value>
+      </Characteristic>
+    </Type>
+    <Characteristic>
+      <Name>Platform</Name>
+      <Value>Coradia Stream</Value>
+    </Characteristic>
+  </GeneralInfo>
+  <ConformityWithTSI>
+    <Characteristic>
+      <Name>Conformity with TSI and Sections not complied with:</Name>
+      <Code>2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / AC 15kV-16.7Hz / PZB 90</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / AC 15kV-16.7Hz / SCMT + RSC</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / AC 25kV-50Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / AC 25kV-50Hz / PZB 90</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / AC 25kV-50Hz / SCMT + RSC</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / DC 3kV / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / DC 3kV / PZB 90</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+        </Characteristic>
+        <Characteristic>
+          <Name>1435mm / DC 3kV / SCMT + RSC</Name>
+          <TSI>CCS (Reg (EU)2023/1695)</TSI>
+          <TSI>LOC&amp;PAS (Reg (EU)1302/2014 amended by Reg (EU)2016/919, 2018/868, 2019/776, 2020/387 and 2023/1694)</TSI>
+          <TSI>PRM (Reg (EU)1300/2014 amended by Reg (EU)2019/772)</TSI>
+          <TSI>SRT (Reg (EU)1303/2014 amended by Reg (EU)2016/912 and (EU)2019/776)</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774)</TSI>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Applicable specific cases (specific cases conformity with which has been assessed)</Name>
+      <Code>2.3</Code>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference of ‘EC type examination certificates’</Name>
+      <Code>2.2</Code>
+      <Value>0474/1/SB/2026/RST/IT/P0034506-3/V01</Value>
+      <Value>0474/2/SH1/2026/CCO/ITEN/P0051613_ETR160/V02</Value>
+    </Characteristic>
+  </ConformityWithTSI>
+  <Authorisations>
+    <Authorisation Title="European Union">
+      <Characteristic>
+        <Code>3.0 Area Of Use:</Code>
+        <Value>AT(Austria), IT(Italy)</Value>
+      </Characteristic>
+      <Characteristic>
+        <Code>3.1.1 Member state of authorisation:</Code>
+        <Value>Austria(AT), Italy(IT)</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Status</Name>
+        <Code>3.1.2.1</Code>
+        <Value>Valid</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Validity of Authorisation (until)</Name>
+        <Code>3.1.2.2</Code>
+      </Characteristic>
+      <Characteristic>
+        <Name>Coded Restrictions</Name>
+        <Code>3.1.2.3</Code>
+        <Configurations>
+          <Characteristic>
+            <Name>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.03 TELOC</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / AC 15kV-16.7Hz / PZB 90</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.03 TELOC</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / AC 15kV-16.7Hz / SCMT + RSC</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.01 “Registratore cronologico d’eventi computerizzato” (RCEC) according to specification RFI/DTC/CSI/SR/OR/10/002/B of 11/02/2008</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / AC 25kV-50Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.03 TELOC</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / AC 25kV-50Hz / PZB 90</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.03 TELOC</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / AC 25kV-50Hz / SCMT + RSC</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.01 “Registratore cronologico d’eventi computerizzato” (RCEC) according to specification RFI/DTC/CSI/SR/OR/10/002/B of 11/02/2008</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / DC 3kV / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.01 “Registratore cronologico d’eventi computerizzato” (RCEC) according to specification RFI/DTC/CSI/SR/OR/10/002/B of 11/02/2008</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / DC 3kV / PZB 90</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.01 “Registratore cronologico d’eventi computerizzato” (RCEC) according to specification RFI/DTC/CSI/SR/OR/10/002/B of 11/02/2008</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>1435mm / DC 3kV / SCMT + RSC</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 100 m in depot / 150 m for revenue service</Value>
+            <Value>5 On-board equipment</Value>
+            <Value>5.1 Recording device: 5.1.01 “Registratore cronologico d’eventi computerizzato” (RCEC) according to specification RFI/DTC/CSI/SR/OR/10/002/B of 11/02/2008</Value>
+          </Characteristic>
+        </Configurations>
+      </Characteristic>
+      <Characteristic>
+        <Name>Non Coded Restrictions</Name>
+        <Code>3.1.2.4</Code>
+        <Value>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Value>
+        <Value>For the entire area of use:</Value>
+        <Value>- Single unit operation /Funzionamento in configurazione singola</Value>
+        <Value>- Under the operating conditions shown below, relating to circulation with 2 pantographs in contact with the overhead line, operation is limited to the following maximum speeds: •De-icing Mode (3kV DC Only): catenary type A: Vmax = 80km/h - catenary type B / C: Vmax = 120 km/h Nelle condizioni operative riportate di seguito, relative alla circolazione con 2 pantografi a contatto con la linea aerea, il funzionamento è limitato alle seguenti velocità massime: •Modalità di sbrinamento (solo 3 kV CC): catenaria di tipo A: Vmax = 80 km/h - catenaria di tipo B / C: Vmax = 120 km/h</Value>
+        <Value>- The pantograph integration checks for 3kV DC and 25kV AC power supplies were carried out only for the "low" catenary type, as defined by TSI Loc&amp;Pas in §6.2.3.20 (contact wire heights between 5.0 and 5.3 m). / Le verifiche di integrazione del pantografo per le alimentazioni a 3 kV CC e 25 kV CA sono state effettuate solo per il tipo di catenaria bassa, come definito dalla TSI Loc&amp;Pas al §6.2.3.20 (altezze del filo di contatto comprese tra 5,0 e 5,3 m).</Value>
+        <Value>- The train will be able to operate on ERTMS/ETCS L1 lines equipped with Radio Infill only after the completion of the necessary ground/onboard integration activities / Il treno potrà circolare sulle linee ERTMS/ETCS L1 dotate di Radio Infill solo dopo il completamento delle necessarie attività di integrazione a terra e a bordo.</Value>
+        <Value>- The project does not utilize the Non-Leading and Passive Shunting operating modes; therefore, the corresponding interfaces with the train have not been implemented / Il progetto non utilizza le modalità operative «Non-Leading» e «Passive Shunting»; pertanto, le relative interfacce con il treno non sono state implementate</Value>
+        <Value>- During data-entry the driver shall not select one of the following labels (corresponding to degraded braking capacity) if the mission profile foresees section of the lines with -4% gradient: •S-1B-1C-0M •S-1B-1C-1M •S-1B-1C-3M •S-2B-1C-3M •M-2B-1C-6M in such cases, the driver shall consider the onboard CCS not working and apply the concerned regulations in force  Durante l’inserimento dei dati, il macchinista non deve selezionare una delle seguenti etichette (corrispondenti a una capacità di frenata ridotta) se il profilo di missione prevede tratti di linea con pendenza del -4%: •S-1B-1C-0M •S-1B-1C-1M •S-1B-1C-3M •S-2B-1C-3M •M-2B-1C-6M In tali casi, il macchinista dovrà considerare il sistema CCS di bordo non funzionante e applicare le norme vigenti in materia.</Value>
+        <Value>For operation in Austria only:</Value>
+        <Value>- The specific case 'P' Austria set out in §7.3.2.6 of the TSI PRM (rolling stock intended to stop, under normal operating conditions, at platforms with a height of less than 550 mm) is fully satisfied for platform heights from 550 mm to 515 mm above rail level. Note: For docks with a height of 515mm to 281 mm from the rail surface, only the requirement δν+ =310 mm (distance between platform and quay) is met. / Il caso specifico P Austria di cui al §7.3.2.6 della TSI PRM (materiale rotabile destinato a fermarsi, in condizioni operative normali, su marciapiedi con un’altezza inferiore a 550 mm) è pienamente soddisfatto per altezze dei marciapiedi comprese tra 550 mm e 515 mm sopra il livello delle rotaie. Nota: Per le banchine con un’altezza compresa tra 515 mm e 281 mm dalla superficie del binario, è soddisfatto solo il requisito δν+ = 310 mm (distanza tra la banchina e il molo).</Value>
+        <Value>For operation in Italy only: </Value>
+        <Value> - L’Impresa Ferroviaria deve considerare che qualora il tetto VMC impostato dal AdC in una m.o. non protetta sia differente dal valore di default, il SSB non lo gestisce e mantiene il tetto VMC a 30km/h</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / PZB 90</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / SCMT + RSC</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / AC 25kV-50Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / AC 25kV-50Hz / PZB 90</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / AC 25kV-50Hz / SCMT + RSC</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / DC 3kV / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / DC 3kV / PZB 90</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+        <Value>1435mm / DC 3kV / SCMT + RSC</Value>
+        <Value>Refer to CfUs described in "1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3"</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of the original authorisation</Name>
+        <Code>3.1.3.1.1</Code>
+        <Value>2026-11-05</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation holder</Name>
+        <Code>3.1.3.1.2</Code>
+        <Characteristic>
+          <Name>Authorisation holder identification data</Name>
+          <Code>3.1.3.1.2.1</Code>
+          <Characteristic>
+            <Name>Name of organisation</Name>
+            <Code>3.1.3.1.2.1.1</Code>
+            <Value>Alstom Ferroviaria S.p.A (AF)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Registered business number</Name>
+            <Code>3.1.3.1.2.1.2</Code>
+            <Value>07984290010</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Organisation code</Name>
+            <Code>3.1.3.1.2.1.3</Code>
+            <Value>YQHJ</Value>
+          </Characteristic>
+        </Characteristic>
+        <Characteristic>
+          <Name>Authorisation holder contact data</Name>
+          <Code>3.1.3.1.2.2</Code>
+          <Characteristic>
+            <Name>Address of organisation, street and number</Name>
+            <Code>3.1.3.1.2.2.1</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Town</Name>
+            <Code>3.1.3.1.2.2.2</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Country code</Name>
+            <Code>3.1.3.1.2.2.3</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Post code</Name>
+            <Code>3.1.3.1.2.2.4</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>E-mail address</Name>
+            <Code>3.1.3.1.2.2.5</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+        </Characteristic>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation document reference</Name>
+        <Code>3.1.3.1.3</Code>
+        <Value>EU8020260350</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Certificate of verification : Reference of type examination or design examination type</Name>
+        <Code>3.1.3.1.4</Code>
+        <Value>AT0949/6/SB/2026/CCO/DEEN/1850-3D-03/V01 – dated 22/05/2026</Value>
+        <Value>AT0949/8.6/SB/2026/RST/DEEN/1850-2D-02/V01 – dated 22/05/2026</Value>
+        <Value>RINA/2/SH1/2026/CCO/IT/P0040671_STB150_ETR160/V02 – dated 11/09/2026</Value>
+        <Value>RINA/1/SB/2026/RST/IT/P0034506-2/V01 – dated 29/09/2026</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Parameters for which conformity to applicable national rules has been assessed</Name>
+        <Code>3.1.3.1.5</Code>
+        <Value>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3 / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.4.2.1.1 Rail return current</Value>
+        <Value>8.4.2.1.3 Interference current under the vehicle</Value>
+        <Value>8.4.2.1.4 Harmonic characteristics and related overvoltages on the overhead contact line</Value>
+        <Value>8.4.2.2.1 Electro-magnetic fields/Induced voltages in the track/under the vehicle</Value>
+        <Value>8.4.2.2.2 Electro-magnetic fields/Induced voltages outside the track</Value>
+        <Value>8.4.2.4 Psophometric current</Value>
+        <Value>8.7.5 Hydraulic/pneumatic supply and control systems</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>12.1 On-board radio system</Value>
+        <Value>12.1.2.2 Other GSM-R requirements</Value>
+        <Value>12.2.1 National on-board signalling systems</Value>
+        <Value>12.2.4 Compatibility of rolling stock with CCS Trackside</Value>
+        <Value>12.2.4.1 Minimum axle distance</Value>
+        <Value>12.2.4.2 Minimum wheel diameter</Value>
+        <Value>12.2.5.7 Other ETCS requirements (related to existing not interoperable networks)</Value>
+        <Value>14.3 Doors and loading facilities</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / PZB 90 / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / SCMT + RSC / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / AC 25kV-50Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3 / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / AC 25kV-50Hz / PZB 90 / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / AC 25kV-50Hz / SCMT + RSC / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / DC 3kV / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3 / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / DC 3kV / PZB 90 / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / DC 3kV / SCMT + RSC / AT</Value>
+        <Value> 2015/2299/EU-AT</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3 / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / PZB 90 / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / AC 15kV-16.7Hz / SCMT + RSC / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / AC 25kV-50Hz / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3 / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / AC 25kV-50Hz / PZB 90 / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / AC 25kV-50Hz / SCMT + RSC / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / DC 3kV / Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3 / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / DC 3kV / PZB 90 / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+        <Value>1435mm / DC 3kV / SCMT + RSC / IT</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>1.1 General documentation</Value>
+        <Value>1.2.1 Maintenance instructions</Value>
+        <Value>1.2.2 The maintenance design justification file</Value>
+        <Value>1.3.1 Instructions for operation in normal and degraded modes of the vehicle</Value>
+        <Value>1.4 National requirement for testing</Value>
+        <Value>2.1.1 Strength and integrity</Value>
+        <Value>2.1.2.1 Load conditions and weighed mass</Value>
+        <Value>2.1.2.2 Axle load and wheel load</Value>
+        <Value>2.1.3 Joining technology</Value>
+        <Value>2.1.4 Lifting and jacking</Value>
+        <Value>2.1.5 Fixing of devices to car body structure</Value>
+        <Value>2.1.6 Connections used between different parts of the vehicle</Value>
+        <Value>2.2.1 Automatic coupling</Value>
+        <Value>2.2.2 Characteristics of rescue coupling</Value>
+        <Value>2.2.4 Buffing</Value>
+        <Value>2.2.5 Gangways</Value>
+        <Value>2.3 Passive safety</Value>
+        <Value>3.1 Vehicle gauge</Value>
+        <Value>3.2.1 Running safety and dynamics</Value>
+        <Value>3.2.2 Equivalent conicity</Value>
+        <Value>3.2.3 Wheel profile and limits </Value>
+        <Value>3.2.4 Track loading compatibility parameters</Value>
+        <Value>3.2.5 Minimum horizontal curve radius, vertical concave curve radius, convex curve radius</Value>
+        <Value>3.3.1 Bogies</Value>
+        <Value>3.3.2 Wheelset (complete)</Value>
+        <Value>3.3.3 Wheel</Value>
+        <Value>3.3.4 Wheel/rail interaction influencing systems</Value>
+        <Value>3.3.5 Sanding system</Value>
+        <Value>3.3.6 Bearings on the wheelset </Value>
+        <Value>3.3.7 Axle shaft</Value>
+        <Value>3.3.8 Axle bearing condition monitoring</Value>
+        <Value>3.4 Limit of maximum longitudinal positive and negative acceleration</Value>
+        <Value>4.1 Functional requirements for braking at train level</Value>
+        <Value>4.2.1 Reliability of main brake system functionality</Value>
+        <Value>4.2.2 Reliability of traction/braking interlocking</Value>
+        <Value>4.2.3 Reliability of stopping distance</Value>
+        <Value>4.2.4 Reliability of parking brake</Value>
+        <Value>4.4.1 Emergency braking command</Value>
+        <Value>4.4.2 Service braking command</Value>
+        <Value>4.4.4 Dynamic braking command</Value>
+        <Value>4.4.5 Parking braking command</Value>
+        <Value>4.5.1 Emergency braking performance</Value>
+        <Value>4.5.2 Service braking performance</Value>
+        <Value>4.5.3 Calculations related to thermal capacity</Value>
+        <Value>4.5.4 Parking brake performance</Value>
+        <Value>4.5.5 Brake performance calculation</Value>
+        <Value>4.6.1 Limit of wheel rail adhesion profile</Value>
+        <Value>4.6.2 Wheel slide protection system (“WSP”)</Value>
+        <Value>4.7.1.2 Brake discs</Value>
+        <Value>4.7.1.3 Brake pads</Value>
+        <Value>4.7.3 Magnetic track brake</Value>
+        <Value>4.7.5 Parking brake</Value>
+        <Value>4.8 Brake state and fault indication</Value>
+        <Value>4.9 Brake requirements for rescue purposes</Value>
+        <Value>5.1.1 Exterior doors</Value>
+        <Value>5.1.2 Boarding aids</Value>
+        <Value>5.2.1 Interior doors</Value>
+        <Value>5.2.2 Intercirculation doors</Value>
+        <Value>5.2.3 Clearways</Value>
+        <Value>5.2.4 Floor height changes</Value>
+        <Value>5.4 Windows </Value>
+        <Value>5.5 Toilets</Value>
+        <Value>5.6 Heating, ventilation and air conditioning systems</Value>
+        <Value>5.7.1 Public address system</Value>
+        <Value>5.7.2 Signs and information</Value>
+        <Value>6.1.1.2 Temperature</Value>
+        <Value>6.1.1.5 Snow, ice and hail</Value>
+        <Value>6.1.2.1 Crosswind effects</Value>
+        <Value>6.1.2.2 Maximum pressure variation in tunnels</Value>
+        <Value>6.2.1.1 Toilet emissions</Value>
+        <Value>6.2.1.3 Chemical and particulate emission</Value>
+        <Value>6.2.2.1 Stationary noise impact</Value>
+        <Value>6.2.2.2 Starting noise impact</Value>
+        <Value>6.2.2.3 Pass-by noise impact</Value>
+        <Value>6.2.3.1 Head pressure pulses </Value>
+        <Value>6.2.3.2 Aerodynamic impact on passengers/materials on the platform</Value>
+        <Value>6.2.3.3 Aerodynamic impact on track workers</Value>
+        <Value>6.2.3.4 Ballast pick-up and projection onto neighbouring property</Value>
+        <Value>7.1 Integrity of software employed for safety related functions</Value>
+        <Value>7.2.1 Vehicle marking</Value>
+        <Value>7.2.2.1 Headlights</Value>
+        <Value>7.2.2.2 Marker lights</Value>
+        <Value>7.2.2.3 End-of-train signal</Value>
+        <Value>7.2.2.4 Lamp controls</Value>
+        <Value>7.2.3 Audible signal systems</Value>
+        <Value>7.2.4 Brackets</Value>
+        <Value>8.1 Traction performance requirements</Value>
+        <Value>8.2.1.1 Specific requirements for power supply</Value>
+        <Value>8.2.1.2 Voltage and frequency of overhead contact line power supply</Value>
+        <Value>8.2.1.3 Regenerative braking</Value>
+        <Value>8.2.1.4 Maximum power and maximum train current that is permissible to draw from the overhead contact line</Value>
+        <Value>8.2.2.1 Pantograph overall design</Value>
+        <Value>8.2.2.2 Pantograph head geometry</Value>
+        <Value>8.2.2.3 Pantograph contact force (including static contact force, dynamic behaviour and aerodynamic effects)</Value>
+        <Value>8.2.2.4 Working range of pantographs</Value>
+        <Value>8.2.2.5 Current capacity of pantograph including contact strip</Value>
+        <Value>8.2.2.6 Arrangement of pantographs</Value>
+        <Value>8.2.2.7 Insulation of pantograph from the vehicle</Value>
+        <Value>8.2.2.8 Pantograph lowering</Value>
+        <Value>8.2.2.9 Running through phase or system separation sections</Value>
+        <Value>8.2.3.1 Contact strip geometry</Value>
+        <Value>8.2.3.2 Contact strip material</Value>
+        <Value>8.2.3.3 Contact strip assessment</Value>
+        <Value>8.2.3.4 Detection of contact strip breakage</Value>
+        <Value>8.3.1 Energy consumption measurement</Value>
+        <Value>8.3.2 Requirements for electrical installations on-board of a railway vehicle</Value>
+        <Value>8.3.3 High voltage components</Value>
+        <Value>8.3.4 Earthing</Value>
+        <Value>8.4.1 EMC within the vehicle</Value>
+        <Value>8.4.2 EMC between the vehicle and the railway system</Value>
+        <Value>8.4.2.1 Maximum currents</Value>
+        <Value>8.4.3 EMC between the vehicle and the environment</Value>
+        <Value>8.5 Protection against electrical hazards</Value>
+        <Value>8.7.1 Tanks and pipe systems for flammable liquids</Value>
+        <Value>8.7.2 Pressure vessel systems/pressure equipment</Value>
+        <Value>9.1.1 Interior layout</Value>
+        <Value>9.1.2.1 Access, egress and doors</Value>
+        <Value>9.1.2.2 Driver’s cab emergency exits</Value>
+        <Value>9.1.3.1 Mechanical characteristics</Value>
+        <Value>9.1.3.2 Optical characteristics</Value>
+        <Value>9.1.3.3 Equipment to the windscreen</Value>
+        <Value>9.1.3.4 Front visibility / visibility field</Value>
+        <Value>9.1.4 Desk ergonomics</Value>
+        <Value>9.1.5 Driver's seat</Value>
+        <Value>9.2.1.1 Heating, ventilation and air-conditioning systems in driver's cab</Value>
+        <Value>9.2.1.2 Noise in driver's cab</Value>
+        <Value>9.2.1.3 Lighting in driver's cab</Value>
+        <Value>9.2.2 Other health and safety requirements</Value>
+        <Value>9.3.2 Driver display unit and screens</Value>
+        <Value>9.3.3 Controls and indicators</Value>
+        <Value>9.3.4 Driver supervision</Value>
+        <Value>9.3.5 Rear and side view</Value>
+        <Value>9.4 Marking and labelling in driver's cab</Value>
+        <Value>9.5.1.1 Staff access for coupling/uncoupling</Value>
+        <Value>9.5.1.3 Storage facilities for use by staff</Value>
+        <Value>9.5.3 On-board tools and portable equipment</Value>
+        <Value>9.5.4 Audible communication system</Value>
+        <Value>9.6 Recording device</Value>
+        <Value>10.1 Fire protection concept and protection measures</Value>
+        <Value>10.2.1 Passenger evacuation concept</Value>
+        <Value>10.2.2 Rescue services' information, equipment and access</Value>
+        <Value>10.2.3 Passenger alarm</Value>
+        <Value>10.2.4 Emergency lighting</Value>
+        <Value>10.3 Emergency running capabilities</Value>
+        <Value>11.1 Train cleaning facilities</Value>
+        <Value>11.2.1 Waste water disposal systems</Value>
+        <Value>11.2.2 Water supply system</Value>
+        <Value>11.2.3 Further supply facilities</Value>
+        <Value>13.1 Specific items to place on-board</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Comments</Name>
+        <Code>3.1.3.1.6</Code>
+      </Characteristic>
+      <Characteristic>
+        <Code>3.1.3.1.7 Reference to the written declaration by the proposer referred to in Article 3(11) of Regulation (EU) 402/2013:</Code>
+        <Value>STA/ETR160/DAR_001_2026 Amendment 2.0 – dated 06-10-2026</Value>
+      </Characteristic>
+    </Authorisation>
+  </Authorisations>
+  <TechnicalCharacteristics>
+    <Characteristic>
+      <Name>Wheel set gauge TC</Name>
+      <Code>4.1.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1435</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Number of vehicles composing the fixed formation (for fixed formation only)</Name>
+      <Code>4.1.12</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>6</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>ETCS equipment on-board and the set of specifications from CCS TSI Appendix A</Name>
+      <Code>4.13.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Implementing Regulation (EU) 2023/1695, Appendix B transition regime former set #3</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Class B or other train protection, control and warning legacy systems installed (system and, if applicable, version) TC</Name>
+      <Code>4.13.1.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>PZB 90</Value>
+          <Value>SCMT + RSC</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>ETCS on-board implementation</Name>
+      <Code>4.13.1.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Baseline 1.5.0 - SSB IVC 2.1 – ETCS: 7.7.0 – STM-SCMT: 10.1.0</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>ETCS System Compatibility TC</Name>
+      <Code>4.13.1.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>ESC-IT-25-RFI_B2_L2AV_HR_01</Value>
+          <Value>ESC-AT-01</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Managing information about the completeness of the train (not from driver) TC</Name>
+      <Code>4.13.1.9</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Safe consist length information from on-board necessary to access the line and corresponding SIL TC</Name>
+      <Code>4.13.1.10</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>None</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Envelope of legally operated ETCS system versions TC</Name>
+      <Code>4.13.1.11</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>ETCS system versions from 1.0 up to 2.1 inclusive according to CCS TSI 2016/919 Set #3 B3R2</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>GSM-R Radio voice on board and its Baseline</Name>
+      <Code>4.13.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Implementing Regulation (EU) 2020/387 Set_3</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Class B or other radio legacy systems installed (system and, if applicable, version) TC</Name>
+      <Code>4.13.2.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>None</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Radio Voice System Compatibility TC</Name>
+      <Code>4.13.2.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>RSC-AT-01-V</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>GSM-R Voice and operational communication implementation</Name>
+      <Code>4.13.2.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>MESA 26 BL02.01.32</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>GSM-R Radio Data communication  on board and its Baseline</Name>
+      <Code>4.13.2.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Implementing Regulation (EU) 2020/387 Set_3</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Radio Data System Compatibility TC</Name>
+      <Code>4.13.2.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>RSC-AT-01-D</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>GSM-R Data communication application for ETCS and ATO implementation</Name>
+      <Code>4.13.2.9</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>ARBE C4 Baseline 2.2.0</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Voice SIM Card GSM-R Home Network TC</Name>
+      <Code>4.13.2.10</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>GSM-R A (Austria)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Data SIM Card GSM-R Home Network TC</Name>
+      <Code>4.13.2.11</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>GSM-R A (Austria)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>GSM-R Voice SIM Card support of Group ID 555 TC</Name>
+      <Code>4.13.2.12</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>On-board ATO system version</Name>
+      <Code>4.13.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>None</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>On-board ATO implementation</Name>
+      <Code>4.13.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>None</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Energy supply system (voltage and frequency) TC</Name>
+      <Code>4.10.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>AC 25kV-50Hz</Value>
+          <Value>AC 15kV-16.7Hz</Value>
+          <Value>DC 3kV</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum current at standstill per pantograph (to be indicated for each DC systems the vehicle is equipped for)</Name>
+      <Code>4.10.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>182</Value>
+          <Unit> A</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Height of interaction of pantograph with contact wires (over top of rail) (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>0004.70</Value>
+          <Unit>m</Unit>
+          <Value>0006.20</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>0004.70</Value>
+          <Unit>m</Unit>
+          <Value>0006.20</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>0004.45</Value>
+          <Unit>m</Unit>
+          <Value>0006.70</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Pantograph head geometry (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>1950  sc DE and AT</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>1950  sc DE and AT</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>1450  (sc IT)</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Number of pantographs in contact with the overhead contact line (OCL) (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>1</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>1</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>1</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Material of pantograph contact strip the vehicle may be equipped with (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.10</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>Plain carbon</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>Plain carbon</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>Plain carbon</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Automatic dropping device (ADD) fitted (to be indicated for each energy supply system the vehicle is equipped for) TC</Name>
+      <Code>4.10.11</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>True</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>True</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Electric units equipped with power or current limitation function TC</Name>
+      <Code>4.10.14</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>True</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>True</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Mean contact force TC</Name>
+      <Code>4.10.15</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>70</Value>
+          <Unit> Ν</Unit>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>70</Value>
+          <Unit> Ν</Unit>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>70</Value>
+          <Unit> Ν</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Vehicle equipped with electric energy storage for traction purposes and with the function of charging with OCL at standstill TC</Name>
+      <Code>4.10.16</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>AC 15kV-16.7Hz</Name>
+          <Value>False</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>AC 25kV-50Hz</Name>
+          <Value>False</Value>
+        </Characteristic>
+        <Characteristic>
+          <Name>DC 3kV</Name>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum design speed</Name>
+      <Code>4.1.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>160</Value>
+          <Unit> km/h</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum number of trainsets or locomotives coupled together in multiple operation.</Name>
+      <Code>4.1.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference profile TC</Name>
+      <Code>4.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>G1+GI2</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Temperature range</Name>
+      <Code>4.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>T3 (-25 to +45)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Snow, ice and hail conditions</Name>
+      <Code>4.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Severe</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Fire safety category TC</Name>
+      <Code>4.4.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>B</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>EN line category(ies) TC</Name>
+      <Code>4.5.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>No assessed in he issued Type Auhorisaion</Value>
+          <Unit>t</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Design mass in working order TC</Name>
+      <Code>4.5.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>232434</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Design mass under normal payload TC</Name>
+      <Code>4.5.2.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>284953</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Design mass under exceptional payload TC</Name>
+      <Code>4.5.2.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>292413</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Operational mass in working order TC</Name>
+      <Code>4.5.2.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>229966</Value>
+          <Unit>kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Operational mass under normal payload TC</Name>
+      <Code>4.5.2.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>271982</Value>
+          <Unit>kg</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Static axle load in working order TC</Name>
+      <Code>4.5.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>17497</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Static axle load under normal payload TC</Name>
+      <Code>4.5.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>19586</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Static axle load under exceptional payload TC</Name>
+      <Code>4.5.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>19804</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Position of the axles along the unit (axle spacing) : a: Distance between axles  b: Distance from end axle to the end of the nearest coupling plane  c: distance between  two inside axles TC</Name>
+      <Code>4.5.3.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>a: 0015,80 m b: 0119,50 m c: 0002,70 m</Value>
+          <Explanations>a: max distance between two consecutive axles of different bogie
+b: max distance between the first and the last axle of the vehicle
+c: max distance between axles of same bogie</Explanations>
+        </Characteristic>
+      </Configurations>
+      <Name>Total vehicle mass (for each vehicle of the unit) TC</Name>
+      <Code>4.5.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>232434</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Mass per wheel TC</Name>
+      <Code>4.5.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>8785</Value>
+          <Unit> kg</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Combination of maximum speed and maximum cant deficiency for which the vehicle was assessed TC</Name>
+      <Code>4.6.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm</Name>
+          <Value>0160,00</Value>
+          <Unit>km/h</Unit>
+          <Value>0153,00</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Rail inclination TC</Name>
+      <Code>4.6.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1/20</Value>
+          <Value>1/40</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum average deceleration</Name>
+      <Code>4.7.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1.34</Value>
+          <Unit>m/s²</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference case of TSI</Name>
+      <Code>4.7.2.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Reference case of (80 km/h, 21‰ (mm/m), 46 km)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum brake thermal energy capacity</Name>
+      <Code>4.7.2.1.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>2451000</Value>
+          <Unit>kJ</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum gradient on which the unit is kept immobilized by the parking brake alone (if the vehicle is fitted with it)</Name>
+      <Code>4.7.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>26</Value>
+          <Unit>‰ (mm/m)</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Eddy current track brake fitted TC</Name>
+      <Code>4.7.4.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Magnetic track brake fitted TC</Name>
+      <Code>4.7.4.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Possibility of preventing the use of the magnetic track brake (only if fitted with magnetic brake) TC</Name>
+      <Code>4.7.4.2.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Regenerative brake fitted TC</Name>
+      <Code>4.7.4.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Possibility of preventing the use of the regenerative brake (only if fitted with regenerative brake) TC</Name>
+      <Code>4.7.4.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Emergency brake : Stopping distance and deceleration profile for each load condition per design maximum speed a: Load condition: working order
+b: Load condition: normal payload
+c: Load condition: exceptional payload</Name>
+      <Code>4.7.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>a: 0956,00</Value>
+          <Unit>m</Unit>
+          <Value>0001,03</Value>
+          <Unit>m/s²</Unit>
+          <Value>b: 0937,00</Value>
+          <Unit>m</Unit>
+          <Value>0001,05</Value>
+          <Unit>m/s²</Unit>
+          <Value>c: 0935,00</Value>
+          <Unit>m</Unit>
+          <Value>0001,06</Value>
+          <Unit>m/s²</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>For general operation : 
+Brake weight percentage (lambda) or Braked mass</Name>
+      <Code>4.7.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>148,00</Value>
+          <Unit>(%) or</Unit>
+          <Value>,</Value>
+          <Unit>tonnes</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Service brake: At maximum service brake: 
+Stopping distance, 
+Maximum deceleration, for the load condition ‘design mass under normal payload’ at the design maximum speed.</Name>
+      <Code>4.7.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1048,00</Value>
+          <Unit>m</Unit>
+          <Value>0001,13</Value>
+          <Unit>m/s²</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Wheel slide protection system</Name>
+      <Code>4.7.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Vehicle length</Name>
+      <Code>4.8.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>127.9</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum in-service wheel diameter TC</Name>
+      <Code>4.8.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>780</Value>
+          <Unit> mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum horizontal curve radius capability TC</Name>
+      <Code>4.8.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>100</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum vertical convex curve radius capability</Name>
+      <Code>4.8.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>500</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum vertical concave curve radius capability</Name>
+      <Code>4.8.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>500</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of end coupling</Name>
+      <Code>4.9.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Automatic Type 10 / Scharfenberg</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Axle bearing condition monitoring (hot axles box detection) TC</Name>
+      <Code>4.9.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Detectable by line side</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Flange lubrication fitted TC</Name>
+      <Code>4.9.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Possibility of preventing the use of the lubrication device (only if fitted with flange lubrication) TC</Name>
+      <Code>4.9.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Platform heights for which the vehicle is designed. TC</Name>
+      <Code>4.12.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>250 </Value>
+          <Unit>mm</Unit>
+          <Value>380 </Value>
+          <Unit>mm</Unit>
+          <Value>550 </Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of train detection systems for which the vehicle has been designed and assessed TC</Name>
+      <Code>4.14.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Track circuits</Value>
+          <Value>Axle counters</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Presence of derailment prevention and detection function</Name>
+      <Code>4.15.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Presence of derailment prevention and detection signal processing</Name>
+      <Code>4.15.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+  </TechnicalCharacteristics>
+</VehicleType>

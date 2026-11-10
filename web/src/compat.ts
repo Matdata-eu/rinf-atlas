@@ -18,6 +18,7 @@ import { addPickableLayer, onMapReady, OVERLAY_BEFORE, setPreferredClass, setTip
 import { changed, debounce, fmt, h, store, unitLabel, type SharedVehicle } from './state';
 import * as V from './vehicles';
 import { explainButton } from './compat-explain';
+import { eratvSection } from './eratv';
 import * as TE from './train-editor';
 
 const SRC = 'compat';
@@ -792,9 +793,16 @@ function renderPane() {
     h('div', { class: 'compat-bar' },
       btn('Import…', 'Import profiles from a JSON or Turtle file', () => file.click(), !rules),
       btn('Restore examples', 'Add the example profiles again, with their original values', restoreExamples), file),
-    message ? h('p', { class: `small ${message.error ? 'error' : 'muted'}` }, message.text) : null,
-    h('p', { class: 'muted small compat-eratv' }, 'Profiles are made by hand. Once ERATV, the European register of authorised ',
-      'types of vehicles, is published as linked data, profiles could be imported from authorised vehicle types instead.'));
+    message ? h('p', { class: `small ${message.error ? 'error' : 'muted'}` }, message.text) : null);
+  const fromEratv = eratvSection({
+    rules: rules?.rules ?? null,
+    rerender: renderPane,
+    add: (list, what) => {
+      saved.profiles.push(...list);
+      message = { text: `Added ${what}.` };
+      if (trainMode()) { persist(); renderPane(); } else setActive(list[0].id);
+    },
+  });
 
   const modeSwitch = h('div', { class: 'compat-mode', role: 'radiogroup', 'aria-label': 'Check a single vehicle or a train' },
     ...([['vehicle', 'Single vehicle'], ['train', 'Train']] as const).map(([m, label]) => h('button', {
@@ -814,7 +822,7 @@ function renderPane() {
       h('h2', { class: 'section-title' }, 'Vehicle profile'),
       h('div', { class: 'compat-bar' }, select), profileBar,
       ...editor.filter((x): x is Node => x !== null)]),
-    io);
+    fromEratv, io);
   if (TE.isOpen()) { const c = editorCtx(); if (c) TE.openEditor(c); else TE.closeEditor(); }
   renderEditorHeads();
   renderStatus();

@@ -169,3 +169,16 @@ test('speed colours use the fixed speed bands from the shapes', async ({ page, e
     (els) => els.map((e) => getComputedStyle(e).getPropertyValue('--sw').trim()));
   expect(new Set(swatches).size).toBe(8);
 });
+
+test('vehicle check offers to load a type from ERATV', async ({ page, errors: _ }) => {
+  await openApp(page);
+  await page.locator('#vehicle-btn').click();
+  const panel = page.locator('#vehicle-panel');
+  await panel.getByText('I have read this disclaimer').click();
+  await panel.getByRole('button', { name: 'Accept and continue' }).click();
+  const field = panel.getByLabel('ERATV Type ID or the link to the type’s page');
+  await field.fill('not a type');
+  await panel.getByRole('button', { name: 'Load', exact: true }).click();
+  await expect(panel.locator('.eratv [role=status]')).toContainText('Enter a Type ID');
+  await expect(panel.getByRole('button', { name: 'Upload XML…' })).toBeEnabled();
+});

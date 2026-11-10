@@ -21,6 +21,16 @@
   atlas generate-export-profile [--env E] [--out shapes/export/full.ttl]
                                  write the "Full RINF" export profile from ERA's
                                  SHACL shapes and ontology in the mirror
+  atlas eratv fetch TYPE_ID...   fetch vehicle types from ERATV now (docs/eratv.md)
+  atlas eratv sync               fetch what changed on ERATV's newest list page
+  atlas eratv full [--from N] [--to N]
+                                 visit every internal id of ERATV (resumable)
+  atlas eratv import FILE.xml|DIR...
+                                 store ERATV XML exports downloaded some other way
+  atlas eratv reconvert          convert the stored ERATV XML again (new ontology)
+  atlas eratv convert FILE.xml [--vocab FILE.ttl] [--out FILE.ttl] [--json]
+                                 convert one downloaded ERATV XML file, offline
+  atlas eratv status             what is stored and the last harvest runs
 
 While `atlas run` is active it owns the mirror, so sync / reindex / validate from a
 second process are queued as jobs (pass --now to run in-process instead).
@@ -314,6 +324,78 @@ def cmd_check_shapes(a) -> None:
                   f"{'  when ' + '; '.join(w['facet'] for w in c.applies_when) if c.applies_when else ''}")
 
 
+def _eratv_vocab(conn, path: str | None = None):
+    from .eratv import harvest, vocab
+    if path:
+        return vocab.load_file(path)
+    v = harvest.stored_vocab(conn)
+    if (v is None or v.is_empty()) and not _loop_running(conn):
+        v = harvest.refresh_vocab(settings(), conn)
+    if v is None or v.is_empty():
+        sys.exit("the ERATV mapping is not available yet: mirror an environment first (atlas sync), "
+                 "or pass --vocab with a Turtle file of the ERA ontology and SKOS")
+    return v
+
+
+def cmd_eratv(a) -> None:
+    from .eratv import harvest
+    from .eratv.client import Client
+    from .eratv.convert import convert
+    from .eratv.parse import parse
+    if a.action == "convert":
+        conn = None if a.vocab else _conn()
+        v = _eratv_vocab(conn, a.vocab)
+        res = convert(parse(Path(a.file).read_bytes()), v)
+        out = json.dumps({"summary": res.summary, "unmapped": res.unmapped}, indent=2, ensure_ascii=False) \
+            if a.json else res.turtle()
+        if a.out:
+            Path(a.out).write_text(out, encoding="utf-8")
+            print(f"wrote {a.out}: {len(res.triples)} triples, {res.mapped} values mapped, "
+                  f"{len(res.unmapped)} not mapped")
+        else:
+            print(out)
+        return
+    cfg, conn = settings(), _conn()
+    if a.action == "status":
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*), count(DISTINCT type_number), round(avg(coverage)::numeric, 3), "
+                        "max(fetched_at) FROM eratv_type")
+            n, types, cov, last = cur.fetchone()
+            print(f"{n} published Type IDs ({types} types), mean coverage {cov}, last fetch {last}")
+            cur.execute("SELECT env, updated_at FROM eratv_vocab")
+            for env, at in cur.fetchall():
+                print(f"mapping from the {env} mirror, {at}")
+            cur.execute("SELECT kind, started_at, finished_at, requests, fetched, changed, failed, next_id, message "
+                        "FROM eratv_run ORDER BY id DESC LIMIT 10")
+            for row in cur.fetchall():
+                print("  " + " | ".join("" if x is None else str(x) for x in row))
+        print(f"harvesting in the worker loop: {'on' if cfg.eratv.enabled else 'off (ATLAS_ERATV=1 turns it on)'}")
+        return
+    v = _eratv_vocab(conn)
+    if a.action == "reconvert":
+        print(f"converted {harvest.reconvert(conn, v)} types")
+        return
+    if a.action == "import":
+        stored, skipped = harvest.import_files(conn, v, a.paths)
+        print(f"stored {stored}, skipped {skipped}")
+        return
+    if not harvest.locked(conn):
+        sys.exit("an ERATV harvest is running already")
+    e = cfg.eratv
+    try:
+        with Client(e.base_url, e.delay_seconds, e.user_agent()) as client:
+            if a.action == "fetch":
+                changed = harvest.fetch_types(conn, client, v, a.type_ids)
+                print(f"fetched {len(a.type_ids)}, changed {len(changed)}")
+            elif a.action == "sync":
+                print(f"changed {harvest.sync_latest(conn, client, v)}")
+            elif a.action == "full":
+                run = harvest.full_pass(conn, client, v, start=a.start, stop=a.stop, should_stop=lambda: _stop)
+                print(f"{run.fetched} published, {run.changed} changed, {run.failed} failed")
+    finally:
+        harvest.unlock(conn)
+
+
 def cmd_run(a) -> None:
     cfg, conn = settings(), _conn()
     with conn.cursor() as cur:
@@ -328,6 +410,21 @@ def cmd_run(a) -> None:
     signal.signal(signal.SIGINT, lambda *_: _set_stop())
     exports = exporter.ExportService(cfg)
     exports.start()
+    # ERATV: the mapping from the mirror, lookups of one type (a fetch when
+    # ATLAS_ERATV_LOOKUP allows it, or an uploaded XML export) and the bulk harvest.
+    from .eratv.harvest import EratvService, refresh_vocab
+    from .eratv.lookup import LookupService
+    try:
+        refresh_vocab(cfg, conn)
+    except Exception:
+        conn.rollback()
+        log.exception("ERATV: reading the mapping from the mirror failed")
+    lookup_svc = LookupService(cfg)
+    lookup_svc.start()
+    eratv_svc = None
+    if cfg.eratv.enabled:
+        eratv_svc = EratvService(cfg)
+        eratv_svc.start()
     next_poll = 0.0
     while not _stop:
         try:
@@ -372,12 +469,16 @@ def cmd_run(a) -> None:
                         conn.rollback()
                         log.exception("%s sync failed; retrying next poll", env.key)
                 next_poll = time.time() + cfg.poll_interval_minutes * 60
+                refresh_vocab(cfg, conn)              # ERATV: the ontology may have changed
         except Exception:
             conn.rollback()
             log.exception("worker iteration failed")
         _sleep(20)
     log.info("stopping")
     exports.stop()
+    for svc in (eratv_svc, lookup_svc):
+        if svc is not None:
+            svc.stop()
 
 
 def _take_jobs(conn):
@@ -467,6 +568,24 @@ def main(argv=None) -> None:
     s.add_argument("--out")
     s.add_argument("--force", action="store_true")
     s.set_defaults(fn=cmd_generate_export_profile)
+    s = sub.add_parser("eratv", help="ERATV vehicle types: harvest, convert to RDF (docs/eratv.md)")
+    es = s.add_subparsers(dest="action", required=True)
+    x = es.add_parser("fetch", help="fetch these Type IDs now")
+    x.add_argument("type_ids", nargs="+")
+    es.add_parser("sync", help="fetch what changed on the newest page of ERATV's list")
+    x = es.add_parser("full", help="visit every internal id (resumes an interrupted pass)")
+    x.add_argument("--from", dest="start", type=int)
+    x.add_argument("--to", dest="stop", type=int)
+    es.add_parser("reconvert", help="convert the stored XML again")
+    x = es.add_parser("import", help="store ERATV XML exports from files or folders (no request to ERATV)")
+    x.add_argument("paths", nargs="+")
+    es.add_parser("status")
+    x = es.add_parser("convert", help="convert one ERATV XML export (offline)")
+    x.add_argument("file")
+    x.add_argument("--vocab", help="Turtle with the ERA ontology + SKOS (default: from the database / mirror)")
+    x.add_argument("--out")
+    x.add_argument("--json", action="store_true", help="the summary and unmapped values instead of Turtle")
+    s.set_defaults(fn=cmd_eratv)
     a = ap.parse_args(argv)
     try:
         a.fn(a)
