@@ -410,14 +410,19 @@ def cmd_run(a) -> None:
     signal.signal(signal.SIGINT, lambda *_: _set_stop())
     exports = exporter.ExportService(cfg)
     exports.start()
+    # ERATV: the mapping from the mirror, lookups of one type (a fetch when
+    # ATLAS_ERATV_LOOKUP allows it, or an uploaded XML export) and the bulk harvest.
+    from .eratv.harvest import EratvService, refresh_vocab
+    from .eratv.lookup import LookupService
+    try:
+        refresh_vocab(cfg, conn)
+    except Exception:
+        conn.rollback()
+        log.exception("ERATV: reading the mapping from the mirror failed")
+    lookup_svc = LookupService(cfg)
+    lookup_svc.start()
     eratv_svc = None
     if cfg.eratv.enabled:
-        from .eratv.harvest import EratvService, refresh_vocab
-        try:
-            refresh_vocab(cfg, conn)
-        except Exception:
-            conn.rollback()
-            log.exception("ERATV: reading the mapping from the mirror failed")
         eratv_svc = EratvService(cfg)
         eratv_svc.start()
     next_poll = 0.0
@@ -464,17 +469,16 @@ def cmd_run(a) -> None:
                         conn.rollback()
                         log.exception("%s sync failed; retrying next poll", env.key)
                 next_poll = time.time() + cfg.poll_interval_minutes * 60
-                if eratv_svc is not None:
-                    from .eratv.harvest import refresh_vocab
-                    refresh_vocab(cfg, conn)          # the ontology may have changed
+                refresh_vocab(cfg, conn)              # ERATV: the ontology may have changed
         except Exception:
             conn.rollback()
             log.exception("worker iteration failed")
         _sleep(20)
     log.info("stopping")
     exports.stop()
-    if eratv_svc is not None:
-        eratv_svc.stop()
+    for svc in (eratv_svc, lookup_svc):
+        if svc is not None:
+            svc.stop()
 
 
 def _take_jobs(conn):

@@ -280,3 +280,70 @@ def test_store_import_and_reconvert(vocab, tmp_path):
         cur.execute("SELECT count(*) FROM eratv_type")
         assert cur.fetchone()[0] == 1
     conn.close()
+
+
+@pytest.mark.skipif(not DB, reason="set ATLAS_TEST_DATABASE_URL to a database with the eratv_* tables")
+def test_lookups_fetch_upload_and_stop_at_captcha(vocab):
+    import json
+
+    import psycopg
+    from atlas.config import Eratv
+    from atlas.eratv import vocab as vocab_mod
+    from atlas.eratv.lookup import Lookups
+
+    conn = psycopg.connect(DB)
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM eratv_type; DELETE FROM eratv_request; DELETE FROM eratv_vocab")
+        cur.execute("INSERT INTO eratv_vocab (id, env, vocab) VALUES (1, 'test', %s)",
+                    (json.dumps(vocab_mod.to_json(vocab)),))
+    conn.commit()
+    xml = (DATA / f"{IORE}.xml").read_bytes()
+    seen, captcha = [], [False]
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url.path)
+        if captcha[0]:
+            return httpx.Response(200, text="<label>Enter the CAPTCHA:</label> /Eratv/Captcha/ValidateCaptcha")
+        if req.url.path == f"/Eratv/Home/View/{IORE}":
+            return httpx.Response(200, text='<a href="/Eratv/Home/ExportVehicleType/12558?exportTo=XML">x</a>')
+        if req.url.path == "/Eratv/Home/ExportVehicleType/12558":
+            return httpx.Response(200, content=xml, headers={
+                "content-type": "application/XML",
+                "content-disposition": f"attachment; filename=VehicleType_{IORE}_PUBLISHED.xml"})
+        return httpx.Response(302, headers={"location": "/Eratv/Error/NotFound"})
+
+    class Cfg:
+        eratv = Eratv(lookups_per_hour=3)
+
+    lk = Lookups(Cfg(), client_factory=lambda: _client(handler))
+
+    def ask(type_id=None, refresh=False, upload=None, filename=None):
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO eratv_request (type_id, refresh, xml, filename) VALUES (%s,%s,%s,%s) RETURNING id",
+                        (type_id, refresh, upload, filename))
+            rid = cur.fetchone()[0]
+        conn.commit()
+        assert lk.step(conn)
+        with conn.cursor() as cur:
+            cur.execute("SELECT status, reason, type_id, xml IS NULL FROM eratv_request WHERE id=%s", (rid,))
+            return cur.fetchone()
+
+    assert ask(IORE) == ("done", None, IORE, True)
+    assert seen == [f"/Eratv/Home/View/{IORE}", "/Eratv/Home/ExportVehicleType/12558"]
+    assert ask(IORE) == ("done", None, IORE, True) and len(seen) == 2          # stored: no request
+    assert ask(IORE, refresh=True)[0] == "done" and len(seen) == 2             # fetched less than an hour ago
+    assert ask("11-999-0000-0-001-001")[:2] == ("failed", "not_found")
+    assert ask("not a type")[:2] == ("failed", "invalid")
+    captcha[0] = True
+    assert ask(ETR)[:2] == ("failed", "captcha")
+    n = len(seen)
+    assert ask(ETR)[:2] == ("failed", "captcha") and len(seen) == n            # paused: ERATV is left alone
+    lk.paused_until = 0
+    assert ask(ETR)[:2] == ("failed", "limit") and len(seen) == n              # 3 fetches in the last hour
+    # an upload needs no request to ERATV; drafts are refused
+    wagon = (DATA / f"{WAGON}.xml").read_bytes()
+    assert ask(upload=wagon, filename=f"VehicleType_{WAGON}_PUBLISHED.xml") == ("done", None, WAGON, True)
+    assert ask(upload=wagon, filename=f"VehicleType_{WAGON}_DRAFT.xml")[:2] == ("failed", "not_public")
+    assert ask(upload=b"<html/>", filename="x.xml")[:2] == ("failed", "invalid")
+    assert not lk.step(conn)
+    conn.close()

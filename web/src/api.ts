@@ -605,6 +605,39 @@ export const api = {
   },
 };
 
+// ---------- ERATV vehicle types (api/app/eratv.py) ----------
+export interface EratvInfo { lookup: boolean; stored: number; ready: boolean; source: string }
+export interface EratvListItem { typeId: string; name: string | null; category: string | null; manufacturer: string | null; fetchedAt: string }
+export interface EratvAuthorisation {
+  title: string; areaOfUse: string[]; memberState: string | null; status: string | null; validUntil: string | null;
+  restrictions: { code: string; label: string; value: string | null; config: string | null }[]; nonCoded: string[]; holder: string | null; ein: string | null; issued: string | null;
+}
+export interface EratvSummary {
+  typeId: string; typeNumber: string; name: string | null; altName: string | null; category: string | null;
+  subcategory: string | null; manufacturer: string | null; platform: string | null; configurations: string[];
+  authorisations: EratvAuthorisation[]; maxDesignSpeed: number | null; minHorizontalRadius: number | null;
+  coverage: number; unmapped: number; url: string;
+}
+export interface EratvType {
+  typeId: string; summary: EratvSummary; unmapped: { code: string; name: string; config: string | null; value: string; why: string }[];
+  coverage: number | null; ttl: string; fetchedAt: string; url: string;
+}
+export interface EratvRequest {
+  id: number | null; typeId: string | null; status: 'queued' | 'running' | 'done' | 'failed';
+  reason: string | null; message: string | null;
+}
+
+export const eratvApi = {
+  info: () => request<EratvInfo>('/eratv'),
+  list: (q = '') => request<EratvListItem[]>(`/eratv/types?${qs({ q, limit: '20' })}`),
+  type: (typeId: string) => request<EratvType>(`/eratv/types/${encodeURIComponent(typeId)}`),
+  fetch: (typeId: string, refresh = false) =>
+    request<EratvRequest>(`/eratv/types/${encodeURIComponent(typeId)}/fetch${refresh ? '?refresh=true' : ''}`, { method: 'POST' }),
+  upload: (file: File) =>
+    request<EratvRequest>(`/eratv/upload?${qs({ filename: file.name })}`, { method: 'POST', headers: { 'content-type': 'application/xml' }, body: file }),
+  request: (id: number) => request<EratvRequest>(`/eratv/requests/${id}`),
+};
+
 export function base64url(s: string): string {
   const bytes = new TextEncoder().encode(s);
   let bin = '';

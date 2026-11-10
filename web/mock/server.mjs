@@ -556,6 +556,9 @@ const CV = {
   tc: ct('train-detection', '10', 'track circuit'), wd: ct('train-detection', '20', 'wheel detector'),
   d4: ct('load-capability-line-categories', '90', 'D4'), c4: ct('load-capability-line-categories', '60', 'C4'),
 };
+const ERATV = JSON.parse(fs.readFileSync(new URL('./eratv.json', import.meta.url), 'utf8'));
+const eratvRequests = [];
+
 const COMPAT_RULES = [
   ['wheelSetGauge', 'Nominal track gauge', [`${ERA}wheelSetGauge`], 'hasValue', 'terms', null, ['wheelSetGauge']],
   ['gaugingProfile', 'Gauging profile', [`${ERA}gaugingProfile`], 'hasValue', 'terms', null, ['gaugingProfile']],
@@ -1366,6 +1369,38 @@ const server = http.createServer(async (req, res) => {
       await sleep(250); // it's "live" after all
       const triples = dir === 'in' ? describeIn(iri) : describeOut(iri);
       return send(res, 200, { iri, triples, labels: labelsFor(triples) });
+    }
+    // ERATV lookups: two converted types (mock/eratv.json, from the worker's test fixtures);
+    // any other Type ID meets ERATV's CAPTCHA, to show the upload path.
+    if (p === '/api/eratv') return send(res, 200, { lookup: true, stored: Object.keys(ERATV).length, ready: true, source: 'https://eratv.era.europa.eu/' });
+    if (p === '/api/eratv/types') {
+      const q = (url.searchParams.get('q') || '').toLowerCase();
+      return send(res, 200, Object.values(ERATV).filter((t) => !q || `${t.typeId} ${t.summary.name}`.toLowerCase().includes(q))
+        .map((t) => ({ typeId: t.typeId, name: t.summary.name, category: t.summary.category, manufacturer: t.summary.manufacturer, fetchedAt: t.fetchedAt })));
+    }
+    let m = p.match(/^\/api\/eratv\/types\/([^/]+)(\/fetch)?$/);
+    if (m) {
+      const tid = decodeURIComponent(m[1]);
+      if (!/^\d{2}-\d{3}-\d{4}-\d(?:-\d{3}){1,2}$/.test(tid)) return send(res, 400, { detail: 'a Type ID looks like 11-256-0001-3-002-001' });
+      if (!m[2]) return ERATV[tid] ? send(res, 200, ERATV[tid]) : send(res, 404, { detail: `${tid} is not stored; look it up first` });
+      const id = eratvRequests.length + 1;
+      eratvRequests.push({ id, typeId: tid, at: Date.now(), ok: !!ERATV[tid] });
+      return send(res, 200, { id, typeId: tid, status: 'queued', reason: null, message: null });
+    }
+    if (req.method === 'POST' && p === '/api/eratv/upload') {
+      for await (const _ of req) { /* drain */ }
+      const id = eratvRequests.length + 1;
+      eratvRequests.push({ id, typeId: '13-142-0008-8-001-001', at: Date.now(), ok: true, upload: true });
+      return send(res, 200, { id, typeId: null, status: 'queued', reason: null, message: null });
+    }
+    m = p.match(/^\/api\/eratv\/requests\/(\d+)$/);
+    if (m) {
+      const r = eratvRequests[Number(m[1]) - 1];
+      if (!r) return send(res, 404, { detail: 'no such lookup' });
+      if (Date.now() - r.at < 1200) return send(res, 200, { id: r.id, typeId: r.typeId, status: 'running', reason: null, message: null });
+      return send(res, 200, r.ok
+        ? { id: r.id, typeId: r.typeId, status: 'done', reason: null, message: r.upload ? 'read from the uploaded file' : null }
+        : { id: r.id, typeId: r.typeId, status: 'failed', reason: 'captcha', message: 'ERATV asked for a CAPTCHA, which RINF Atlas does not answer. Open the type in ERATV, download its XML export and upload it here.' });
     }
     if (p === '/api/compatibility/rules') {
       if (!checkEnv(env)) return send(res, 400, { detail: 'unknown env' });

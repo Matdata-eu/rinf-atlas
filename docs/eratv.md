@@ -2,10 +2,43 @@
 
 RINF Atlas can load the vehicle types of ERATV, the European register of authorised
 types of vehicles (<https://eratv.era.europa.eu/>), and convert them to RDF with the
-ERA ontology. This is groundwork for starting the vehicle check from an authorised
-type instead of typing its characteristics. Picking a type in the web app comes in a
-later release. This page covers the worker side: getting the data in, and what the
-RDF looks like.
+ERA ontology, so the vehicle check can start from an authorised type instead of
+characteristics typed by hand.
+
+## In the vehicle check
+
+The vehicle check panel has a **From ERATV** block. Enter a Type ID
+(`11-256-0001-3-002-001`) or paste the link to the type's ERATV page and choose
+**Load**. RINF Atlas fetches that one type, converts it and shows its name, category,
+how much of it converted, its configurations and its authorisations. **Add** turns
+each chosen configuration into a vehicle profile you can check and edit:
+
+- A configuration ("1435mm / AC 15kV-16.7Hz / PZB 90") takes its own gauge, energy
+  supply system and class B system, the values ERATV gives for it or for one of its
+  parts ("AC 15kV-16.7Hz"), and the values of the whole type.
+- The maximum speed is the maximum design speed (4.1.2.1) when ERATV gives no speed per
+  cant deficiency.
+- Authorisations, areas of use and restrictions are shown for information only. They
+  are not part of the check.
+- The profile's note names the Type ID, the configuration, the date and the link.
+
+How a lookup works:
+
+- The API never contacts ERATV. It queues the lookup (`eratv_request`) and the worker
+  does it: the type's page, then its XML export, in a new session (two requests). A
+  type already stored answers at once; **Fetch again** fetches it anew (at most once an
+  hour).
+- At most `ATLAS_ERATV_LOOKUPS_PER_HOUR` (30) fetches an hour across all users.
+- If ERATV shows its CAPTCHA, the lookup stops (RINF Atlas never answers it) and
+  lookups pause for an hour. The panel then links to the type's ERATV page: download
+  the XML export there and choose **Upload XML…**. An upload needs no request to
+  ERATV, and works with `ATLAS_ERATV_LOOKUP=0` too. Drafts and cancelled records are
+  refused.
+
+API: `POST /api/eratv/types/{Type ID}/fetch[?refresh=true]`, `POST
+/api/eratv/upload?filename=` (the XML as the body), `GET /api/eratv/requests/{id}`,
+`GET /api/eratv/types/{Type ID}` (summary, Turtle, values not converted) and `GET
+/api/eratv/types?q=` (stored types).
 
 ## Getting the data
 
@@ -23,7 +56,7 @@ This works with files downloaded by hand from a type's page in ERATV ("XML") or 
 bulk export ERA provides. Files whose name ends in `_DRAFT.xml` or `_CANCELLED.xml`
 are skipped.
 
-### Harvest (only with ERA's agreement)
+### Harvest everything (only with ERA's agreement)
 
 ```sh
 docker compose exec worker atlas eratv fetch 11-256-0001-3-002-001   # these Type IDs now
