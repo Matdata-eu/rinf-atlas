@@ -1,0 +1,418 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<VehicleType>
+  <GeneralInfo>
+    <Type ID="51-004-0003-4-001">
+      <Characteristic>
+        <Name>Type ID</Name>
+        <Code>0.1 0.2</Code>
+        <Value>51-004-0003-4-001</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of record</Name>
+        <Code>0.3</Code>
+        <Value>2013-05-25</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Type name</Name>
+        <Code>1.1</Code>
+        <Value>Zacns - tank wagon to transport peroxyd</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Alternative type name</Name>
+        <Code>1.2</Code>
+        <Value>wagon citerne transport de peroxyde pour les parties modifiées telles que décrites dans le dossier technique de Sécurité réf. 4A77959C</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Number of driving cabs</Name>
+        <Code>4.1.1</Code>
+        <Value>0</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Manufacturer’s name</Name>
+        <Code>1.3</Code>
+        <Value>Ateliers d'Orval</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registration Method</Name>
+        <Value>New Type of a registered Platform</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registered Vehicle Type</Name>
+      </Characteristic>
+      <Characteristic>
+        <Name>Category</Name>
+        <Code>1.4</Code>
+        <Value>Freight Wagons</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Subcategory</Name>
+        <Code>1.5</Code>
+        <Value>Freight wagon</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Exceptional Mode</Name>
+        <Value>New authorisation after upgrade or renewal </Value>
+      </Characteristic>
+    </Type>
+    <Characteristic>
+      <Name>Platform</Name>
+      <Value>Zacns</Value>
+    </Characteristic>
+  </GeneralInfo>
+  <ConformityWithTSI>
+    <Characteristic>
+      <Name>Conformity with TSI and Sections not complied with:</Name>
+      <Code>2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm</Name>
+          <TSI>CR WAG (Dec 2006/861/EC amended by Dec 2009/107/EC)</TSI>
+          <Value>4.3.8. Conventional Rail Noise TSI</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Applicable specific cases (specific cases conformity with which has been assessed)</Name>
+      <Code>2.3</Code>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference of ‘EC type examination certificates’</Name>
+      <Code>2.2</Code>
+      <Value>0062/1/SB/2011/RST/ENFR/001/FRA-revA</Value>
+    </Characteristic>
+  </ConformityWithTSI>
+  <Authorisations>
+    <Authorisation Title="France">
+      <Characteristic>
+        <Name>Status</Name>
+        <Code>3.1.2.1</Code>
+        <Value>Active</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Validity of Authorisation (until)</Name>
+        <Code>3.1.2.2</Code>
+      </Characteristic>
+      <Characteristic>
+        <Name>Coded Restrictions</Name>
+        <Code>3.1.2.3</Code>
+        <Configurations />
+      </Characteristic>
+      <Characteristic>
+        <Name>Non Coded Restrictions</Name>
+        <Code>3.1.2.4</Code>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of the original authorisation</Name>
+        <Code>3.1.3.1.1</Code>
+        <Value>2011-02-11</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of the last modification</Name>
+        <Code>3.1.3.2.2</Code>
+        <Value>2014-08-21</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation holder</Name>
+        <Code>3.1.3.2.3</Code>
+        <Value>Ateliers d'Orval</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation document reference</Name>
+        <Code>3.1.3.2.4</Code>
+        <Value>FR5920113007</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>National certificate references</Name>
+        <Code>3.1.3.2.5</Code>
+        <Value>2010-12-28-2-C ; AV-A/FD/2011-01-225</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Parameters for which conformity to applicable national rules has been assessed</Name>
+        <Code>3.1.3.2.6</Code>
+        <Value>1435mm</Value>
+        <Value>1.0  General documentation</Value>
+        <Value>1.1  General documentation</Value>
+        <Value>1.2  Maintenance instructions and requirements</Value>
+        <Value>1.2.1  Maintenance instructions</Value>
+        <Value>1.2.2  The maintenance design justification file</Value>
+        <Value>1.3  Instructions and documentation for operation</Value>
+        <Value>1.3.1  Instructions for operation in normal and degraded  modes of the vehicle</Value>
+        <Value>1.4  Track side tests of the complete vehicle</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Comments</Name>
+        <Code>3.1.3.2.7</Code>
+      </Characteristic>
+    </Authorisation>
+  </Authorisations>
+  <TechnicalCharacteristics>
+    <Characteristic>
+      <Name>Wheel set gauge</Name>
+      <Code>4.1.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1435</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum design speed</Name>
+      <Code>4.1.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm</Name>
+          <Value>100</Value>
+          <Unit>km/h</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum speed when empty</Name>
+      <Code>4.1.2.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>120</Value>
+          <Unit>km/h</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Letter marking</Name>
+      <Code>4.1.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Zacns</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Type meets the requirements necessary for validity of the vehicle authorisation granted by one Member State in other MSs</Name>
+      <Code>4.1.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Clause 7.6.4 of CR WAG TSI (Dec 2006/861/EC as amended by Dec 2009/107/EC)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Dangerous goods for which the vehicle is suitable (tank code)</Name>
+      <Code>4.1.9</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>L4DH</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Structural category</Name>
+      <Code>4.1.10</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>F-I of EN12663:2000</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Vehicle kinematic gauge (interoperable gauge)</Name>
+      <Code>4.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>UIC 505-1</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Temperature range</Name>
+      <Code>4.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>T(RIV)</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Permissible payload for different line categories TC</Name>
+      <Code>4.5.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm</Name>
+          <Value>A (62.5)</Value>
+          <Unit>t</Unit>
+          <Value>B (72)</Value>
+          <Unit>t</Unit>
+          <Value>C (80)</Value>
+          <Unit>t</Unit>
+          <Value>D (90)</Value>
+          <Unit>t</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic />
+    <Characteristic>
+      <Name>Static axle load under normal payload/ maximum payload for freight wagons</Name>
+      <Code>4.5.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>22500</Value>
+          <Unit>kg</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Vehicle equipped with a cant deficiency compensation system (“tilting vehicle”)</Name>
+      <Code>4.6.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference case of TSI</Name>
+      <Code>4.7.2.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Reference case of (80 km/h, 21‰ (mm/m), 46 km)</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>All vehicles of this type must be equipped with a parking brake (parking brake mandatory for vehicles of this type)</Name>
+      <Code>4.7.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Parking brake type (if the vehicle is fitted with it)</Name>
+      <Code>4.7.3.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Manual operated from the vehicle</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum gradient on which the unit is kept immobilized by the parking brake alone (if the vehicle is fitted with it)</Name>
+      <Code>4.7.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>44</Value>
+          <Unit>‰ (mm/m)</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Vehicle length</Name>
+      <Code>4.8.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>12.50</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Shunting restrictions</Name>
+      <Code>4.8.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum horizontal curve radius capability</Name>
+      <Code>4.8.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>35</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Suitability for transport on ferries</Name>
+      <Code>4.8.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of end coupling (indicating tensile and compressive forces)</Name>
+      <Code>4.9.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Manual (UIC 85 - 100 t)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Axle bearing condition monitoring (hot axles box detection)</Name>
+      <Code>4.9.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Detectable by line side</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Pass-by noise level was measured under reference conditions</Name>
+      <Code>4.11.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of train detection systems for which the vehicle has been designed and assessed</Name>
+      <Code>4.14.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>track circuits</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum distance between consecutive axles</Name>
+      <Code>4.14.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>5660</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum distance between consecutive axles</Name>
+      <Code>4.14.2.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1800</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Distance between the first and the last axle</Name>
+      <Code>4.14.2.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>9250</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum length of the vehicle nose</Name>
+      <Code>4.14.2.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>2520</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum axle load</Name>
+      <Code>4.14.2.10</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>22.5</Value>
+          <Unit>t</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Wheel material is ferromagnetic</Name>
+      <Code>4.14.2.12</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum impedance between opposite wheels of a wheelset</Name>
+      <Code>4.14.2.16</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>0.01</Value>
+          <Unit>Ohm</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+  </TechnicalCharacteristics>
+</VehicleType>

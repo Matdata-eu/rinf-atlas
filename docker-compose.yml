@@ -45,6 +45,12 @@ services:
       ATLAS_EXPORTS: /data/exports
       ATLAS_EXPORT_WORKERS: ${ATLAS_EXPORT_WORKERS:-2}
       ATLAS_EXPORT_RETENTION_HOURS: ${ATLAS_EXPORT_RETENTION_HOURS:-24}
+      # ERATV vehicle types (docs/eratv.md): off unless ERA agreed to the harvesting.
+      ATLAS_ERATV: ${ATLAS_ERATV:-0}
+      ATLAS_ERATV_CONTACT: ${ATLAS_ERATV_CONTACT:-}
+      ATLAS_ERATV_DELAY: ${ATLAS_ERATV_DELAY:-}
+      ATLAS_ERATV_SYNC_HOURS: ${ATLAS_ERATV_SYNC_HOURS:-}
+      ATLAS_ERATV_FULL_DAYS: ${ATLAS_ERATV_FULL_DAYS:-}
     volumes:
       - mirror:/data
       - exports:/data/exports         # export files; the api serves them read-only

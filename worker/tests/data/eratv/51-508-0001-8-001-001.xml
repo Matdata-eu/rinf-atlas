@@ -1,0 +1,478 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<VehicleType>
+  <GeneralInfo>
+    <Type ID="51-508-0001-8-001-001">
+      <Characteristic>
+        <Name>Type ID</Name>
+        <Code>0.1 0.2 0.4</Code>
+        <Value>51-508-0001-8-001-001</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of record</Name>
+        <Code>0.3</Code>
+        <Value>2026-11-10</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Type name</Name>
+        <Code>1.1</Code>
+        <Value>Open top box wagon Eamnos, type E57</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Alternative type name</Name>
+        <Code>1.2</Code>
+        <Value>Eamnos, type E57</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Number of driving cabs</Name>
+        <Code>4.1.1</Code>
+        <Value>0</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Manufacturer</Name>
+        <Code>1.3</Code>
+        <Characteristic>
+          <Name>Manufacturer identification data</Name>
+          <Code>1.3.1</Code>
+          <Characteristic>
+            <Name>Name of organisation</Name>
+            <Code>1.3.1.1</Code>
+            <Value>Kolowag AD</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Registered business number</Name>
+            <Code>1.3.1.2</Code>
+            <Value>11213149</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Organisation code</Name>
+            <Code>1.3.1.3</Code>
+            <Value>3CKZ</Value>
+          </Characteristic>
+        </Characteristic>
+        <Characteristic>
+          <Name>Manufacturer contact data</Name>
+          <Code>1.3.2</Code>
+          <Characteristic>
+            <Name>Address of organisation, street and number</Name>
+            <Code>1.3.2.1</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Town</Name>
+            <Code>1.3.2.2</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Country code</Name>
+            <Code>1.3.2.3</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Post code</Name>
+            <Code>1.3.2.4</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>E-mail address</Name>
+            <Code>1.3.2.5</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+        </Characteristic>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registration Method</Name>
+        <Value>New Type</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Registered Vehicle Type</Name>
+      </Characteristic>
+      <Characteristic>
+        <Name>Category</Name>
+        <Code>1.4</Code>
+        <Value>Freight Wagons</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Subcategory</Name>
+        <Code>1.5</Code>
+        <Value>Freight wagon</Value>
+      </Characteristic>
+    </Type>
+    <Characteristic>
+      <Name>Platform</Name>
+      <Value>Eamnos</Value>
+    </Characteristic>
+  </GeneralInfo>
+  <ConformityWithTSI>
+    <Characteristic>
+      <Name>Conformity with TSI and Sections not complied with:</Name>
+      <Code>2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm</Name>
+          <TSI>WAG (Reg (EU)321/2013 amended by Reg (EU)1236/2013, 2015/924, 2019/776, 2020/387, 2023/1694 and 2025/2064) + clause 7.1.2 + Appendix C totally [GE Wagon]</TSI>
+          <TSI>Noise (Reg (EU)1304/2014 amended by Reg (EU)2019/774 and 2023/1694)</TSI>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Applicable specific cases (specific cases conformity with which has been assessed)</Name>
+      <Code>2.3</Code>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference of ‘EC type examination certificates’</Name>
+      <Code>2.2</Code>
+      <Value>1714/1/SB/2026/RST/DEEN/7006/V01</Value>
+    </Characteristic>
+  </ConformityWithTSI>
+  <Authorisations>
+    <Authorisation Title="European Union">
+      <Characteristic>
+        <Code>3.0 Area Of Use:</Code>
+        <Value>EU(European Union)</Value>
+      </Characteristic>
+      <Characteristic>
+        <Code>3.1.1 Member state of authorisation:</Code>
+        <Value>European Union(EU)</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Status</Name>
+        <Code>3.1.2.1</Code>
+        <Value>Valid</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Validity of Authorisation (until)</Name>
+        <Code>3.1.2.2</Code>
+      </Characteristic>
+      <Characteristic>
+        <Name>Coded Restrictions</Name>
+        <Code>3.1.2.3</Code>
+        <Configurations>
+          <Characteristic>
+            <Name>1435mm</Name>
+            <Value>1 Technical restriction related to construction</Value>
+            <Value>1.1 Minimum curve radius in meters: 35</Value>
+            <Value>1.3 Speed restrictions in Km/h: 120 empty, 100 laden</Value>
+            <Value>2 Geographical restriction</Value>
+            <Value>2.3 No CCS on board: True</Value>
+            <Value>2.7 Noise category: 2.7.2 Can be used in all quieter routes - Noise TSI compliant (tested against the Noise TSI)</Value>
+          </Characteristic>
+        </Configurations>
+      </Characteristic>
+      <Characteristic>
+        <Name>Non Coded Restrictions</Name>
+        <Code>3.1.2.4</Code>
+        <Value>1435mm</Value>
+        <Value>None</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Date of the original authorisation</Name>
+        <Code>3.1.3.1.1</Code>
+        <Value>2026-11-10</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation holder</Name>
+        <Code>3.1.3.1.2</Code>
+        <Characteristic>
+          <Name>Authorisation holder identification data</Name>
+          <Code>3.1.3.1.2.1</Code>
+          <Characteristic>
+            <Name>Name of organisation</Name>
+            <Code>3.1.3.1.2.1.1</Code>
+            <Value>Kolowag AD</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Registered business number</Name>
+            <Code>3.1.3.1.2.1.2</Code>
+            <Value>BG112131492</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Organisation code</Name>
+            <Code>3.1.3.1.2.1.3</Code>
+            <Value>3CKZ</Value>
+          </Characteristic>
+        </Characteristic>
+        <Characteristic>
+          <Name>Authorisation holder contact data</Name>
+          <Code>3.1.3.1.2.2</Code>
+          <Characteristic>
+            <Name>Address of organisation, street and number</Name>
+            <Code>3.1.3.1.2.2.1</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Town</Name>
+            <Code>3.1.3.1.2.2.2</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Country code</Name>
+            <Code>3.1.3.1.2.2.3</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>Post code</Name>
+            <Code>3.1.3.1.2.2.4</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+          <Characteristic>
+            <Name>E-mail address</Name>
+            <Code>3.1.3.1.2.2.5</Code>
+            <Value>(removed)</Value>
+          </Characteristic>
+        </Characteristic>
+      </Characteristic>
+      <Characteristic>
+        <Name>Authorisation document reference</Name>
+        <Code>3.1.3.1.3</Code>
+        <Value>EU8020260351</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Certificate of verification : Reference of type examination or design examination type</Name>
+        <Code>3.1.3.1.4</Code>
+        <Value>-</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Parameters for which conformity to applicable national rules has been assessed</Name>
+        <Code>3.1.3.1.5</Code>
+        <Value>1435mm</Value>
+        <Value> 2015/2299/EU</Value>
+        <Value>0.0 None</Value>
+      </Characteristic>
+      <Characteristic>
+        <Name>Comments</Name>
+        <Code>3.1.3.1.6</Code>
+        <Value>The values for the parameter 4.5.1 'Permissible payload for different line categories' correspond to the type configuration E57-SB.
+
+The values for the type configuration E57-TB are: A 37.4 t; B1, B2 53 t; C2, C3, C4 63 t; D2, D3, D4, D5 71 t.
+
+The values for the type configuration E57-FB are: A 34.4 t; B1, B2 50 t; C2, C3, C4 60 t; D2, D3, D4, D5 68 t.</Value>
+      </Characteristic>
+      <Characteristic>
+        <Code>3.1.3.1.7 Reference to the written declaration by the proposer referred to in Article 3(11) of Regulation (EU) 402/2013:</Code>
+        <Value>5076</Value>
+      </Characteristic>
+    </Authorisation>
+  </Authorisations>
+  <TechnicalCharacteristics>
+    <Characteristic>
+      <Name>Wheel set gauge TC</Name>
+      <Code>4.1.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1435</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Number of vehicles composing the fixed formation (for fixed formation only)</Name>
+      <Code>4.1.12</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Maximum design speed</Name>
+      <Code>4.1.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>100</Value>
+          <Unit> km/h</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference profile TC</Name>
+      <Code>4.2.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>G1/GI1</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Temperature range</Name>
+      <Code>4.3.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>T1 (-25 to +40)</Value>
+          <Value>T3 (-25 to +45)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Snow, ice and hail conditions</Name>
+      <Code>4.3.3</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Nominal</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Permissible payload for different line categories TC</Name>
+      <Code>4.5.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>A (38.4)</Value>
+          <Unit>t</Unit>
+          <Value>B1 (54)</Value>
+          <Unit>t</Unit>
+          <Value>B2 (54)</Value>
+          <Unit>t</Unit>
+          <Value>C2 (64)</Value>
+          <Unit>t</Unit>
+          <Value>C3 (64)</Value>
+          <Unit>t</Unit>
+          <Value>C4 (64)</Value>
+          <Unit>t</Unit>
+          <Value>D2 (72)</Value>
+          <Unit>t</Unit>
+          <Value>D3 (72)</Value>
+          <Unit>t</Unit>
+          <Value>D4 (72)</Value>
+          <Unit>t</Unit>
+          <Value>D5 (72)</Value>
+          <Unit>t</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Combination of maximum speed and maximum cant deficiency for which the vehicle was assessed TC</Name>
+      <Code>4.6.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Name>1435mm</Name>
+          <Value>0120.00</Value>
+          <Unit>km/h</Unit>
+          <Value>0130.00</Value>
+          <Unit>mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Rail inclination TC</Name>
+      <Code>4.6.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>1/20</Value>
+          <Value>1/40</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Reference case of TSI</Name>
+      <Code>4.7.2.1.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Reference case (70 km/h, 21‰ (mm/m), 40 km)</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Maximum brake thermal energy capacity</Name>
+      <Code>4.7.2.1.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>91800</Value>
+          <Unit>kJ</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Parking brake</Name>
+      <Code>4.7.3.4</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>True</Value>
+        </Characteristic>
+      </Configurations>
+      <Name>For general operation : 
+Brake weight percentage (lambda) or Braked mass</Name>
+      <Code>4.7.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>065.00</Value>
+          <Unit>(%) or</Unit>
+          <Value>00058.50</Value>
+          <Unit>tonnes</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Service brake: At maximum service brake: 
+Stopping distance, 
+Maximum deceleration, for the load condition ‘design mass under normal payload’ at the design maximum speed.</Name>
+      <Code>4.7.7</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>0707.80</Value>
+          <Unit>m</Unit>
+          <Value>0000.59</Value>
+          <Unit>m/s²</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Wheel slide protection system</Name>
+      <Code>4.7.8</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>False</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Minimum in-service wheel diameter TC</Name>
+      <Code>4.8.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>840</Value>
+          <Unit> mm</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum vertical convex curve radius capability</Name>
+      <Code>4.8.5</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>250</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+      <Name>Minimum vertical concave curve radius capability</Name>
+      <Code>4.8.6</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>300</Value>
+          <Unit>m</Unit>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of end coupling</Name>
+      <Code>4.9.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Manual<Characteristic>Tensile force<Value>1350.0000</Value><Unit>kN</Unit></Characteristic><Characteristic>Compressive force<Value>1500.0000</Value><Unit>kN</Unit></Characteristic></Value>
+        </Characteristic>
+      </Configurations>
+      <Name>Axle bearing condition monitoring (hot axles box detection) TC</Name>
+      <Code>4.9.2</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Detectable by line side</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Type of train detection systems for which the vehicle has been designed and assessed TC</Name>
+      <Code>4.14.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>Track circuits</Value>
+          <Value>Axle counters</Value>
+          <Value>Loops</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+    <Characteristic>
+      <Name>Presence and type of derailment detection and prevention function(s)</Name>
+      <Code>4.15.1</Code>
+      <Configurations>
+        <Characteristic>
+          <Value>None</Value>
+        </Characteristic>
+      </Configurations>
+    </Characteristic>
+  </TechnicalCharacteristics>
+</VehicleType>
