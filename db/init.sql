@@ -352,6 +352,11 @@ CREATE TABLE IF NOT EXISTS eratv_type (
     fetched_at   timestamptz NOT NULL DEFAULT now(),
     converted_at timestamptz
 );
+-- Where the XML came from: eratv (fetched by the worker), import (files the operator
+-- loaded with `atlas eratv import`) or upload (a file a user of the web app sent). An
+-- upload is not trusted: it never replaces a fetched or imported type, and it is only
+-- given back by its Type ID, never as the answer to a lookup or in the list.
+ALTER TABLE eratv_type ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'eratv';
 CREATE INDEX IF NOT EXISTS eratv_type_number_idx ON eratv_type (type_number);
 CREATE INDEX IF NOT EXISTS eratv_type_name_trgm ON eratv_type USING gin (name gin_trgm_ops);
 

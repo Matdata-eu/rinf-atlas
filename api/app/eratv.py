@@ -4,8 +4,11 @@ The API never contacts ERATV. A lookup is queued in `eratv_request` and the work
 fetches the type (two requests to ERATV) or reads an uploaded XML export, converts it
 with the ERA ontology and stores it in `eratv_type`.
 
+A file a user uploads is not trusted: it never replaces a type fetched from ERATV, it
+does not answer a later lookup of that Type ID and it is not listed (`source = upload`).
+
   GET  /api/eratv                         whether lookups are on, how many types are stored
-  GET  /api/eratv/types?q=                stored types (name or Type ID)
+  GET  /api/eratv/types?q=                stored types (name or Type ID), without uploads
   GET  /api/eratv/types/{type_id}         one stored type: summary, Turtle, values not converted
   POST /api/eratv/types/{type_id}/fetch   look a type up (stored: answers at once)
   POST /api/eratv/upload?filename=        an XML export downloaded from ERATV (request body)
@@ -64,7 +67,7 @@ def _queue(type_id: str | None, xml: bytes | None = None, filename: str | None =
 
 @router.get("/api/eratv")
 def eratv_info():
-    n = core._q("SELECT count(*) AS n FROM eratv_type")[0]["n"]
+    n = core._q("SELECT count(*) AS n FROM eratv_type WHERE source <> 'upload'")[0]["n"]
     vocab = core._q("SELECT env, updated_at FROM eratv_vocab WHERE id=1")
     return {"lookup": LOOKUP, "stored": n, "ready": bool(vocab), "source": "https://eratv.era.europa.eu/"}
 
@@ -74,13 +77,13 @@ def eratv_types(q: str = "", limit: int = Query(20, ge=1, le=100)):
     q = q.strip()
     if q:
         rows = core._q("""SELECT type_id, name, category, manufacturer, fetched_at FROM eratv_type
-                          WHERE type_id ILIKE %s OR name ILIKE %s OR manufacturer ILIKE %s
+                          WHERE source <> 'upload' AND (type_id ILIKE %s OR name ILIKE %s OR manufacturer ILIKE %s)
                           ORDER BY (type_id ILIKE %s) DESC, similarity(coalesce(name,''), %s) DESC, type_id
                           LIMIT %s""",
                        [f"{q}%", f"%{q}%", f"%{q}%", f"{q}%", q, limit])
     else:
         rows = core._q("""SELECT type_id, name, category, manufacturer, fetched_at FROM eratv_type
-                          ORDER BY fetched_at DESC LIMIT %s""", [limit])
+                          WHERE source <> 'upload' ORDER BY fetched_at DESC LIMIT %s""", [limit])
     return [{"typeId": r["type_id"], "name": r["name"], "category": r["category"],
              "manufacturer": r["manufacturer"], "fetchedAt": r["fetched_at"].isoformat()} for r in rows]
 
@@ -88,7 +91,7 @@ def eratv_types(q: str = "", limit: int = Query(20, ge=1, le=100)):
 @router.get("/api/eratv/types/{type_id}")
 def eratv_type(type_id: str):
     tid = _type_id(type_id)
-    rows = core._q("""SELECT type_id, summary, unmapped, coverage, ttl, fetched_at, converted_at
+    rows = core._q("""SELECT type_id, summary, unmapped, coverage, ttl, fetched_at, converted_at, source
                       FROM eratv_type WHERE type_id=%s""", [tid])
     if not rows:
         raise HTTPException(404, f"{tid} is not stored; look it up first")
@@ -96,14 +99,15 @@ def eratv_type(type_id: str):
     return {"typeId": r["type_id"], "summary": r["summary"], "unmapped": r["unmapped"], "coverage": r["coverage"],
             "ttl": r["ttl"], "fetchedAt": r["fetched_at"].isoformat(),
             "convertedAt": r["converted_at"].isoformat() if r["converted_at"] else None,
-            "url": VIEW_URL + r["type_id"]}
+            "source": r["source"], "url": VIEW_URL + r["type_id"]}
 
 
 @router.post("/api/eratv/types/{type_id}/fetch")
 def eratv_fetch(type_id: str, refresh: bool = False):
     tid = _type_id(type_id)
     if not refresh:
-        rows = core._q("SELECT fetched_at FROM eratv_type WHERE type_id=%s", [tid])
+        # a copy a user uploaded is not trusted, so it does not answer a lookup
+        rows = core._q("SELECT fetched_at FROM eratv_type WHERE type_id=%s AND source <> 'upload'", [tid])
         if rows:
             return {"id": None, "typeId": tid, "status": "done", "reason": None, "message": "already stored",
                     "requestedAt": None, "finishedAt": rows[0]["fetched_at"].isoformat()}
@@ -114,11 +118,18 @@ def eratv_fetch(type_id: str, refresh: bool = False):
 
 @router.post("/api/eratv/upload")
 async def eratv_upload(request: Request, filename: str = ""):
-    body = await request.body()
+    too_big = HTTPException(413, "an ERATV XML export is smaller than 5 MB")
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > MAX_UPLOAD:
+        raise too_big
+    body = bytearray()
+    async for chunk in request.stream():      # stop reading at the limit, whatever the header says
+        body += chunk
+        if len(body) > MAX_UPLOAD:
+            raise too_big
+    body = bytes(body)
     if not body:
         raise HTTPException(400, "send the XML export as the request body")
-    if len(body) > MAX_UPLOAD:
-        raise HTTPException(413, "an ERATV XML export is smaller than 5 MB")
     if b"<" not in body[:1024]:
         raise HTTPException(400, "this is not an XML file")
     name = os.path.basename(filename)[:200] or None

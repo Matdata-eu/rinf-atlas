@@ -580,6 +580,10 @@ export function eratvProfiles(t: EratvType, rules: CompatRule[]): EratvConfigura
       if (s.t === 'iri' && s.v === vt.v) {
         if (p === `${ERA}configDependentParameter`) return mine;
         if (override[p]) return override[p];
+        // A value ERATV gives per configuration sits on the parameter set, also where the rule
+        // reads it from the vehicle type (maximum contact wire height, speed per cant deficiency).
+        const own = base(s, p);
+        return own.length ? own : mine.flatMap((c) => base(c, p));
       }
       return base(s, p);
     };

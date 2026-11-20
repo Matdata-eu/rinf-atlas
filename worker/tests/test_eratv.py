@@ -252,6 +252,36 @@ def test_client_backs_off_then_gives_up():
     assert len(calls) == 5 and slept and slept[0] >= 30
 
 
+def test_view_of_a_page_without_export_link_removes_nothing():
+    # A maintenance page or a new layout is not "this type is not public".
+    from atlas.eratv.client import Blocked
+
+    def handler(req):
+        return httpx.Response(200, text="<html><body>ERATV is under maintenance</body></html>")
+    with _client(handler) as c, pytest.raises(Blocked, match="not a vehicle type"):
+        c.view(IORE)
+
+
+def test_lookup_client_gives_up_quickly():
+    calls, slept = [], []
+
+    def handler(req):
+        calls.append(1)
+        return httpx.Response(503)
+    c = Client(delay=0, transport=httpx.MockTransport(handler), sleep=slept.append, attempts=2, backoff=10)
+    with pytest.raises(Exception, match="refusing"):
+        c.view(IORE)
+    assert len(calls) == 2 and slept == [10]
+
+
+def test_store_refuses_a_type_id_that_is_not_one(vocab):
+    from atlas.eratv import harvest
+    xml = (DATA / f"{IORE}.xml").read_bytes()
+    for bad in (b"EVIL", IORE.encode() + b"/../x"):
+        with pytest.raises(ValueError, match="not an ERATV Type ID"):
+            harvest.store(None, vocab, xml.replace(IORE.encode(), bad))
+
+
 # -- database (optional) -------------------------------------------------------------
 DB = os.environ.get("ATLAS_TEST_DATABASE_URL")
 
@@ -345,5 +375,21 @@ def test_lookups_fetch_upload_and_stop_at_captcha(vocab):
     assert ask(upload=wagon, filename=f"VehicleType_{WAGON}_PUBLISHED.xml") == ("done", None, WAGON, True)
     assert ask(upload=wagon, filename=f"VehicleType_{WAGON}_DRAFT.xml")[:2] == ("failed", "not_public")
     assert ask(upload=b"<html/>", filename="x.xml")[:2] == ("failed", "invalid")
+    assert ask(upload=wagon.replace(WAGON.encode(), b"EVIL"), filename="x.xml")[:2] == ("failed", "invalid")
+
+    def stored(tid):
+        with conn.cursor() as cur:
+            cur.execute("SELECT source, name FROM eratv_type WHERE type_id=%s", (tid,))
+            return cur.fetchone()
+
+    # an upload is not trusted: it does not replace a fetched type ...
+    assert stored(IORE) == ("eratv", "IORE M")
+    forged = xml.replace(b"IORE M", b"FORGED")
+    assert ask(upload=forged, filename=f"VehicleType_{IORE}_PUBLISHED.xml")[:3] == ("done", None, IORE)
+    assert stored(IORE) == ("eratv", "IORE M")
+    # ... and an uploaded type does not answer a lookup: that goes to ERATV (here: the CAPTCHA)
+    assert stored(WAGON)[0] == "upload"
+    lk.fetches.clear()
+    assert ask(WAGON)[:2] == ("failed", "captcha")
     assert not lk.step(conn)
     conn.close()

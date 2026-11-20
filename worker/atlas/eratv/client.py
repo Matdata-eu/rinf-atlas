@@ -95,13 +95,17 @@ def internal_id_from_view(html: str) -> int | None:
 
 class Client:
     def __init__(self, base: str = BASE, delay: float = 2.0, user_agent: str | None = None,
-                 timeout: float = 60, transport: httpx.BaseTransport | None = None, sleep=time.sleep):
+                 timeout: float = 60, transport: httpx.BaseTransport | None = None, sleep=time.sleep,
+                 attempts: int = 5, backoff: float | None = None):
         ua = user_agent or "rinf-atlas (+https://github.com/Matdata-eu/rinf-atlas)"
         self.base, self.delay, self._sleep = base.rstrip("/"), delay, sleep
         self.http = httpx.Client(base_url=self.base, headers={"User-Agent": ua}, timeout=timeout,
                                  follow_redirects=False, transport=transport)
         self._last = 0.0
         self.requests = 0
+        # how often a refused request is tried, and the first wait (doubled each time)
+        self.attempts = max(1, attempts)
+        self.backoff = max(30.0, delay * 10) if backoff is None else backoff
 
     def close(self) -> None:
         self.http.close()
@@ -113,8 +117,8 @@ class Client:
         self.close()
 
     def _get(self, path: str, params: dict | None = None) -> httpx.Response:
-        backoff = max(30.0, self.delay * 10)
-        for attempt in range(5):
+        backoff = self.backoff
+        for attempt in range(self.attempts):
             wait = self._last + self.delay - time.monotonic()
             if wait > 0:
                 self._sleep(wait)
@@ -123,6 +127,8 @@ class Client:
             try:
                 r = self.http.get(path, params=params)
             except httpx.TransportError as e:
+                if attempt == self.attempts - 1:
+                    break
                 log.warning("ERATV %s failed (%s), retrying in %.0fs", path, e, backoff)
                 self._sleep(backoff)
                 backoff *= 2
@@ -130,7 +136,7 @@ class Client:
             if r.status_code == 200 and is_captcha(r.content):            # whatever the content type
                 raise CaptchaRequired(f"ERATV asks for a CAPTCHA on {path}; harvesting needs ERA's access")
             if r.status_code >= 500 or r.status_code == 429 or b"Request Rejected" in r.content[:400]:
-                if attempt == 4:
+                if attempt == self.attempts - 1:
                     break
                 log.warning("ERATV %s answered %s, backing off %.0fs", path, r.status_code, backoff)
                 self._sleep(backoff)
@@ -147,12 +153,17 @@ class Client:
 
     def view(self, key: str | int) -> int | None:
         """Opens a type's page (by Type ID or internal id). The internal id of its export
-        when it is published, 0 when the record is not public, None when there is none."""
+        when it is published, 0 when the record is not public, None when there is none.
+
+        A page without an export link is not a type's page (maintenance, a new layout):
+        that raises Blocked, so nothing is taken for "not public" and removed."""
         r = self._get(f"/Eratv/Home/View/{key}")
         if r.status_code != 200:
             return None
         iid = internal_id_from_view(r.text)
-        return 0 if iid is None else iid
+        if iid is None:
+            raise Blocked(f"ERATV answered /Eratv/Home/View/{key} with a page that is not a vehicle type's")
+        return iid
 
     def internal_id(self, type_id: str) -> int | None:
         iid = self.view(type_id)

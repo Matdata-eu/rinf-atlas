@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 # Contact data: 1.3.2.x (manufacturer) and 3.1.3.N.2.2.x / 3.1.3.N.M.2.x (holder).
 _CONTACT = re.compile(r"^(1\.3\.2|3\.1\.3\.\d+\.2\.2|3\.1\.3\.\d+\.\d\.2)(\.\d+)?$")
 _CODE = re.compile(r"^\s*(\d+(?:\.\d+)*(?:\.[a-z])?)\s*(.*?)\s*:?\s*$")
+# A Type ID: type number (11-256-0001-3), version and, since 2019, variant
+TYPE_ID = re.compile(r"^\d{2}-\d{3}-\d{4}-\d(?:-\d{3}){1,2}$")
 _FILENAME = re.compile(r"VehicleType_(?P<id>[^_]+)_(?P<state>[A-Z]+)\.xml", re.I)
 
 
