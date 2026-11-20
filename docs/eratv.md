@@ -34,6 +34,9 @@ How a lookup works:
   the XML export there and choose **Upload XML…**. An upload needs no request to
   ERATV, and works with `ATLAS_ERATV_LOOKUP=0` too. Drafts and cancelled records are
   refused.
+- An uploaded file is not trusted, since anyone can send one. It never replaces a type
+  fetched from ERATV or imported by the operator, it is not listed, and a later lookup
+  of the same Type ID fetches the type from ERATV instead of answering with the upload.
 
 API: `POST /api/eratv/types/{Type ID}/fetch[?refresh=true]`, `POST
 /api/eratv/upload?filename=` (the XML as the body), `GET /api/eratv/requests/{id}`,
@@ -86,7 +89,9 @@ How the harvester behaves:
   where it stopped. Harvesting at scale therefore needs ERA to exempt this client or
   to provide an export. Until then, use `import`.
 - Contact data of the manufacturer and the authorisation holder (address, e-mail,
-  phone) is dropped while reading. Only organisation names are kept.
+  phone) is dropped while reading: it is not in the Turtle, the summary or the API. Only
+  organisation names are kept. The XML itself is stored as ERATV exported it
+  (`eratv_type.xml`), so it still holds that contact data in the database.
 
 `atlas eratv status` shows what is stored and the last runs.
 
@@ -94,7 +99,7 @@ How the harvester behaves:
 
 | Table | |
 |---|---|
-| `eratv_type` | one row per published Type ID: the XML as exported, the Turtle, a JSON summary (configurations, authorisations, restrictions), the values that did not map, and coverage |
+| `eratv_type` | one row per published Type ID: the XML as exported, the Turtle, a JSON summary (configurations, authorisations, restrictions), the values that did not map, coverage, and `source` (`eratv`, `import` or `upload`) |
 | `eratv_id` | what each internal id answered (published, not public, nothing), so a full pass can resume |
 | `eratv_run` | harvest runs: requests, fetched, changed, failed, where a full pass resumes |
 | `eratv_vocab` | the mapping below, copied from an environment's mirror |

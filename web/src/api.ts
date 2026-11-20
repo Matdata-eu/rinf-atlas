@@ -620,7 +620,7 @@ export interface EratvSummary {
 }
 export interface EratvType {
   typeId: string; summary: EratvSummary; unmapped: { code: string; name: string; config: string | null; value: string; why: string }[];
-  coverage: number | null; ttl: string; fetchedAt: string; url: string;
+  coverage: number | null; ttl: string; fetchedAt: string; url: string; source?: 'eratv' | 'import' | 'upload';
 }
 export interface EratvRequest {
   id: number | null; typeId: string | null; status: 'queued' | 'running' | 'done' | 'failed';

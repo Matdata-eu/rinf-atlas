@@ -12,7 +12,6 @@ upload the XML export instead (downloaded by hand from the type's ERATV page).
 from __future__ import annotations
 
 import logging
-import re
 import threading
 import time
 from collections import deque
@@ -22,11 +21,10 @@ from ..config import Settings
 from . import vocab as vocab_mod
 from .client import Blocked, CaptchaRequired, Client
 from .harvest import _note_id, store, withdraw
-from .parse import parse, state_from_filename
+from .parse import TYPE_ID, parse, state_from_filename
 
 log = logging.getLogger(__name__)
 
-TYPE_ID = re.compile(r"^\d{2}-\d{3}-\d{4}-\d(?:-\d{3}){1,2}$")
 RECENT = 3600            # a refresh within this many seconds of the last fetch returns the stored type
 CAPTCHA_PAUSE = 3600
 BLOCKED_PAUSE = 900
@@ -50,7 +48,9 @@ class Lookups:
     def __init__(self, cfg: Settings, client_factory=None, clock=time.time):
         self.cfg = cfg
         e = cfg.eratv
-        self.client_factory = client_factory or (lambda: Client(e.base_url, e.delay_seconds, e.user_agent()))
+        # a user is waiting and uploads queue behind a fetch: one retry after a short wait, not five
+        self.client_factory = client_factory or (lambda: Client(e.base_url, e.delay_seconds, e.user_agent(),
+                                                                attempts=2, backoff=10))
         self.clock = clock
         self.fetches: deque[float] = deque()
         self.paused_until = 0.0
@@ -133,9 +133,17 @@ class Lookups:
             rec = parse(xml)
         except Exception as e:  # noqa: BLE001
             raise Failed("invalid", f"this is not an ERATV XML export ({e})") from None
-        if not rec.type_id:
+        if not TYPE_ID.match(rec.type_id):
             raise Failed("invalid", "this is not an ERATV XML export (no Type ID)")
-        tid, _ = store(conn, self.vocab(conn), xml)
+        # An upload is not trusted (anyone can send one): it never replaces a type fetched
+        # from ERATV or imported by the operator, which is then the one the user gets.
+        with conn.cursor() as cur:
+            cur.execute("SELECT source FROM eratv_type WHERE type_id=%s", (rec.type_id,))
+            row = cur.fetchone()
+        conn.commit()
+        if row is not None and row[0] != "upload":
+            return rec.type_id, "already stored from ERATV: that copy is used"
+        tid, _ = store(conn, self.vocab(conn), xml, source="upload")
         conn.commit()
         return tid, "read from the uploaded file"
 
@@ -145,7 +153,9 @@ class Lookups:
         if not self.cfg.eratv.lookup:
             raise Failed("disabled", "looking types up in ERATV is turned off here; upload the type's XML export")
         with conn.cursor() as cur:
-            cur.execute("SELECT extract(epoch FROM now() - fetched_at) FROM eratv_type WHERE type_id=%s", (tid,))
+            # a copy a user uploaded does not count as stored: it is not trusted
+            cur.execute("""SELECT extract(epoch FROM now() - fetched_at) FROM eratv_type
+                           WHERE type_id=%s AND source <> 'upload'""", (tid,))
             row = cur.fetchone()
         conn.commit()
         if row is not None and (not refresh or row[0] < RECENT):
@@ -180,7 +190,7 @@ class Lookups:
         conn.commit()
         if ex.state != "PUBLISHED" or not ex.xml:
             raise Failed("not_public", f"ERATV did not export {tid} as a published type ({ex.state or 'nothing'})")
-        got, _ = store(conn, vocab, ex.xml, iid)
+        got, _ = store(conn, vocab, ex.xml, iid, source="eratv")
         conn.commit()
         return got, None
 

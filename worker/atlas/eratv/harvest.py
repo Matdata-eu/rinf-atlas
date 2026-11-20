@@ -31,7 +31,7 @@ from ..config import Settings
 from . import vocab as vocab_mod
 from .client import Blocked, CaptchaRequired, Client
 from .convert import convert
-from .parse import parse, state_from_filename
+from .parse import TYPE_ID, parse, state_from_filename
 
 log = logging.getLogger(__name__)
 LOCK = 777002
@@ -76,13 +76,21 @@ def _note_id(conn, internal_id: int, type_id: str | None, state: str | None) -> 
 
 
 def store(conn, vocab: vocab_mod.Vocab, xml: bytes, internal_id: int | None = None,
-          last_update: str | None = None, state: str = "PUBLISHED") -> tuple[str, bool]:
-    """Converts and upserts one published record. Returns (Type ID, changed)."""
+          last_update: str | None = None, state: str = "PUBLISHED", source: str = "eratv") -> tuple[str, bool]:
+    """Converts and upserts one published record. Returns (Type ID, changed).
+
+    `source` says where the XML came from (eratv, import, upload). A file a user uploaded
+    is not trusted: it never replaces a type that was fetched or imported."""
     sha = hashlib.sha256(xml).hexdigest()
     rec = parse(xml)
+    if not TYPE_ID.match(rec.type_id):
+        raise ValueError(f"not an ERATV Type ID: {rec.type_id[:40]!r}")
     with conn.cursor() as cur:
-        cur.execute("SELECT xml_sha, last_update::text FROM eratv_type WHERE type_id=%s", (rec.type_id,))
+        cur.execute("SELECT xml_sha, last_update::text, source FROM eratv_type WHERE type_id=%s", (rec.type_id,))
         old = cur.fetchone()
+    conn.commit()
+    if old and source == "upload" and old[2] != "upload":
+        return rec.type_id, False
     lu = last_update or (old[1] if old else None)
     res = convert(rec, vocab, state=state, last_update=lu)
     s = res.summary
@@ -90,17 +98,18 @@ def store(conn, vocab: vocab_mod.Vocab, xml: bytes, internal_id: int | None = No
         cur.execute("""
             INSERT INTO eratv_type (type_id, type_number, internal_id, state, name, category, subcategory,
                                     manufacturer, last_update, summary, unmapped, coverage, ttl, xml, xml_sha,
-                                    fetched_at, converted_at)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now(),now())
+                                    source, fetched_at, converted_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now(),now())
             ON CONFLICT (type_id) DO UPDATE SET
                 type_number=EXCLUDED.type_number, internal_id=COALESCE(EXCLUDED.internal_id, eratv_type.internal_id),
                 state=EXCLUDED.state, name=EXCLUDED.name, category=EXCLUDED.category,
                 subcategory=EXCLUDED.subcategory, manufacturer=EXCLUDED.manufacturer,
                 last_update=COALESCE(EXCLUDED.last_update, eratv_type.last_update), summary=EXCLUDED.summary,
                 unmapped=EXCLUDED.unmapped, coverage=EXCLUDED.coverage, ttl=EXCLUDED.ttl, xml=EXCLUDED.xml,
-                xml_sha=EXCLUDED.xml_sha, fetched_at=now(), converted_at=now()""",
+                xml_sha=EXCLUDED.xml_sha, source=EXCLUDED.source, fetched_at=now(), converted_at=now()""",
             (rec.type_id, s["typeNumber"], internal_id, state, s["name"], s["category"], s["subcategory"],
-             s["manufacturer"], lu, json.dumps(s), json.dumps(res.unmapped), res.coverage, res.turtle(), xml, sha))
+             s["manufacturer"], lu, json.dumps(s), json.dumps(res.unmapped), res.coverage, res.turtle(), xml, sha,
+             source))
     conn.commit()
     return rec.type_id, (old is None or old[0] != sha)
 
@@ -160,7 +169,8 @@ def fetch_types(conn, client: Client, vocab, type_ids: list[str], last_update: d
             iid = client.view(tid)                      # also opens the session for the export
             if not iid:
                 log.warning("ERATV %s: %s", tid, "not public" if iid == 0 else "no such type")
-                withdraw(conn, tid, "NOT_PUBLIC" if iid == 0 else None)
+                if iid == 0:                            # the page says so; any other answer removes nothing
+                    withdraw(conn, tid, "NOT_PUBLIC")
                 continue
             ex = client.export(iid, viewed=True)
             _note_id(conn, iid, ex.type_id, ex.state)
@@ -275,7 +285,7 @@ def import_files(conn, vocab, paths) -> tuple[int, int]:
             skipped += 1
             continue
         try:
-            store(conn, vocab, f.read_bytes())
+            store(conn, vocab, f.read_bytes(), source="import")
             stored += 1
         except Exception as e:  # noqa: BLE001
             conn.rollback()
@@ -286,12 +296,12 @@ def import_files(conn, vocab, paths) -> tuple[int, int]:
 
 def reconvert(conn, vocab) -> int:
     with conn.cursor() as cur:
-        cur.execute("SELECT type_id, xml, internal_id, last_update::text, state FROM eratv_type")
+        cur.execute("SELECT type_id, xml, internal_id, last_update::text, state, source FROM eratv_type")
         rows = cur.fetchall()
     conn.commit()
-    for tid, xml, iid, lu, state in rows:
+    for tid, xml, iid, lu, state, source in rows:
         try:
-            store(conn, vocab, bytes(xml), iid, lu, state)
+            store(conn, vocab, bytes(xml), iid, lu, state, source)
         except Exception as e:  # noqa: BLE001
             conn.rollback()
             log.warning("ERATV %s: conversion failed: %s", tid, e)
