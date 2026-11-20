@@ -243,9 +243,10 @@ class ShapeSet:
     class_files: dict[str, str] = field(default_factory=dict)
 
     def digest(self) -> str:
-        def strip(d: dict) -> dict:  # map colour classes are display only: no reindex
+        def strip(d: dict) -> dict:  # map colour classes and suggestions are display only: no reindex
             for f in d.get("facets", [d]):
                 f.pop("color_classes", None)
+                f.pop("color_by", None)
             return d
         blob = json.dumps([INDEX_VERSION] + [strip(asdict(c)) for c in self.classes]
                           + [strip(asdict(f)) for f in self.shared], sort_keys=True)
@@ -544,7 +545,9 @@ def rule_turtle(st: ox.Store, shape, prop) -> str:
 def _index_compat_facets(shapes: ShapeSet) -> None:
     """Index every facet a track rule compares on every track class, also where that
     class's own shape does not list it (e.g. a parameter only in running-track.ttl but
-    data typed era:Track), so a rule finds the value whatever class a track is indexed as."""
+    data typed era:Track), so a rule finds the value whatever class a track is indexed as.
+    The copy is not suggested in the "Colour by" picker: the class's own shape did not ask
+    for it, and its data may never carry it (no siding in RINF has a maximum speed)."""
     by_key = {c.key: c for c in shapes.classes}
     tracks = [by_key[k] for k in shapes.compat.track_classes]
     for rule in shapes.compat.rules:
@@ -557,7 +560,7 @@ def _index_compat_facets(shapes: ShapeSet) -> None:
             src = next((f for c in tracks for f in shapes.all_facets(c) if f.key == fk), None)
             for c in tracks:
                 if src and not any(f.key == fk for f in shapes.all_facets(c)):
-                    c.facets.append(replace(src))
+                    c.facets.append(replace(src, color_by=None))
                     c.facets.sort(key=lambda f: (f.order, f.key))
     # what each rule compares, for explaining it
     section = by_key[shapes.compat.section_class]
@@ -1007,7 +1010,7 @@ def _index_check_facets(shapes: ShapeSet, views: list[View]) -> None:
                 src = next((f for c in shapes.classes for f in shapes.all_facets(c) if f.key == fk), None)
                 for c in classes:
                     if src and not any(f.key == fk for f in shapes.all_facets(c)):
-                        c.facets.append(replace(src))
+                        c.facets.append(replace(src, color_by=None))
                         c.facets.sort(key=lambda f: (f.order, f.key))
 
 

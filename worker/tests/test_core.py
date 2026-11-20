@@ -43,6 +43,11 @@ def test_repo_shapes_compile():
     assert {f.key for f in s.shared} == {"country", "infrastructureManager"}
     speed = next(f for f in track.facets if f.key == "maximumPermittedSpeed")
     assert speed.color_by == 1 and speed.kind == "range"
+    # Indexed on sidings for the vehicle check, but not suggested for colouring there:
+    # RINF has no speed for sidings, so the map would stay empty (Norway report).
+    siding = next(c for c in s.classes if c.key == "siding")
+    copy = next(f for f in siding.facets if f.key == "maximumPermittedSpeed")
+    assert copy.color_by is None and copy.color_classes == speed.color_classes
 
 
 def test_color_classes_give_fixed_bands_of_a_range_facet(tmp_path):
@@ -61,6 +66,10 @@ ex:s a sh:NodeShape ; atlas:key "k" ; sh:targetClass ex:C ;
         {"up_to": 40.0, "label": "Slow"}, {"up_to": 160.0, "label": None}, {"up_to": None, "label": "Fast"}]
     # Display only: changing the bands needs no reindex.
     (tmp_path / "x.ttl").write_text(shape.format(kind="range", classes='[ atlas:upTo 50 ] [ ]'))
+    assert load_shapes(tmp_path).digest() == s.digest()
+    # so is suggesting a facet in the "Colour by" picker
+    (tmp_path / "x.ttl").write_text(shape.format(kind="range", classes=ok).replace("atlas:kind", "atlas:colorBy 3 ; atlas:kind"))
+    assert load_shapes(tmp_path).classes[0].facets[0].color_by == 3
     assert load_shapes(tmp_path).digest() == s.digest()
     for kind, classes in (("terms", ok), ("range", '[ atlas:upTo 40 ]'),  # one class only
                           ("range", '[ atlas:upTo 40 ] [ atlas:upTo 30 ] [ ]'),  # not increasing
