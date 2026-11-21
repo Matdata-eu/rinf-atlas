@@ -55,7 +55,7 @@ class Quality:
     shacl_report_bin: str = "shacl-report"
     # Which SHACL validator checks the graphs: `tripletrail` (the `tripletrail validate` command,
     # complete SHACL and many times faster), `builtin` (atlas.shacl, in Python on the mirror), or
-    # `auto`: tripletrail when the command is installed (the worker image has it), else builtin.
+    # `auto`: tripletrail when the command is installed (the worker image does not ship it yet), else builtin.
     engine: str = "auto"
     tripletrail_bin: str = "tripletrail"
 
