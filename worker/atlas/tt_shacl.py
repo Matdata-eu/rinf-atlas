@@ -17,11 +17,13 @@ data for lookups (`sh:class`, the SPARQL constraints), not data to validate.
 """
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
 import time
 from collections import defaultdict
+from itertools import chain, groupby
 from pathlib import Path
 
 import pyoxigraph as ox
@@ -123,17 +125,28 @@ def _english(g: ShapesGraph, r) -> str | None:
     return vals[0].value if vals else None
 
 
-def read_report(report: ShapesGraph, appears, limits: Limits, run: Run) -> None:
+class _Seen:
+    """What `read_report` remembers from one part of a report to the next."""
+
+    def __init__(self):
+        self.keys: set[tuple] = set()
+        self.kept: dict[tuple[str, str], int] = defaultdict(int)
+        self.in_graph: dict[str, bool] = {}
+
+
+def _is_result(objects) -> bool:
+    return any(isinstance(o, ox.NamedNode) and o.value == SH + "ValidationResult" for o in objects)
+
+
+def read_report(report: ShapesGraph, appears, limits: Limits, run: Run, state: _Seen | None = None) -> None:
     """Results of a W3C validation report into `run`, as `atlas.shacl.Validator.add` keeps them:
     one per (focus, shape, component, value, path), counted in full, kept up to the caps.
     TripleTrail gives each row of a SPARQL constraint a result, also rows that repeat another
-    (on Infrabel's graph, 3,296 of 125,896): those are counted once, as atlas.shacl does."""
-    seen: set[tuple] = set()
-    kept: dict[tuple[str, str], int] = defaultdict(int)
-    in_graph: dict[str, bool] = {}
-    results = [s for s, d in report.spo.items()
-               if any(isinstance(o, ox.NamedNode) and o.value == SH + "ValidationResult"
-                      for o in d.get(RDF + "type", []))]
+    (on Infrabel's graph, 3,296 of 125,896): those are counted once, as atlas.shacl does.
+    `state` carries the dedup and the caps over when a report is read in parts."""
+    state = state or _Seen()
+    seen, kept, in_graph = state.keys, state.kept, state.in_graph
+    results = [s for s, d in report.spo.items() if _is_result(d.get(RDF + "type", []))]
     for r in results:
         focus = report.one(r, SH + "focusNode")
         shape = report.one(r, SH + "sourceShape")
@@ -176,6 +189,48 @@ def read_report(report: ShapesGraph, appears, limits: Limits, run: Run) -> None:
             kept[kk] += 1
             run.results.append(Result(f, severity, shape_id, comp.value, path, path_ttl, v,
                                       message or _default_message(comp.value, path)))
+
+
+def read_report_file(path: Path, appears, limits: Limits, run: Run, chunk: int = 20000) -> None:
+    """`read_report` for a report in an N-Triples file, without holding it in memory: a report
+    as Python objects takes about 3.5 GB per million results, and a large dataset can have
+    millions. The file is sorted on disk (`sort`), which puts the triples of each result next
+    to each other, and the results are then read `chunk` at a time. The nodes that are no
+    result (the blank nodes of a complex sh:resultPath) are few and are read first. Without a
+    POSIX `sort` the report is read in one go."""
+    sort = shutil.which("sort") if os.name == "posix" else None
+    if sort is None:
+        read_report(ShapesGraph(ox.parse(path=str(path), format=ox.RdfFormat.N_TRIPLES)), appears, limits, run)
+        return
+    ordered = path.with_name(path.name + ".sorted")
+    subprocess.run([sort, "-S", "200M", "-T", str(path.parent), "-o", str(ordered), str(path)],
+                   check=True, env={**os.environ, "LC_ALL": "C"})
+
+    def groups():
+        triples = ox.parse(path=str(ordered), format=ox.RdfFormat.N_TRIPLES)
+        for _, grp in groupby(triples, key=lambda t: t.subject):
+            grp = list(grp)
+            yield _is_result(t.object for t in grp if t.predicate.value == RDF + "type"), grp
+
+    try:
+        # The report node links to every result (sh:result): those links are not needed.
+        other = [t for is_result, grp in groups() if not is_result
+                 for t in grp if t.predicate.value != SH + "result"]
+        state = _Seen()
+        part: list = []
+        n = 0
+        for is_result, grp in groups():
+            if not is_result:
+                continue
+            part.extend(grp)
+            n += 1
+            if n % chunk == 0:
+                read_report(ShapesGraph(chain(other, part)), appears, limits, run, state)
+                part = []
+        if part:
+            read_report(ShapesGraph(chain(other, part)), appears, limits, run, state)
+    finally:
+        ordered.unlink(missing_ok=True)
 
 
 def validate_graph(store: ox.Store, graph: str, shapes_graph: str, vocab_graphs: list[str],
@@ -222,8 +277,6 @@ def validate_graph(store: ox.Store, graph: str, shapes_graph: str, vocab_graphs:
     data.unlink(missing_ok=True)
 
     t2 = time.time()
-    report = ShapesGraph(ox.parse(path=str(report_file), format=ox.RdfFormat.N_TRIPLES))
-
     def appears(t) -> bool:
         if next(iter(store.quads_for_pattern(t, None, None, g)), None) is not None:
             return True
@@ -231,7 +284,7 @@ def validate_graph(store: ox.Store, graph: str, shapes_graph: str, vocab_graphs:
             return True
         return next(iter(store.quads_for_pattern(None, None, t, g)), None) is not None
 
-    read_report(report, appears, limits, run)
+    read_report_file(report_file, appears, limits, run)
     run.timings["(read report)"] += time.time() - t2
     run.seconds = time.time() - t0
     return run

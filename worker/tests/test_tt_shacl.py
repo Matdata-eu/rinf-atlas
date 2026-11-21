@@ -110,3 +110,39 @@ def test_exclusions_and_caps(tmp_path):
     assert any("links to itself" in (r.message or "") for r in run.results)
     run = _tt(st, tmp_path, shacl.Limits(max_per_constraint=1, max_total=3))
     assert run.kept() == 3 and sum(run.totals.values()) > 3
+
+
+def test_report_file_is_read_in_parts_with_the_same_outcome(tmp_path):
+    sh = "http://www.w3.org/ns/shacl#"
+    lines = ["_:rep <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <%sValidationReport> ." % sh]
+    for i in range(7):
+        r, focus = f"_:r{i}", f"<http://ex/n{i % 5}>"  # r5 and r6 repeat r0 and r1
+        lines += [
+            f"_:rep <{sh}result> {r} .",
+            f"{r} <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <{sh}ValidationResult> .",
+            f"{r} <{sh}sourceConstraintComponent> <{sh}MaxCountConstraintComponent> .",
+            f"{r} <{sh}resultPath> _:p{i} .",
+            f"_:p{i} <{sh}inversePath> <http://ex/prev> .",
+            f"{r} <{sh}sourceShape> <http://ex/Next> .",
+            f"{r} <{sh}focusNode> {focus} .",
+        ]
+    # the triples of one result are not next to each other in the file
+    report = tmp_path / "report.nt"
+    report.write_text("\n".join(sorted(lines, key=lambda line: line.split(" ", 2)[1:])) + "\n")
+
+    def read(**kw):
+        run = shacl.Run(graph=G)
+        tt_shacl.read_report_file(report, lambda t: not t.value.endswith("n4"), shacl.Limits(max_per_constraint=3),
+                                  run, **kw)
+        return (dict(run.totals), run.focus_with_results,
+                sorted((r.focus, r.path, r.path_ttl) for r in run.results))
+
+    whole = shacl.Run(graph=G)
+    tt_shacl.read_report(shacl.ShapesGraph(ox.parse(path=str(report), format=ox.RdfFormat.N_TRIPLES)),
+                         lambda t: not t.value.endswith("n4"), shacl.Limits(max_per_constraint=3), whole)
+    totals, focus, kept = read(chunk=2)
+    assert totals == dict(whole.totals) == {shacl.VIOLATION: 4}
+    assert focus == whole.focus_with_results == {f"<http://ex/n{i}>" for i in range(4)}
+    assert len(kept) == 3 and {k[1:] for k in kept} == {("^<http://ex/prev>", "[ sh:inversePath <http://ex/prev> ]")}
+    assert read() == read(chunk=1)
+    assert list(tmp_path.iterdir()) == [report]
