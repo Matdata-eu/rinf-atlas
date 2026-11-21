@@ -47,6 +47,7 @@ services:
       ATLAS_EXPORTS: /data/exports
       ATLAS_EXPORT_WORKERS: ${ATLAS_EXPORT_WORKERS:-2}
       ATLAS_EXPORT_RETENTION_HOURS: ${ATLAS_EXPORT_RETENTION_HOURS:-24}
+      ATLAS_EXPORT_BATCH: ${ATLAS_EXPORT_BATCH:-}
       # ERATV vehicle types (docs/eratv.md): off unless ERA agreed to the harvesting.
       ATLAS_ERATV: ${ATLAS_ERATV:-0}
       ATLAS_ERATV_CONTACT: ${ATLAS_ERATV_CONTACT:-}
