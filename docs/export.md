@@ -107,6 +107,7 @@ mounts read-only to serve downloads. Settings in `.env`:
 | `ATLAS_EXPORT_RETENTION_HOURS` | `24` | finished files are deleted after this; the job then shows as expired |
 | `ATLAS_EXPORT_MAX_ENTITIES` | empty | refuse exports of more elements (`413`); empty = no cap |
 | `ATLAS_EXPORT_QUEUE` | `20` | queued + running jobs before `429` |
+| `ATLAS_EXPORT_BATCH` | `500` | features read from the index per batch; progress is reported between batches (the smoke test uses `2`) |
 
 The browser remembers its jobs (local storage) and polls them; a job can be
 cancelled or removed from the dialog. `atlas export --env prod --format ttl

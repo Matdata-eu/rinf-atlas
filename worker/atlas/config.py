@@ -98,6 +98,8 @@ class Settings:
     export_dir: Path = Path("/data/exports")
     export_workers: int = 2
     export_retention_hours: float = 24
+    # Features per batch an export reads from the index (small values are for tests).
+    export_batch: int = 500
     eratv: "Eratv" = field(default_factory=lambda: Eratv())
 
     def env(self, key: str) -> Env:
@@ -163,6 +165,7 @@ def settings() -> Settings:
         export_dir=Path(os.environ.get("ATLAS_EXPORTS", "/data/exports")),
         export_workers=int(os.environ.get("ATLAS_EXPORT_WORKERS") or 2),
         export_retention_hours=float(os.environ.get("ATLAS_EXPORT_RETENTION_HOURS") or 24),
+        export_batch=max(1, int(os.environ.get("ATLAS_EXPORT_BATCH") or 500)),
         eratv=Eratv(
             enabled=_flag(os.environ.get("ATLAS_ERATV"), bool((raw.get("eratv") or {}).get("enabled", False))),
             base_url=os.environ.get("ATLAS_ERATV_URL") or (raw.get("eratv") or {}).get("base_url") or Eratv.base_url,

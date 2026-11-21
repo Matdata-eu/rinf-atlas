@@ -57,7 +57,7 @@ FORMATS = {
 }
 RDF_FORMATS = ("ttl", "nt", "jsonld")
 TABLE_FORMATS = ("csv", "xlsx", "geojson", "gpkg")
-BATCH = 500
+BATCH = 500  # default features per batch (Settings.export_batch, ATLAS_EXPORT_BATCH)
 XLSX_MAX_ROWS = 1_048_575
 XLSX_MAX_CELL = 32_767
 ERA = "http://data.europa.eu/949/"
@@ -100,9 +100,17 @@ class Cancelled(Exception):
 # --- the job --------------------------------------------------------------------------
 
 class Job:
-    def __init__(self, cfg: Settings, conn: psycopg.Connection, row: dict, profiles: list[Profile]):
+    """One export. `conn` holds the read transaction the features stream from (a named,
+    server-side cursor, which PostgreSQL closes when that transaction ends), so it is never
+    committed while the export runs; progress and the cancel check go through `status_conn`,
+    a separate autocommit connection."""
+
+    def __init__(self, cfg: Settings, conn: psycopg.Connection, status_conn: psycopg.Connection, row: dict,
+                 profiles: list[Profile]):
         self.cfg = cfg
         self.conn = conn
+        self.status_conn = status_conn
+        self.batch = max(1, cfg.export_batch)
         self.id = row["id"]
         self.req = Request.parse(row["request"])
         self.store = mirror.store(cfg.mirror_dir, self.req.env)
@@ -126,7 +134,7 @@ class Job:
     def rows(self) -> Iterator[list[dict]]:
         """Matching features in batches, grouped by graph then class (so a batch is usually one graph)."""
         with self.conn.cursor(name=f"export_{self.id}") as cur:
-            cur.itersize = BATCH
+            cur.itersize = self.batch
             cur.execute(f"""SELECT f.iri, f.class, f.class_iri, f.graph_iri, f.label, d.provider, d.title,
                                    ST_X(ST_PointOnSurface(f.geom)) AS lon, ST_Y(ST_PointOnSurface(f.geom)) AS lat,
                                    ST_AsText(f.geom, 7) AS wkt, ST_AsGeoJSON(f.geom, 7)::text AS geojson,
@@ -137,7 +145,7 @@ class Job:
             batch: list[dict] = []
             for r in cur:
                 row = dict(zip(names, r, strict=True))
-                if batch and (len(batch) >= BATCH or batch[-1]["graph_iri"] != row["graph_iri"]):
+                if batch and (len(batch) >= self.batch or batch[-1]["graph_iri"] != row["graph_iri"]):
                     yield batch
                     batch = []
                 batch.append(row)
@@ -231,10 +239,11 @@ class Job:
         if not force and now - self._last_progress < 1.5:
             return
         self._last_progress = now
-        with self.conn.cursor() as cur:
+        with self.status_conn.cursor() as cur:
             cur.execute("UPDATE export SET done=%s, total=%s WHERE id=%s RETURNING status", (self.done, self.total, self.id))
             status = cur.fetchone()
-        self.conn.commit()
+        if not self.status_conn.autocommit:
+            self.status_conn.commit()
         if status and status[0] == "cancelled":
             raise Cancelled()
 
@@ -537,7 +546,25 @@ def write_gpkg(job: Job, path: Path, total: int) -> None:
 
 def run_export(cfg: Settings, conn: psycopg.Connection, row: dict, profiles: list[Profile]) -> None:
     """Runs one export row to completion (status done / failed / cancelled)."""
-    job = Job(cfg, conn, row, profiles)
+    try:
+        status_conn = db.connect(cfg.database_url, attempts=3)
+        status_conn.autocommit = True
+    except Exception as e:  # noqa: BLE001 - reported on the row
+        log.error("export %s failed: no status connection: %s", row["id"], e)
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute("UPDATE export SET status='failed', error=%s, finished_at=now() WHERE id=%s", (str(e)[:2000], row["id"]))
+        conn.commit()
+        return
+    try:
+        _run_export(cfg, conn, status_conn, row, profiles)
+    finally:
+        status_conn.close()
+
+
+def _run_export(cfg: Settings, conn: psycopg.Connection, status_conn: psycopg.Connection, row: dict,
+                profiles: list[Profile]) -> None:
+    job = Job(cfg, conn, status_conn, row, profiles)
     req = job.req
     ext, _ = FORMATS[req.format]
     cfg.export_dir.mkdir(parents=True, exist_ok=True)
