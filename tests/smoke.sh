@@ -112,9 +112,20 @@ code=$(post_code "{\"state\":$opq,\"format\":\"csv\",\"profile\":\"nope\"}")
 code=$(post_code "{\"state\":$opq,\"format\":\"xlsx\",\"include\":[\"opName\",\"uopid\"],\"headers\":\"rinf\"}")
 [ "$code" = 202 ] || fail "POST /api/exports (xlsx, custom columns) returned HTTP $code"
 xid=$(json "d['id']" < /tmp/atlas-export.json)
+multi=()
+for fmt in csv geojson gpkg; do
+  code=$(post_code "{\"state\":$opq,\"format\":\"$fmt\"}")
+  [ "$code" = 202 ] || fail "POST /api/exports ($fmt) returned HTTP $code"
+  multi+=("$fmt:$(json "d['id']" < /tmp/atlas-export.json)")
+done
 [ "$(curl -fsS "$BASE/api/exports/$eid" | json "d['status']")" = queued ] || fail "new export is not queued"
 echo "running export jobs"
-"${compose[@]}" run --rm --no-deps -T worker atlas export-jobs --once
+# Batches of 2 features, so every job reads several batches and reports progress in between (#99).
+"${compose[@]}" run --rm --no-deps -T -e ATLAS_EXPORT_BATCH=2 worker atlas export-jobs --once
+for m in "${multi[@]}"; do
+  st=$(curl -fsS "$BASE/api/exports/${m#*:}" | json "d['status'] + ' ' + str(d['done']) + '/' + str(d['total']) + ' ' + str(d['error'])")
+  echo "${m%%:*} export: $st"; [ "$st" = "done $ops/$ops None" ] || fail "${m%%:*} export job over several batches: $st"
+done
 st=$(curl -fsS "$BASE/api/exports/$eid" | json "d['status'] + ' ' + str(d['total']) + ' ' + str(d['error'])")
 echo "ttl export: $st"; [ "${st%% *}" = done ] || fail "export job $eid: $st"
 [ "$(curl -fsS "$BASE/api/exports/$eid" | json "d['total']")" -eq "$ops" ] || fail "export counted other than $ops elements"
