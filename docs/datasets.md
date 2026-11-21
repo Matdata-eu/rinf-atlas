@@ -156,6 +156,30 @@ are left out (see [DESIGN.md](DESIGN.md#data-quality)); set
 `exclude_shapes: []` to check them too. `ATLAS_QUALITY=0` turns validation off;
 `ATLAS_QUALITY_MAX_TRIPLES` and `ATLAS_QUALITY_MINUTES` override the limits.
 
+### Which validator
+
+`quality.engine` (or `ATLAS_QUALITY_ENGINE`) picks the SHACL validator:
+
+- `builtin`: `atlas.shacl`, in Python on the mirror. It checks SHACL Core and
+  runs ERA's SPARQL constraints one by one, and reports what it cannot check.
+- `tripletrail`: the `tripletrail validate` command of
+  [TripleTrail](https://github.com/Matdata-eu/tripletrail), complete SHACL Core
+  and SHACL-SPARQL. Infrabel's dataset (676k triples, ERA shapes v3.3.4) takes
+  17 seconds instead of 6 minutes, with the same counts per shape; DB InfraGO's
+  (12 million triples) about 7 minutes. The two slow rules `exclude_shapes`
+  leaves out add 2 seconds, so with it you can set `exclude_shapes: []`.
+  `ATLAS_TRIPLETRAIL_BIN` names the command if it is not on the `PATH`.
+- `auto` (default): `tripletrail` when the command is installed, else `builtin`.
+
+Changing validator validates every dataset again. One difference for now:
+TripleTrail does not fill in the variables of an ERA rule's message (such as
+`{?trackLabel}`), so the worker fills in only the element and the value; the
+other placeholders show as written until TripleTrail substitutes them. The
+worker image does not ship the command yet: it will once TripleTrail publishes
+its image. Until then, a deployer who wants it builds it (`cargo install
+--locked --git https://github.com/Matdata-eu/tripletrail tripletrail-server`)
+and mounts it into the worker.
+
 ## Live queries
 
 The only part of the app that queries ERA live is **Describe live** (and the

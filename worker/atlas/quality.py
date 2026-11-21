@@ -32,7 +32,7 @@ from pathlib import Path
 import psycopg
 import pyoxigraph as ox
 
-from . import era_shapes, shacl
+from . import era_shapes, shacl, tt_shacl
 from .config import Env, Quality, Settings
 from .era_shapes import ShapesError, Source
 
@@ -246,13 +246,33 @@ def vocab_fingerprint(conn: psycopg.Connection, env: Env, shapes_graph: str) -> 
     return "\n".join(sorted(f"{g} {loaded[g]}" for g in env.vocab_graphs if g in loaded and g != shapes_graph))
 
 
+def engine(q: Quality) -> tuple[str, str | None]:
+    """The validator `q` asks for: ("tripletrail", its command) or ("builtin", None)."""
+    want = getattr(q, "engine", "auto")
+    if want == "builtin":
+        return "builtin", None
+    name = getattr(q, "tripletrail_bin", "tripletrail")
+    exe = tt_shacl.binary(name)
+    if exe:
+        return "tripletrail", exe
+    if want == "tripletrail":
+        raise ShapesError(f"quality.engine is tripletrail, but {name!r} is not installed")
+    return "builtin", None
+
+
 def run_fingerprint(q: Quality, shapes_fp: str | None, vocab_fp: str = "") -> str | None:
     """What a graph was validated with: the shapes, plus the rules left out by configuration
-    (so changing `quality.exclude_shapes` validates every graph again) and the vocabularies."""
+    (so changing `quality.exclude_shapes` validates every graph again), the vocabularies and
+    the validator (TripleTrail checks constraints atlas.shacl reports as unsupported)."""
     excl = sorted(q.exclude_shapes)
-    if shapes_fp is None or not (excl or vocab_fp):
+    try:
+        name = engine(q)[0]
+    except ShapesError:
+        name = "tripletrail"
+    tag = "" if name == "builtin" else f"\nengine:{name}"
+    if shapes_fp is None or not (excl or vocab_fp or tag):
         return shapes_fp
-    extra = "\n".join(excl) + (f"\nvocab:\n{vocab_fp}" if vocab_fp else "")
+    extra = "\n".join(excl) + (f"\nvocab:\n{vocab_fp}" if vocab_fp else "") + tag
     return hashlib.sha256((shapes_fp + "\n" + extra).encode()).hexdigest()
 
 
@@ -291,19 +311,26 @@ def validate_dataset(cfg: Settings, conn: psycopg.Connection, store: ox.Store, e
     limits = shacl.Limits(deadline=time.time() + q.time_budget_minutes * 60,
                           max_per_constraint=q.max_results_per_constraint, max_total=q.max_results_per_graph,
                           exclude=q.exclude_shapes)
-    log.info("%s validating %s (%s triples) against %s", env.key, graph, f"{triples:,}", src.label)
-    # The checks run on an on-disk scratch copy of the graph (and the vocabularies), queried by a
-    # child process that can be killed when a query runs away (see shacl.validate_graph).
     cfg.tmp_dir.mkdir(parents=True, exist_ok=True)
     scratch = tempfile.mkdtemp(prefix=f"validate-{env.key}-", dir=cfg.tmp_dir)
     try:
-        run = shacl.validate_graph(store, graph, src.graph, env.vocab_graphs, limits, scratch=scratch)
+        _, exe = engine(q)
+        log.info("%s validating %s (%s triples) against %s with %s", env.key, graph, f"{triples:,}", src.label,
+                 "TripleTrail" if exe else "atlas.shacl")
+        if exe:
+            run = tt_shacl.validate_graph(store, graph, src.graph, env.vocab_graphs, limits, scratch, exe)
+        else:
+            # The checks run on an on-disk scratch copy of the graph (and the vocabularies), queried by
+            # a child process that can be killed when a query runs away (see shacl.validate_graph).
+            run = shacl.validate_graph(store, graph, src.graph, env.vocab_graphs, limits, scratch=scratch)
     except Exception as e:  # never let validation break ingestion
         conn.rollback()
         log.exception("%s %s validation failed", env.key, graph)
         _set_outcome(conn, env.key, graph, "failed", fp, str(e)[:2000], src=src)
         apply_flags(conn, env.key, graph)
         return "failed"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
     created = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     code = graph.rstrip("/").rsplit("/", 1)[-1]
     about = (f"RINF Atlas validation of {graph} ({env.key}) against {src.label}"

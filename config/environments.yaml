@@ -91,6 +91,9 @@ quality:
   # size (0088, 676k triples: 3 minutes, 630 MB), so lower it on a small server.
   # ATLAS_QUALITY_MAX_TRIPLES overrides it.
   max_triples: 15000000
+  # Validator: auto (TripleTrail's `tripletrail validate` when installed, else the built-in
+  # one), tripletrail or builtin (ATLAS_QUALITY_ENGINE). See docs/datasets.md#which-validator.
+  engine: auto
   time_budget_minutes: 60             # per graph; then the report is marked partial (ATLAS_QUALITY_MINUTES)
   max_results_per_constraint: 10000   # results stored per shape and constraint (all are counted)
   max_results_per_graph: 200000       # results stored per graph

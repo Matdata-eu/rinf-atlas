@@ -53,6 +53,11 @@ class Quality:
     # graph (see config/environments.yaml and docs/DESIGN.md#data-quality).
     exclude_shapes: list[str] = field(default_factory=lambda: list(SLOW_SHAPES))
     shacl_report_bin: str = "shacl-report"
+    # Which SHACL validator checks the graphs: `tripletrail` (the `tripletrail validate` command,
+    # complete SHACL and many times faster), `builtin` (atlas.shacl, in Python on the mirror), or
+    # `auto`: tripletrail when the command is installed (the worker image has it), else builtin.
+    engine: str = "auto"
+    tripletrail_bin: str = "tripletrail"
 
 
 @dataclass
@@ -196,6 +201,8 @@ def _quality(q: dict, env: str | None) -> Quality:
         html_max_results=int(q.get("html_max_results", d.html_max_results)),
         exclude_shapes=list(SLOW_SHAPES if "exclude_shapes" not in q else q["exclude_shapes"] or []),
         shacl_report_bin=os.environ.get("ATLAS_SHACL_REPORT_BIN", "shacl-report"),
+        engine=(os.environ.get("ATLAS_QUALITY_ENGINE", "").strip() or str(q.get("engine") or d.engine)).lower(),
+        tripletrail_bin=os.environ.get("ATLAS_TRIPLETRAIL_BIN", "").strip() or d.tripletrail_bin,
     )
 
 
