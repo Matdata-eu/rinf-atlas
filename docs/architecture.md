@@ -69,3 +69,22 @@ minutes, 7.6 GB mirror and 3.1 GB PostGIS; facet counts 50-200 ms
 80-600 ms.
 
 More detail: [DESIGN.md](DESIGN.md).
+
+## Database schema
+
+`db/init.sql` holds the whole PostGIS schema and is safe to run again. Each
+`atlas` command (the worker's poll loop and every one-off command) calls
+`db.migrate`, but that applies the file only once per version of it: the
+SHA-256 of the applied file is kept in the one-row table `schema_state`, and an
+unchanged file is skipped. So the schema is applied after an upgrade that
+changes `init.sql`, when the worker starts, and no command waits for a table
+lock behind a running export.
+
+Because of this, a table or index dropped by hand is no longer recreated on a
+restart. To apply the schema again, clear the stored digest and restart the
+worker:
+
+```sh
+docker compose exec db psql -U atlas -d atlas -c 'DELETE FROM schema_state'
+docker compose restart worker
+```

@@ -54,6 +54,18 @@ bash tests/smoke.sh
 (cd web && npx playwright install chromium && npm run test:e2e)
 ```
 
+The tests that need a real PostgreSQL database (`worker/tests/test_db.py`,
+for how the schema is applied) are skipped unless `ATLAS_TEST_DATABASE_URL`
+points at one. CI does not set it, so run them yourself when you change
+`worker/atlas/db.py`. Use a throwaway database, not the stack's: the tests drop
+`schema_state`.
+
+```sh
+docker run -d --rm --name atlas-testdb -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16
+ATLAS_TEST_DATABASE_URL=postgresql://postgres:test@localhost:55432/postgres pytest -q worker/tests/test_db.py
+docker stop atlas-testdb
+```
+
 The browser tests live in `web/e2e/`. A change to what the UI shows or does
 should keep them passing, and a new feature gets a test there. They read the
 expected counts from the API, so they hold when the sample changes;
