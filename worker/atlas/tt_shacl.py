@@ -172,8 +172,8 @@ def read_report(report: ShapesGraph, appears, limits: Limits, run: Run, state: _
         v = nt(value) if value is not None else None
         message = _english(report, r)
         if message and "{" in message:
-            # TripleTrail leaves a SPARQL constraint's message template as written: fill in the
-            # focus node and the value, as atlas.shacl does (other variables stay as they are).
+            # TripleTrail (0.1.0 on) fills in a SPARQL constraint's message template; for a
+            # placeholder that is left, fill in the focus node and the value, as atlas.shacl does.
             message = _fill(message, {"this": focus, **({"value": value} if value is not None else {})})
         # Two SPARQL constraints of one node shape that bind no ?value both give the focus node
         # as the value: their messages tell them apart.
