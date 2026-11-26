@@ -170,15 +170,13 @@ are left out (see [DESIGN.md](DESIGN.md#data-quality)); set
   leaves out add 2 seconds, so with it you can set `exclude_shapes: []`.
   `ATLAS_TRIPLETRAIL_BIN` names the command if it is not on the `PATH`.
 - `auto` (default): `tripletrail` when the command is installed, else `builtin`.
+  The worker image ships TripleTrail 0.1.0 (from `ghcr.io/matdata-eu/tripletrail`,
+  its licence and notices in `/usr/share/licenses/tripletrail/`), so `auto` uses it.
 
-Changing validator validates every dataset again. One difference for now:
-TripleTrail does not fill in the variables of an ERA rule's message (such as
-`{?trackLabel}`), so the worker fills in only the element and the value; the
-other placeholders show as written until TripleTrail substitutes them. The
-worker image does not ship the command yet: it will once TripleTrail publishes
-its image. Until then, a deployer who wants it builds it (`cargo install
---locked --git https://github.com/Matdata-eu/tripletrail tripletrail-server`)
-and mounts it into the worker.
+Changing validator validates every dataset again, so the first start of an
+image with TripleTrail checks every dataset once more. TripleTrail fills in the
+variables of an ERA rule's message (such as `{?trackLabel}`) itself; the worker
+still fills in the element and the value where a message keeps a placeholder.
 
 ## Live queries
 
